@@ -73,44 +73,45 @@ export default function App({
   };
 
   return (
-    <div className="d-flex flex-column gap-2 p-2">
-      <h1>Tools</h1>
-      <div className="d-flex gap-2 align-items-center ">
-        <div className="vr" />
+    <div className="tools-container">
+      <h1 className="tools-title">Tools</h1>
+      <div className="tools-controls">
+        <div className="vertical-divider" />
         <button
           type="button"
-          className="btn btn-sm btn-outline-primary"
+          className="btn btn-control btn-undo"
           onClick={handleUndoClick}
         >
           Undo
         </button>
         <button
           type="button"
-          className="btn btn-sm btn-outline-primary"
+          className="btn btn-control btn-redo"
           onClick={handleRedoClick}
         >
           Redo
         </button>
         <button
           type="button"
-          className="btn btn-sm btn-outline-primary"
+          className="btn btn-control btn-clear"
           onClick={handleClearClick}
         >
           Clear
         </button>
-        <label htmlFor="color">Stroke color</label>
+        <label htmlFor="color" className="color-label">Stroke color</label>
         <input
           type="color"
+          className="color-input"
           value={strokeColor}
           onChange={handleStrokeColorChange}
         />
-        <label htmlFor="strokeOpacity" className="form-label">
+        <label htmlFor="strokeOpacity" className="slider-label">
           Stroke opacity
         </label>
         <input
           disabled={eraseMode}
           type="range"
-          className="form-range"
+          className="opacity-slider"
           min="0"
           max="100"
           step="1"
@@ -118,15 +119,16 @@ export default function App({
           value={strokeOpacity}
           onChange={handleStrokeOpacityChange}
         />
-        <label htmlFor="color">Canvas color</label>
+        <label htmlFor="color" className="color-label">Canvas color</label>
         <input
           type="color"
+          className="color-input"
           value={canvasColor}
           onChange={handleCanvasColorChange}
         />
         <button
           type="button"
-          className="btn btn-sm btn-outline-primary"
+          className="btn btn-control btn-pen"
           disabled={!eraseMode}
           onClick={handlePenClick}
         >
@@ -134,19 +136,19 @@ export default function App({
         </button>
         <button
           type="button"
-          className="btn btn-sm btn-outline-primary"
+          className="btn btn-control btn-eraser"
           disabled={eraseMode}
           onClick={handleEraserClick}
         >
           Eraser
         </button>
-        <label htmlFor="strokeWidth" className="form-label">
+        <label htmlFor="strokeWidth" className="slider-label">
           Stroke width
         </label>
         <input
           disabled={eraseMode}
           type="range"
-          className="form-range"
+          className="width-slider"
           min="1"
           max="20"
           step="1"
@@ -154,13 +156,13 @@ export default function App({
           value={strokeWidth}
           onChange={handleStrokeWidthChange}
         />
-        <label htmlFor="eraserWidth" className="form-label">
+        <label htmlFor="eraserWidth" className="slider-label">
           Eraser width
         </label>
         <input
           disabled={!eraseMode}
           type="range"
-          className="form-range"
+          className="width-slider"
           min="1"
           max="20"
           step="1"
@@ -169,8 +171,9 @@ export default function App({
           onChange={handleEraserWidthChange}
         />
       </div>
-      <h1>Canvas</h1>
+      <h1 className="canvas-title">Canvas</h1>
       <div
+        className="canvas-wrapper"
         onMouseEnter={onCanvasMouseEnter}
         onMouseLeave={onCanvasMouseLeave}
         style={{
