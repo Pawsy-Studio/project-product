@@ -1,9 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { ReactFlowProvider } from 'reactflow';
-import App from './App.tsx'
-import 'reactflow/dist/style.css';
-import Board from './board.tsx';
+import App from './App.tsx';
 
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
@@ -11,8 +8,6 @@ const root = ReactDOM.createRoot(
 
 root.render(
   <React.StrictMode>
-    <ReactFlowProvider>
-      <Board />
-    </ReactFlowProvider>
+    <App />
   </React.StrictMode>
 );
