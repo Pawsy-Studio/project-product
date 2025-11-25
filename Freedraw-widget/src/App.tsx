@@ -10,7 +10,7 @@ export default function App() {
   const [strokeWidth, setStrokeWidth] = useState(5);
   const [eraserWidth, setEraserWidth] = useState(10);
   const [strokeColor, setStrokeColor] = useState("#000000");
-  const [strokeOpacity, setStrokeOpacity] = useState(100);
+  const [isHighlighter, setIsHighlighter] = useState(false);
   const [canvasColor, setCanvasColor] = useState("#ffffff");
 
   const hexToRgba = (hex: string, opacity: number): string => {
@@ -28,8 +28,8 @@ export default function App() {
     setCanvasColor(event.target.value);
   };
 
-  const handleStrokeOpacityChange = (event: ChangeEvent<HTMLInputElement>) => {
-    setStrokeOpacity(+event.target.value);
+  const handleHighlighterChange = (event: ChangeEvent<HTMLInputElement>) => {
+    setIsHighlighter(event.target.checked);
   };
 
   const handleEraserClick = () => {
@@ -61,6 +61,9 @@ export default function App() {
   const handleClearClick = () => {
     canvasRef.current?.clearCanvas();
   };
+
+  // Определяем прозрачность на основе состояния чекбокса
+  const strokeOpacity = isHighlighter ? 50 : 100;
 
   return (
     <div className="d-flex flex-column gap-2 p-2">
@@ -94,20 +97,19 @@ export default function App() {
           value={strokeColor}
           onChange={handleStrokeColorChange}
         />
-        <label htmlFor="strokeOpacity" className="form-label">
-          Stroke opacity
-        </label>
-        <input
-          disabled={eraseMode}
-          type="range"
-          className="form-range"
-          min="0"
-          max="100"
-          step="1"
-          id="strokeOpacity"
-          value={strokeOpacity}
-          onChange={handleStrokeOpacityChange}
-        />
+        
+          <input
+            className="form-check-input"
+            type="checkbox"
+            id="highlighter"
+            disabled={eraseMode}
+            checked={isHighlighter}
+            onChange={handleHighlighterChange}
+          />
+          <label className="form-check-label" htmlFor="highlighter">
+            Highlighter
+          </label>
+        
         <label htmlFor="color">Canvas color</label>
         <input
           type="color"
