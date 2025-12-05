@@ -11,9 +11,10 @@
   },
   "dependencies": {
     "@xyflow/react": "^12.9.3",
+    "konva": "^10.0.12",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "react-sketch-canvas": "^6.2.0",
+    "react-konva": "^19.2.1",
     "reactflow": "^11.11.4"
   },
   "devDependencies": {
