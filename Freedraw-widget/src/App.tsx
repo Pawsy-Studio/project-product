@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Stage, Layer, Rect, Ellipse, Line } from 'react-konva';
+import { Stage, Layer, Rect, Ellipse, Line, Circle } from 'react-konva';
 
 type ShapeType = 'rectangle' | 'ellipse' | 'line' | 'path';
 type ToolMode = 'select' | 'rectangle' | 'ellipse' | 'line' | 'pencil' | 'eraser';
@@ -36,8 +36,8 @@ interface TransformState {
   startMouseX: number;
   startMouseY: number;
   anchor: AnchorType;
-  originalPoints?: number[]; // Для трансформации path
-  originalBbox?: { x: number, y: number, width: number, height: number }; // Для трансформации path
+  originalPoints?: number[]; // Для трансформации path и line
+  originalBbox?: { x: number, y: number, width: number, height: number }; // Для трансформации path и line
 }
 
 const App: React.FC = () => {
@@ -78,7 +78,7 @@ const App: React.FC = () => {
   const [history, setHistory] = useState<Shape[][]>([[]]);
   const [historyIndex, setHistoryIndex] = useState(0);
 
-  // Вычисление bounding box для path
+  // Вычисление bounding box для path и line
   const calculateBoundingBox = (points: number[]): { x: number, y: number, width: number, height: number } => {
     if (points.length === 0) return { x: 0, y: 0, width: 0, height: 0 };
     
@@ -104,7 +104,7 @@ const App: React.FC = () => {
     };
   };
 
-  // Трансформация точек path при изменении bounding box
+  // Трансформация точек path и line при изменении bounding box
   const transformPoints = (points: number[], oldBbox: any, newBbox: any): number[] => {
     const newPoints: number[] = [];
     
@@ -172,6 +172,15 @@ const App: React.FC = () => {
     const stage = e.target.getStage();
     const pos = stage.getPointerPosition();
     
+    // Если кликнули на кнопку удаления
+    if (e.target.attrs.name && e.target.attrs.name === 'delete-button') {
+      const shapeId = e.target.attrs.shapeId;
+      if (shapeId) {
+        handleDeleteShape(shapeId);
+      }
+      return;
+    }
+    
     // Если кликнули на якорь трансформации
     if (e.target.attrs.name && e.target.attrs.name.startsWith('anchor-')) {
       const shapeId = e.target.attrs.shapeId;
@@ -179,11 +188,11 @@ const App: React.FC = () => {
       if (shape && tool === 'select') {
         const anchor = e.target.attrs.name.replace('anchor-', '') as AnchorType;
         
-        // Для path фигур сохраняем исходные точки и bbox
+        // Для path и line фигур сохраняем исходные точки и bbox
         let originalPoints = shape.points;
         let originalBbox = { x: shape.x, y: shape.y, width: shape.width, height: shape.height };
         
-        if (shape.type === 'path' && shape.points) {
+        if ((shape.type === 'path' || shape.type === 'line') && shape.points) {
           originalPoints = [...shape.points];
           // Пересчитываем bounding box для точности
           const bbox = calculateBoundingBox(shape.points);
@@ -249,8 +258,8 @@ const App: React.FC = () => {
         setDragStart({ x: pos.x, y: pos.y });
         setSelectedShapeStart({ x: shape.x, y: shape.y });
         
-        // Сохраняем исходные точки для path фигур
-        if (shape.type === 'path' && shape.points) {
+        // Сохраняем исходные точки для path и line фигур
+        if ((shape.type === 'path' || shape.type === 'line') && shape.points) {
           setOriginalPointsOnDragStart([...shape.points]);
         }
         
@@ -417,8 +426,8 @@ const App: React.FC = () => {
       // Обновляем фигуру в состоянии
       const updatedShapes = shapes.map(s => {
         if (s.id === transformState.shapeId) {
-          if (s.type === 'path' && originalPoints && originalBbox) {
-            // Для path фигур трансформируем точки
+          if ((s.type === 'path' || s.type === 'line') && originalPoints && originalBbox) {
+            // Для path и line фигур трансформируем точки
             const newBbox = { x: newX, y: newY, width: newWidth, height: newHeight };
             const transformedPoints = transformPoints(originalPoints, originalBbox, newBbox);
             
@@ -431,7 +440,7 @@ const App: React.FC = () => {
               points: transformedPoints
             };
           } else {
-            // Для обычных фигур
+            // Для обычных фигур (rectangle, ellipse)
             return { ...s, width: newWidth, height: newHeight, x: newX, y: newY };
           }
         }
@@ -451,8 +460,8 @@ const App: React.FC = () => {
           const newX = selectedShapeStart.x + deltaX;
           const newY = selectedShapeStart.y + deltaY;
           
-          if (s.type === 'path' && s.points && originalPointsOnDragStart.length > 0) {
-            // Для path фигур перемещаем все точки на дельту от начальной позиции
+          if ((s.type === 'path' || s.type === 'line') && s.points && originalPointsOnDragStart.length > 0) {
+            // Для path и line фигур перемещаем все точки на дельту от начальной позиции
             // Вычисляем дельту от начальной позиции bounding box
             const deltaFromOriginal = {
               x: newX - selectedShapeStart.x,
@@ -511,10 +520,16 @@ const App: React.FC = () => {
         const endX = newShape.points[2];
         const endY = newShape.points[3];
         
-        newShape.x = Math.min(startX, endX);
-        newShape.y = Math.min(startY, endY);
-        newShape.width = Math.abs(endX - startX);
-        newShape.height = Math.abs(endY - startY);
+        // Вычисляем bounding box для линии
+        const minX = Math.min(startX, endX);
+        const minY = Math.min(startY, endY);
+        const maxX = Math.max(startX, endX);
+        const maxY = Math.max(startY, endY);
+        
+        newShape.x = minX;
+        newShape.y = minY;
+        newShape.width = maxX - minX;
+        newShape.height = maxY - minY;
         
         const newShapes = [...shapes, newShape];
         setShapes(newShapes);
@@ -668,11 +683,10 @@ const App: React.FC = () => {
           );
         
         case 'line':
-          const linePoints = shape.points || [shape.x, shape.y, shape.x + shape.width, shape.y + shape.height];
           return (
             <Line
               {...commonProps}
-              points={linePoints}
+              points={shape.points || []}
             />
           );
         
@@ -703,9 +717,9 @@ const App: React.FC = () => {
     const shape = shapes.find(s => s.id === selectedId);
     if (!shape) return null;
     
-    // Для path фигур, если нет width/height или они некорректны, вычисляем bounding box
+    // Для path и line фигур, если нет width/height или они некорректны, вычисляем bounding box
     let displayShape = { ...shape };
-    if (shape.type === 'path' && shape.points && shape.points.length > 0) {
+    if ((shape.type === 'path' || shape.type === 'line') && shape.points && shape.points.length > 0) {
       if ((!shape.width || !shape.height || shape.width === 0 || shape.height === 0)) {
         const bbox = calculateBoundingBox(shape.points);
         displayShape = { ...shape, ...bbox };
@@ -715,6 +729,8 @@ const App: React.FC = () => {
     const selectionPadding = 5;
     const anchorSize = 10;
     const halfAnchor = anchorSize / 2;
+    const deleteButtonSize = 12;
+    const deleteButtonOffset = 4; // Отступ от рамки
     
     // Вычисляем реальные координаты с учетом отрицательных размеров
     const realX = Math.min(displayShape.x, displayShape.x + displayShape.width);
@@ -735,6 +751,10 @@ const App: React.FC = () => {
       { name: 'anchor-bottom-left', x: displayShape.x, y: displayShape.y + displayShape.height },
       { name: 'anchor-bottom-right', x: displayShape.x + displayShape.width, y: displayShape.y + displayShape.height }
     ];
+    
+    // Координаты кнопки удаления (в правом верхнем углу рамки)
+    const deleteButtonX = x + width - deleteButtonOffset;
+    const deleteButtonY = y - deleteButtonOffset;
     
     return (
       <>
@@ -766,6 +786,52 @@ const App: React.FC = () => {
             strokeWidth={2}
           />
         ))}
+        
+        {/* Кнопка удаления - красный кружок с крестиком */}
+        <Circle
+          name="delete-button"
+          shapeId={displayShape.id}
+          x={deleteButtonX}
+          y={deleteButtonY}
+          radius={deleteButtonSize / 2}
+          fill="#ff4444"
+          stroke="#ffffff"
+          strokeWidth={1}
+          onMouseEnter={(e) => {
+            const stage = e.target.getStage();
+            if (stage) {
+              stage.container().style.cursor = 'pointer';
+            }
+          }}
+          onMouseLeave={(e) => {
+            const stage = e.target.getStage();
+            if (stage) {
+              stage.container().style.cursor = 'default';
+            }
+          }}
+        />
+        
+        {/* Крестик внутри кнопки удаления */}
+        <Line
+          points={[
+            deleteButtonX - deleteButtonSize/3, deleteButtonY - deleteButtonSize/3,
+            deleteButtonX + deleteButtonSize/3, deleteButtonY + deleteButtonSize/3
+          ]}
+          stroke="#ffffff"
+          strokeWidth={1.5}
+          lineCap="round"
+          listening={false}
+        />
+        <Line
+          points={[
+            deleteButtonX + deleteButtonSize/3, deleteButtonY - deleteButtonSize/3,
+            deleteButtonX - deleteButtonSize/3, deleteButtonY + deleteButtonSize/3
+          ]}
+          stroke="#ffffff"
+          strokeWidth={1.5}
+          lineCap="round"
+          listening={false}
+        />
       </>
     );
   };
