@@ -15,7 +15,7 @@ interface Shape {
   strokeWidth: number;
   points?: number[];
   radius?: number;
-  opacity?: number; // Добавляем opacity в интерфейс
+  opacity?: number;
 }
 
 interface DrawingState {
@@ -128,8 +128,8 @@ const App: React.FC = () => {
           height: 0,
           stroke: tool === 'eraser' ? '#ffffff' : strokeColor,
           strokeWidth: strokeWidth,
-          opacity: isHighlighter ? 0.5 : 1, // Сохраняем opacity для каждой фигуры
-          points: [pos.x, pos.y]
+          opacity: isHighlighter ? 0.5 : 1,
+          points: tool === 'pencil' || tool === 'eraser' ? [pos.x, pos.y] : undefined
         }
       });
     }
@@ -149,26 +149,47 @@ const App: React.FC = () => {
       };
       setDrawingState(prev => ({ ...prev, currentShape: updatedShape }));
     } 
+    else if (tool === 'line') {
+      const updatedShape = {
+        ...currentShape,
+        points: [startX, startY, pos.x, pos.y]
+      };
+      setDrawingState(prev => ({ ...prev, currentShape: updatedShape }));
+    }
     else {
+      // Для прямоугольника и круга: рисуем от начальной точки к текущей позиции
       let width = pos.x - startX;
       let height = pos.y - startY;
       
+      // Для сохранения пропорций при зажатом Shift
       if (shiftPressed) {
         const size = Math.max(Math.abs(width), Math.abs(height));
-        width = width >= 0 ? size : -size;
-        height = height >= 0 ? size : -size;
+        width = Math.sign(width) * size;
+        height = Math.sign(height) * size;
       }
       
-      let updatedShape = { ...currentShape, width, height };
+      let updatedShape = { 
+        ...currentShape, 
+        x: startX, // Всегда используем начальную точку как x
+        y: startY, // Всегда используем начальную точку как y
+        width: width,
+        height: height
+      };
       
       if (tool === 'circle') {
-        updatedShape.radius = Math.max(Math.abs(width), Math.abs(height)) / 2;
-        updatedShape.x = startX + (width / 2);
-        updatedShape.y = startY + (height / 2);
-      }
-      
-      if (tool === 'line') {
-        updatedShape.points = [startX, startY, pos.x, pos.y];
+        // Для круга: рассчитываем радиус и центр
+        const radius = Math.sqrt(width * width + height * height) / 2;
+        const centerX = startX + width / 2;
+        const centerY = startY + height / 2;
+        
+        updatedShape = {
+          ...updatedShape,
+          x: centerX - radius,
+          y: centerY - radius,
+          width: radius * 2,
+          height: radius * 2,
+          radius: radius
+        };
       }
       
       setDrawingState(prev => ({ ...prev, currentShape: updatedShape }));
@@ -178,20 +199,42 @@ const App: React.FC = () => {
   const handleMouseUp = () => {
     if (!drawingState.isDrawing || !drawingState.currentShape) return;
     
-    if ((tool === 'pencil' || tool === 'eraser') && drawingState.currentShape.points && drawingState.currentShape.points.length >= 4) {
-      const newShape = { ...drawingState.currentShape } as Shape;
+    let newShape = { ...drawingState.currentShape } as Shape;
+    
+    // Для карандаша и ластика
+    if ((tool === 'pencil' || tool === 'eraser') && newShape.points && newShape.points.length >= 4) {
       const newShapes = [...shapes, newShape];
       setShapes(newShapes);
       saveToHistory(newShapes);
     }
-    else if (tool !== 'pencil' && tool !== 'eraser' && drawingState.currentShape.width !== 0 && drawingState.currentShape.height !== 0) {
-      const newShape = { ...drawingState.currentShape } as Shape;
+    // Для линии
+    else if (tool === 'line' && newShape.points && newShape.points.length === 4) {
+      // Преобразуем линию в нормализованный формат
+      newShape.x = newShape.points[0];
+      newShape.y = newShape.points[1];
+      newShape.width = newShape.points[2] - newShape.points[0];
+      newShape.height = newShape.points[3] - newShape.points[1];
       
+      const newShapes = [...shapes, newShape];
+      setShapes(newShapes);
+      saveToHistory(newShapes);
+    }
+    // Для прямоугольника и круга
+    else if ((tool === 'rectangle' || tool === 'circle') && 
+             drawingState.currentShape.width !== 0 && 
+             drawingState.currentShape.height !== 0) {
+      
+      // Для прямоугольника: нормализуем координаты
       if (tool === 'rectangle') {
+        const startX = drawingState.startX;
+        const startY = drawingState.startY;
+        const endX = startX + newShape.width;
+        const endY = startY + newShape.height;
+        
+        newShape.x = Math.min(startX, endX);
+        newShape.y = Math.min(startY, endY);
         newShape.width = Math.abs(newShape.width);
         newShape.height = Math.abs(newShape.height);
-        if (newShape.width < 0) newShape.x += newShape.width;
-        if (newShape.height < 0) newShape.y += newShape.height;
       }
       
       const newShapes = [...shapes, newShape];
@@ -232,7 +275,6 @@ const App: React.FC = () => {
     saveToHistory(newShapes);
   };
 
-  // Функция для преобразования HEX в RGBA
   const hexToRgba = (hex: string, opacity: number): string => {
     const r = parseInt(hex.slice(1, 3), 16);
     const g = parseInt(hex.slice(3, 5), 16);
@@ -248,16 +290,15 @@ const App: React.FC = () => {
     }
     
     return allShapes.map((shape) => {
-      // Используем RGBA цвет для поддержки прозрачности Highlighter
       const shapeOpacity = shape.opacity !== undefined ? shape.opacity : 1;
       const strokeColorWithOpacity = shape.stroke === '#ffffff' 
-        ? '#ffffff' // Ластик всегда белый
+        ? '#ffffff'
         : hexToRgba(shape.stroke, shapeOpacity);
       
       const commonProps = {
         key: shape.id,
         id: shape.id,
-        stroke: strokeColorWithOpacity, // Используем RGBA цвет
+        stroke: strokeColorWithOpacity,
         strokeWidth: shape.strokeWidth,
         draggable: tool === 'select',
         onClick: () => {
@@ -312,17 +353,19 @@ const App: React.FC = () => {
           return (
             <Circle
               {...commonProps}
-              x={shape.x}
-              y={shape.y}
+              x={shape.x + (shape.radius || 0)}
+              y={shape.y + (shape.radius || 0)}
               radius={shape.radius || Math.max(shape.width, shape.height) / 2}
             />
           );
         
         case 'line':
+          // Для линии используем points вместо x, y, width, height
+          const linePoints = shape.points || [shape.x, shape.y, shape.x + shape.width, shape.y + shape.height];
           return (
             <Line
               {...commonProps}
-              points={shape.points || [shape.x, shape.y, shape.x + shape.width, shape.y + shape.height]}
+              points={linePoints}
             />
           );
         
