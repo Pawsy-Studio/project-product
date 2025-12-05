@@ -121,6 +121,27 @@ const App: React.FC = () => {
     const stage = e.target.getStage();
     const pos = stage.getPointerPosition();
     
+    // Если кликнули на якорь трансформации
+    if (e.target.attrs.name && e.target.attrs.name.startsWith('anchor-')) {
+      const shapeId = e.target.attrs.shapeId;
+      const shape = shapes.find(s => s.id === shapeId);
+      if (shape && tool === 'select') {
+        const anchor = e.target.attrs.name.replace('anchor-', '') as AnchorType;
+        setTransformState({
+          isTransforming: true,
+          shapeId,
+          startWidth: shape.width,
+          startHeight: shape.height,
+          startX: shape.x,
+          startY: shape.y,
+          startMouseX: pos.x,
+          startMouseY: pos.y,
+          anchor
+        });
+      }
+      return;
+    }
+    
     // Если кликнули на пустое место холста
     if (e.target === stage) {
       if (tool === 'select') {
@@ -152,28 +173,7 @@ const App: React.FC = () => {
       return;
     }
     
-    // Если кликнули на якорь трансформации
-    if (e.target.attrs.name && e.target.attrs.name.startsWith('anchor-')) {
-      const shapeId = e.target.attrs.shapeId;
-      const shape = shapes.find(s => s.id === shapeId);
-      if (shape && tool === 'select') {
-        const anchor = e.target.attrs.name.replace('anchor-', '') as AnchorType;
-        setTransformState({
-          isTransforming: true,
-          shapeId,
-          startWidth: shape.width,
-          startHeight: shape.height,
-          startX: shape.x,
-          startY: shape.y,
-          startMouseX: pos.x,
-          startMouseY: pos.y,
-          anchor
-        });
-      }
-      return;
-    }
-    
-    // Если кликнули на фигуру в режиме select
+    // Если кликнули на фигуру в режиме select - начинаем перемещение
     if (tool === 'select' && e.target.attrs.id) {
       const targetId = e.target.attrs.id;
       const shape = shapes.find(s => s.id === targetId);
@@ -272,6 +272,7 @@ const App: React.FC = () => {
       let newX = startX;
       let newY = startY;
       
+      // Позволяем отрицательные размеры для переворачивания фигуры
       switch (anchor) {
         case 'top-left':
           newWidth = startWidth - deltaX;
@@ -297,47 +298,51 @@ const App: React.FC = () => {
       
       // Сохраняем пропорции при зажатом Shift
       if (shiftPressed) {
-        const ratio = startWidth / startHeight;
+        const ratio = Math.abs(startWidth) / Math.abs(startHeight);
         
         switch (anchor) {
           case 'top-left':
             if (Math.abs(deltaX) > Math.abs(deltaY)) {
-              newHeight = newWidth / ratio;
+              newHeight = Math.abs(newWidth) / ratio * Math.sign(startHeight);
               newY = startY + (startHeight - newHeight);
             } else {
-              newWidth = newHeight * ratio;
+              newWidth = Math.abs(newHeight) * ratio * Math.sign(startWidth);
               newX = startX + (startWidth - newWidth);
             }
             break;
           case 'top-right':
             if (Math.abs(deltaX) > Math.abs(deltaY)) {
-              newHeight = newWidth / ratio;
+              newHeight = Math.abs(newWidth) / ratio * Math.sign(startHeight);
               newY = startY + (startHeight - newHeight);
             } else {
-              newWidth = newHeight * ratio;
+              newWidth = Math.abs(newHeight) * ratio * Math.sign(startWidth);
             }
             break;
           case 'bottom-left':
             if (Math.abs(deltaX) > Math.abs(deltaY)) {
-              newHeight = newWidth / ratio;
+              newHeight = Math.abs(newWidth) / ratio * Math.sign(startHeight);
             } else {
-              newWidth = newHeight * ratio;
+              newWidth = Math.abs(newHeight) * ratio * Math.sign(startWidth);
               newX = startX + (startWidth - newWidth);
             }
             break;
           case 'bottom-right':
             if (Math.abs(deltaX) > Math.abs(deltaY)) {
-              newHeight = newWidth / ratio;
+              newHeight = Math.abs(newWidth) / ratio * Math.sign(startHeight);
             } else {
-              newWidth = newHeight * ratio;
+              newWidth = Math.abs(newHeight) * ratio * Math.sign(startWidth);
             }
             break;
         }
       }
       
-      // Минимальный размер
-      newWidth = Math.max(5, newWidth);
-      newHeight = Math.max(5, newHeight);
+      // Минимальный размер по абсолютному значению
+      if (Math.abs(newWidth) < 5) {
+        newWidth = newWidth >= 0 ? 5 : -5;
+      }
+      if (Math.abs(newHeight) < 5) {
+        newHeight = newHeight >= 0 ? 5 : -5;
+      }
       
       // Обновляем фигуру в состоянии
       const updatedShapes = shapes.map(s => 
@@ -400,10 +405,10 @@ const App: React.FC = () => {
         const width = newShape.width || 0;
         const height = newShape.height || 0;
         
-        newShape.x = Math.min(startX, startX + width);
-        newShape.y = Math.min(startY, startY + height);
-        newShape.width = Math.abs(width);
-        newShape.height = Math.abs(height);
+        newShape.x = startX;
+        newShape.y = startY;
+        newShape.width = width;
+        newShape.height = height;
         
         const newShapes = [...shapes, newShape];
         setShapes(newShapes);
@@ -469,7 +474,7 @@ const App: React.FC = () => {
     if (drawingState.currentShape) {
       const shape = drawingState.currentShape;
       
-      // Для превью фигур нормализуем координаты
+      // Для превью фигур нормализуем координаты для отрисовки
       if (shape.type === 'rectangle' || shape.type === 'ellipse') {
         const startX = shape.x || 0;
         const startY = shape.y || 0;
@@ -505,21 +510,24 @@ const App: React.FC = () => {
       
       switch (shape.type) {
         case 'rectangle':
+          const rectX = shape.width >= 0 ? shape.x : shape.x + shape.width;
+          const rectY = shape.height >= 0 ? shape.y : shape.y + shape.height;
+          
           return (
             <Rect
               {...commonProps}
-              x={shape.x}
-              y={shape.y}
-              width={shape.width}
-              height={shape.height}
+              x={rectX}
+              y={rectY}
+              width={Math.abs(shape.width)}
+              height={Math.abs(shape.height)}
             />
           );
         
         case 'ellipse':
           const centerX = shape.x + shape.width / 2;
           const centerY = shape.y + shape.height / 2;
-          const radiusX = shape.width / 2;
-          const radiusY = shape.height / 2;
+          const radiusX = Math.abs(shape.width) / 2;
+          const radiusY = Math.abs(shape.height) / 2;
           
           return (
             <Ellipse
@@ -571,24 +579,31 @@ const App: React.FC = () => {
     const anchorSize = 10;
     const halfAnchor = anchorSize / 2;
     
-    // Координаты рамки
-    const x = shape.x - selectionPadding;
-    const y = shape.y - selectionPadding;
-    const width = shape.width + selectionPadding * 2;
-    const height = shape.height + selectionPadding * 2;
+    // Вычисляем реальные координаты с учетом отрицательных размеров
+    const realX = Math.min(shape.x, shape.x + shape.width);
+    const realY = Math.min(shape.y, shape.y + shape.height);
+    const realWidth = Math.abs(shape.width);
+    const realHeight = Math.abs(shape.height);
     
-    // Координаты якорей
+    // Координаты рамки
+    const x = realX - selectionPadding;
+    const y = realY - selectionPadding;
+    const width = realWidth + selectionPadding * 2;
+    const height = realHeight + selectionPadding * 2;
+    
+    // Координаты якорей (учитываем отрицательные размеры)
     const anchors = [
-      { name: 'anchor-top-left', x: shape.x - halfAnchor, y: shape.y - halfAnchor },
-      { name: 'anchor-top-right', x: shape.x + shape.width - halfAnchor, y: shape.y - halfAnchor },
-      { name: 'anchor-bottom-left', x: shape.x - halfAnchor, y: shape.y + shape.height - halfAnchor },
-      { name: 'anchor-bottom-right', x: shape.x + shape.width - halfAnchor, y: shape.y + shape.height - halfAnchor }
+      { name: 'anchor-top-left', x: shape.x, y: shape.y },
+      { name: 'anchor-top-right', x: shape.x + shape.width, y: shape.y },
+      { name: 'anchor-bottom-left', x: shape.x, y: shape.y + shape.height },
+      { name: 'anchor-bottom-right', x: shape.x + shape.width, y: shape.y + shape.height }
     ];
     
     return (
       <>
         {/* Рамка выделения */}
         <Rect
+          name="selection-rect"
           x={x}
           y={y}
           width={width}
@@ -596,6 +611,7 @@ const App: React.FC = () => {
           stroke="#007bff"
           strokeWidth={1}
           dash={[5, 5]}
+          listening={false} // Добавляем эту строку
         />
         
         {/* Якоря */}
@@ -604,8 +620,8 @@ const App: React.FC = () => {
             key={anchor.name}
             name={anchor.name}
             shapeId={shape.id}
-            x={anchor.x}
-            y={anchor.y}
+            x={anchor.x - halfAnchor}
+            y={anchor.y - halfAnchor}
             width={anchorSize}
             height={anchorSize}
             fill="#ffffff"
