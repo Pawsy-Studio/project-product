@@ -36,6 +36,8 @@ interface TransformState {
   startMouseX: number;
   startMouseY: number;
   anchor: AnchorType;
+  originalPoints?: number[]; // Для трансформации path
+  originalBbox?: { x: number, y: number, width: number, height: number }; // Для трансформации path
 }
 
 const App: React.FC = () => {
@@ -61,7 +63,9 @@ const App: React.FC = () => {
     startY: 0,
     startMouseX: 0,
     startMouseY: 0,
-    anchor: null
+    anchor: null,
+    originalPoints: [],
+    originalBbox: { x: 0, y: 0, width: 0, height: 0 }
   });
   
   const stageRef = useRef<any>(null);
@@ -69,9 +73,56 @@ const App: React.FC = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [selectedShapeStart, setSelectedShapeStart] = useState({ x: 0, y: 0 });
+  const [originalPointsOnDragStart, setOriginalPointsOnDragStart] = useState<number[]>([]);
 
   const [history, setHistory] = useState<Shape[][]>([[]]);
   const [historyIndex, setHistoryIndex] = useState(0);
+
+  // Вычисление bounding box для path
+  const calculateBoundingBox = (points: number[]): { x: number, y: number, width: number, height: number } => {
+    if (points.length === 0) return { x: 0, y: 0, width: 0, height: 0 };
+    
+    let minX = points[0];
+    let maxX = points[0];
+    let minY = points[1];
+    let maxY = points[1];
+    
+    for (let i = 0; i < points.length; i += 2) {
+      const x = points[i];
+      const y = points[i + 1];
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
+    }
+    
+    return {
+      x: minX,
+      y: minY,
+      width: maxX - minX,
+      height: maxY - minY
+    };
+  };
+
+  // Трансформация точек path при изменении bounding box
+  const transformPoints = (points: number[], oldBbox: any, newBbox: any): number[] => {
+    const newPoints: number[] = [];
+    
+    for (let i = 0; i < points.length; i += 2) {
+      const x = points[i];
+      const y = points[i + 1];
+      
+      // Преобразуем относительные координаты
+      const relX = oldBbox.width !== 0 ? (x - oldBbox.x) / oldBbox.width : 0;
+      const relY = oldBbox.height !== 0 ? (y - oldBbox.y) / oldBbox.height : 0;
+      
+      // Применяем к новому bounding box
+      newPoints.push(newBbox.x + relX * newBbox.width);
+      newPoints.push(newBbox.y + relY * newBbox.height);
+    }
+    
+    return newPoints;
+  };
 
   const saveToHistory = (newShapes: Shape[]) => {
     const newHistory = history.slice(0, historyIndex + 1);
@@ -127,6 +178,18 @@ const App: React.FC = () => {
       const shape = shapes.find(s => s.id === shapeId);
       if (shape && tool === 'select') {
         const anchor = e.target.attrs.name.replace('anchor-', '') as AnchorType;
+        
+        // Для path фигур сохраняем исходные точки и bbox
+        let originalPoints = shape.points;
+        let originalBbox = { x: shape.x, y: shape.y, width: shape.width, height: shape.height };
+        
+        if (shape.type === 'path' && shape.points) {
+          originalPoints = [...shape.points];
+          // Пересчитываем bounding box для точности
+          const bbox = calculateBoundingBox(shape.points);
+          originalBbox = bbox;
+        }
+        
         setTransformState({
           isTransforming: true,
           shapeId,
@@ -136,7 +199,9 @@ const App: React.FC = () => {
           startY: shape.y,
           startMouseX: pos.x,
           startMouseY: pos.y,
-          anchor
+          anchor,
+          originalPoints,
+          originalBbox
         });
       }
       return;
@@ -183,6 +248,11 @@ const App: React.FC = () => {
         setIsDragging(true);
         setDragStart({ x: pos.x, y: pos.y });
         setSelectedShapeStart({ x: shape.x, y: shape.y });
+        
+        // Сохраняем исходные точки для path фигур
+        if (shape.type === 'path' && shape.points) {
+          setOriginalPointsOnDragStart([...shape.points]);
+        }
         
         // Обновляем выделение
         setShapes(shapes.map(s => ({
@@ -260,7 +330,7 @@ const App: React.FC = () => {
     }
     // Если трансформируем существующую фигуру
     else if (transformState.isTransforming && transformState.shapeId) {
-      const { startWidth, startHeight, startX, startY, startMouseX, startMouseY, anchor } = transformState;
+      const { startWidth, startHeight, startX, startY, startMouseX, startMouseY, anchor, originalPoints, originalBbox } = transformState;
       
       if (!anchor) return;
       
@@ -345,11 +415,28 @@ const App: React.FC = () => {
       }
       
       // Обновляем фигуру в состоянии
-      const updatedShapes = shapes.map(s => 
-        s.id === transformState.shapeId 
-          ? { ...s, width: newWidth, height: newHeight, x: newX, y: newY }
-          : s
-      );
+      const updatedShapes = shapes.map(s => {
+        if (s.id === transformState.shapeId) {
+          if (s.type === 'path' && originalPoints && originalBbox) {
+            // Для path фигур трансформируем точки
+            const newBbox = { x: newX, y: newY, width: newWidth, height: newHeight };
+            const transformedPoints = transformPoints(originalPoints, originalBbox, newBbox);
+            
+            return { 
+              ...s, 
+              width: newWidth, 
+              height: newHeight, 
+              x: newX, 
+              y: newY,
+              points: transformedPoints
+            };
+          } else {
+            // Для обычных фигур
+            return { ...s, width: newWidth, height: newHeight, x: newX, y: newY };
+          }
+        }
+        return s;
+      });
       
       setShapes(updatedShapes);
     }
@@ -358,11 +445,42 @@ const App: React.FC = () => {
       const deltaX = pos.x - dragStart.x;
       const deltaY = pos.y - dragStart.y;
       
-      const updatedShapes = shapes.map(s => 
-        s.id === selectedId 
-          ? { ...s, x: selectedShapeStart.x + deltaX, y: selectedShapeStart.y + deltaY }
-          : s
-      );
+      const updatedShapes = shapes.map(s => {
+        if (s.id === selectedId) {
+          // Обновляем позицию фигуры
+          const newX = selectedShapeStart.x + deltaX;
+          const newY = selectedShapeStart.y + deltaY;
+          
+          if (s.type === 'path' && s.points && originalPointsOnDragStart.length > 0) {
+            // Для path фигур перемещаем все точки на дельту от начальной позиции
+            // Вычисляем дельту от начальной позиции bounding box
+            const deltaFromOriginal = {
+              x: newX - selectedShapeStart.x,
+              y: newY - selectedShapeStart.y
+            };
+            
+            // Создаем новые точки, сдвигая исходные на дельту
+            const newPoints = originalPointsOnDragStart.map((point, index) => 
+              index % 2 === 0 ? point + deltaFromOriginal.x : point + deltaFromOriginal.y
+            );
+            
+            return { 
+              ...s, 
+              x: newX, 
+              y: newY,
+              points: newPoints
+            };
+          } else {
+            // Для обычных фигур
+            return { 
+              ...s, 
+              x: newX, 
+              y: newY 
+            };
+          }
+        }
+        return s;
+      });
       
       setShapes(updatedShapes);
     }
@@ -375,6 +493,13 @@ const App: React.FC = () => {
       
       // Для карандаша и ластика
       if ((tool === 'pencil' || tool === 'eraser') && newShape.points && newShape.points.length >= 4) {
+        // Вычисляем bounding box для path фигуры
+        const bbox = calculateBoundingBox(newShape.points);
+        newShape.x = bbox.x;
+        newShape.y = bbox.y;
+        newShape.width = bbox.width;
+        newShape.height = bbox.height;
+        
         const newShapes = [...shapes, newShape];
         setShapes(newShapes);
         saveToHistory(newShapes);
@@ -435,13 +560,16 @@ const App: React.FC = () => {
         startY: 0,
         startMouseX: 0,
         startMouseY: 0,
-        anchor: null
+        anchor: null,
+        originalPoints: [],
+        originalBbox: { x: 0, y: 0, width: 0, height: 0 }
       });
     }
     
     // Завершаем перетаскивание
     if (isDragging) {
       setIsDragging(false);
+      setOriginalPointsOnDragStart([]);
       saveToHistory(shapes);
     }
   };
@@ -575,15 +703,24 @@ const App: React.FC = () => {
     const shape = shapes.find(s => s.id === selectedId);
     if (!shape) return null;
     
+    // Для path фигур, если нет width/height или они некорректны, вычисляем bounding box
+    let displayShape = { ...shape };
+    if (shape.type === 'path' && shape.points && shape.points.length > 0) {
+      if ((!shape.width || !shape.height || shape.width === 0 || shape.height === 0)) {
+        const bbox = calculateBoundingBox(shape.points);
+        displayShape = { ...shape, ...bbox };
+      }
+    }
+    
     const selectionPadding = 5;
     const anchorSize = 10;
     const halfAnchor = anchorSize / 2;
     
     // Вычисляем реальные координаты с учетом отрицательных размеров
-    const realX = Math.min(shape.x, shape.x + shape.width);
-    const realY = Math.min(shape.y, shape.y + shape.height);
-    const realWidth = Math.abs(shape.width);
-    const realHeight = Math.abs(shape.height);
+    const realX = Math.min(displayShape.x, displayShape.x + displayShape.width);
+    const realY = Math.min(displayShape.y, displayShape.y + displayShape.height);
+    const realWidth = Math.abs(displayShape.width);
+    const realHeight = Math.abs(displayShape.height);
     
     // Координаты рамки
     const x = realX - selectionPadding;
@@ -593,10 +730,10 @@ const App: React.FC = () => {
     
     // Координаты якорей (учитываем отрицательные размеры)
     const anchors = [
-      { name: 'anchor-top-left', x: shape.x, y: shape.y },
-      { name: 'anchor-top-right', x: shape.x + shape.width, y: shape.y },
-      { name: 'anchor-bottom-left', x: shape.x, y: shape.y + shape.height },
-      { name: 'anchor-bottom-right', x: shape.x + shape.width, y: shape.y + shape.height }
+      { name: 'anchor-top-left', x: displayShape.x, y: displayShape.y },
+      { name: 'anchor-top-right', x: displayShape.x + displayShape.width, y: displayShape.y },
+      { name: 'anchor-bottom-left', x: displayShape.x, y: displayShape.y + displayShape.height },
+      { name: 'anchor-bottom-right', x: displayShape.x + displayShape.width, y: displayShape.y + displayShape.height }
     ];
     
     return (
@@ -611,7 +748,7 @@ const App: React.FC = () => {
           stroke="#007bff"
           strokeWidth={1}
           dash={[5, 5]}
-          listening={false} // Добавляем эту строку
+          listening={false}
         />
         
         {/* Якоря */}
@@ -619,7 +756,7 @@ const App: React.FC = () => {
           <Rect
             key={anchor.name}
             name={anchor.name}
-            shapeId={shape.id}
+            shapeId={displayShape.id}
             x={anchor.x - halfAnchor}
             y={anchor.y - halfAnchor}
             width={anchorSize}
