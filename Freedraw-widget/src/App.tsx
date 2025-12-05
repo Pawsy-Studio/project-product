@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Stage, Layer, Rect, Ellipse, Line, Transformer } from 'react-konva';
+import { Stage, Layer, Rect, Ellipse, Line } from 'react-konva';
 
 type ShapeType = 'rectangle' | 'ellipse' | 'line' | 'path';
 type ToolMode = 'select' | 'rectangle' | 'ellipse' | 'line' | 'pencil' | 'eraser';
+type AnchorType = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | null;
 
 interface Shape {
   id: string;
@@ -15,6 +16,7 @@ interface Shape {
   strokeWidth: number;
   points?: number[];
   opacity?: number;
+  isSelected?: boolean;
 }
 
 interface DrawingState {
@@ -22,6 +24,18 @@ interface DrawingState {
   startX: number;
   startY: number;
   currentShape: Partial<Shape> | null;
+}
+
+interface TransformState {
+  isTransforming: boolean;
+  shapeId: string | null;
+  startWidth: number;
+  startHeight: number;
+  startX: number;
+  startY: number;
+  startMouseX: number;
+  startMouseY: number;
+  anchor: AnchorType;
 }
 
 const App: React.FC = () => {
@@ -38,9 +52,23 @@ const App: React.FC = () => {
     currentShape: null
   });
   
+  const [transformState, setTransformState] = useState<TransformState>({
+    isTransforming: false,
+    shapeId: null,
+    startWidth: 0,
+    startHeight: 0,
+    startX: 0,
+    startY: 0,
+    startMouseX: 0,
+    startMouseY: 0,
+    anchor: null
+  });
+  
   const stageRef = useRef<any>(null);
-  const transformerRef = useRef<any>(null);
   const [shiftPressed, setShiftPressed] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [selectedShapeStart, setSelectedShapeStart] = useState({ x: 0, y: 0 });
 
   const [history, setHistory] = useState<Shape[][]>([[]]);
   const [historyIndex, setHistoryIndex] = useState(0);
@@ -70,7 +98,10 @@ const App: React.FC = () => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Shift') setShiftPressed(true);
       if (e.key === 'Delete' && selectedId) handleDeleteShape(selectedId);
-      if ((e.ctrlKey || e.metaKey) && e.key === 'z') handleUndo();
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        e.preventDefault();
+        handleUndo();
+      }
     };
     
     const handleKeyUp = (e: KeyboardEvent) => {
@@ -86,33 +117,83 @@ const App: React.FC = () => {
     };
   }, [selectedId]);
 
-  useEffect(() => {
-    if (selectedId && transformerRef.current && stageRef.current) {
-      const node = stageRef.current.findOne(`#${selectedId}`);
-      if (node) {
-        transformerRef.current.nodes([node]);
-        transformerRef.current.getLayer().batchDraw();
-      }
-    } else if (transformerRef.current) {
-      transformerRef.current.nodes([]);
-      transformerRef.current.getLayer()?.batchDraw();
-    }
-  }, [selectedId]);
-
   const handleMouseDown = (e: any) => {
     const stage = e.target.getStage();
     const pos = stage.getPointerPosition();
     
-    if (e.target === stage && tool === 'select') {
-      setSelectedId(null);
+    // Если кликнули на пустое место холста
+    if (e.target === stage) {
+      if (tool === 'select') {
+        setSelectedId(null);
+        // Снимаем выделение со всех фигур
+        setShapes(shapes.map(shape => ({ ...shape, isSelected: false })));
+      }
+      
+      // Начинаем рисование если не в режиме select
+      if (!['select'].includes(tool)) {
+        setDrawingState({
+          isDrawing: true,
+          startX: pos.x,
+          startY: pos.y,
+          currentShape: {
+            id: `${tool}_${Date.now()}`,
+            type: tool === 'pencil' || tool === 'eraser' ? 'path' : tool as ShapeType,
+            x: pos.x,
+            y: pos.y,
+            width: 0,
+            height: 0,
+            stroke: tool === 'eraser' ? '#ffffff' : strokeColor,
+            strokeWidth: strokeWidth,
+            opacity: isHighlighter ? 0.5 : 1,
+            points: tool === 'pencil' || tool === 'eraser' ? [pos.x, pos.y] : undefined
+          }
+        });
+      }
       return;
     }
     
+    // Если кликнули на якорь трансформации
+    if (e.target.attrs.name && e.target.attrs.name.startsWith('anchor-')) {
+      const shapeId = e.target.attrs.shapeId;
+      const shape = shapes.find(s => s.id === shapeId);
+      if (shape && tool === 'select') {
+        const anchor = e.target.attrs.name.replace('anchor-', '') as AnchorType;
+        setTransformState({
+          isTransforming: true,
+          shapeId,
+          startWidth: shape.width,
+          startHeight: shape.height,
+          startX: shape.x,
+          startY: shape.y,
+          startMouseX: pos.x,
+          startMouseY: pos.y,
+          anchor
+        });
+      }
+      return;
+    }
+    
+    // Если кликнули на фигуру в режиме select
     if (tool === 'select' && e.target.attrs.id) {
-      handleSelectShape(e.target.attrs.id);
+      const targetId = e.target.attrs.id;
+      const shape = shapes.find(s => s.id === targetId);
+      
+      if (shape) {
+        setSelectedId(targetId);
+        setIsDragging(true);
+        setDragStart({ x: pos.x, y: pos.y });
+        setSelectedShapeStart({ x: shape.x, y: shape.y });
+        
+        // Обновляем выделение
+        setShapes(shapes.map(s => ({
+          ...s,
+          isSelected: s.id === targetId
+        })));
+      }
       return;
     }
     
+    // Если не в режиме select и кликнули на существующую фигуру - начинаем рисование поверх
     if (!['select'].includes(tool)) {
       setDrawingState({
         isDrawing: true,
@@ -135,97 +216,229 @@ const App: React.FC = () => {
   };
 
   const handleMouseMove = (e: any) => {
-    if (!drawingState.isDrawing || !drawingState.currentShape) return;
-    
     const stage = e.target.getStage();
     const pos = stage.getPointerPosition();
-    const { startX, startY, currentShape } = drawingState;
     
-    if (tool === 'pencil' || tool === 'eraser') {
-      const updatedShape = {
-        ...currentShape,
-        points: [...(currentShape.points || []), pos.x, pos.y]
-      };
-      setDrawingState(prev => ({ ...prev, currentShape: updatedShape }));
-    } 
-    else if (tool === 'line') {
-      const updatedShape = {
-        ...currentShape,
-        points: [startX, startY, pos.x, pos.y]
-      };
-      setDrawingState(prev => ({ ...prev, currentShape: updatedShape }));
-    }
-    else if (tool === 'rectangle' || tool === 'ellipse') {
-      let width = pos.x - startX;
-      let height = pos.y - startY;
+    // Если рисуем новую фигуру
+    if (drawingState.isDrawing && drawingState.currentShape) {
+      const { startX, startY, currentShape } = drawingState;
       
-      if (shiftPressed) {
-        const size = Math.max(Math.abs(width), Math.abs(height));
-        width = Math.sign(width) * size;
-        height = Math.sign(height) * size;
+      if (tool === 'pencil' || tool === 'eraser') {
+        const updatedShape = {
+          ...currentShape,
+          points: [...(currentShape.points || []), pos.x, pos.y]
+        };
+        setDrawingState(prev => ({ ...prev, currentShape: updatedShape }));
+      } 
+      else if (tool === 'line') {
+        const updatedShape = {
+          ...currentShape,
+          points: [startX, startY, pos.x, pos.y]
+        };
+        setDrawingState(prev => ({ ...prev, currentShape: updatedShape }));
+      }
+      else if (tool === 'rectangle' || tool === 'ellipse') {
+        let width = pos.x - startX;
+        let height = pos.y - startY;
+        
+        if (shiftPressed) {
+          const size = Math.max(Math.abs(width), Math.abs(height));
+          width = Math.sign(width) * size;
+          height = Math.sign(height) * size;
+        }
+        
+        let updatedShape = { 
+          ...currentShape, 
+          x: startX,
+          y: startY,
+          width: width,
+          height: height
+        };
+        
+        setDrawingState(prev => ({ ...prev, currentShape: updatedShape }));
+      }
+    }
+    // Если трансформируем существующую фигуру
+    else if (transformState.isTransforming && transformState.shapeId) {
+      const { startWidth, startHeight, startX, startY, startMouseX, startMouseY, anchor } = transformState;
+      
+      if (!anchor) return;
+      
+      const deltaX = pos.x - startMouseX;
+      const deltaY = pos.y - startMouseY;
+      
+      let newWidth = startWidth;
+      let newHeight = startHeight;
+      let newX = startX;
+      let newY = startY;
+      
+      switch (anchor) {
+        case 'top-left':
+          newWidth = startWidth - deltaX;
+          newHeight = startHeight - deltaY;
+          newX = startX + deltaX;
+          newY = startY + deltaY;
+          break;
+        case 'top-right':
+          newWidth = startWidth + deltaX;
+          newHeight = startHeight - deltaY;
+          newY = startY + deltaY;
+          break;
+        case 'bottom-left':
+          newWidth = startWidth - deltaX;
+          newHeight = startHeight + deltaY;
+          newX = startX + deltaX;
+          break;
+        case 'bottom-right':
+          newWidth = startWidth + deltaX;
+          newHeight = startHeight + deltaY;
+          break;
       }
       
-      let updatedShape = { 
-        ...currentShape, 
-        x: startX,
-        y: startY,
-        width: width,
-        height: height
-      };
+      // Сохраняем пропорции при зажатом Shift
+      if (shiftPressed) {
+        const ratio = startWidth / startHeight;
+        
+        switch (anchor) {
+          case 'top-left':
+            if (Math.abs(deltaX) > Math.abs(deltaY)) {
+              newHeight = newWidth / ratio;
+              newY = startY + (startHeight - newHeight);
+            } else {
+              newWidth = newHeight * ratio;
+              newX = startX + (startWidth - newWidth);
+            }
+            break;
+          case 'top-right':
+            if (Math.abs(deltaX) > Math.abs(deltaY)) {
+              newHeight = newWidth / ratio;
+              newY = startY + (startHeight - newHeight);
+            } else {
+              newWidth = newHeight * ratio;
+            }
+            break;
+          case 'bottom-left':
+            if (Math.abs(deltaX) > Math.abs(deltaY)) {
+              newHeight = newWidth / ratio;
+            } else {
+              newWidth = newHeight * ratio;
+              newX = startX + (startWidth - newWidth);
+            }
+            break;
+          case 'bottom-right':
+            if (Math.abs(deltaX) > Math.abs(deltaY)) {
+              newHeight = newWidth / ratio;
+            } else {
+              newWidth = newHeight * ratio;
+            }
+            break;
+        }
+      }
       
-      setDrawingState(prev => ({ ...prev, currentShape: updatedShape }));
+      // Минимальный размер
+      newWidth = Math.max(5, newWidth);
+      newHeight = Math.max(5, newHeight);
+      
+      // Обновляем фигуру в состоянии
+      const updatedShapes = shapes.map(s => 
+        s.id === transformState.shapeId 
+          ? { ...s, width: newWidth, height: newHeight, x: newX, y: newY }
+          : s
+      );
+      
+      setShapes(updatedShapes);
+    }
+    // Если перетаскиваем фигуру
+    else if (isDragging && selectedId) {
+      const deltaX = pos.x - dragStart.x;
+      const deltaY = pos.y - dragStart.y;
+      
+      const updatedShapes = shapes.map(s => 
+        s.id === selectedId 
+          ? { ...s, x: selectedShapeStart.x + deltaX, y: selectedShapeStart.y + deltaY }
+          : s
+      );
+      
+      setShapes(updatedShapes);
     }
   };
 
   const handleMouseUp = () => {
-    if (!drawingState.isDrawing || !drawingState.currentShape) return;
-    
-    let newShape = { ...drawingState.currentShape } as Shape;
-    
-    if ((tool === 'pencil' || tool === 'eraser') && newShape.points && newShape.points.length >= 4) {
-      const newShapes = [...shapes, newShape];
-      setShapes(newShapes);
-      saveToHistory(newShapes);
+    // Завершаем рисование
+    if (drawingState.isDrawing && drawingState.currentShape) {
+      let newShape = { ...drawingState.currentShape } as Shape;
+      
+      // Для карандаша и ластика
+      if ((tool === 'pencil' || tool === 'eraser') && newShape.points && newShape.points.length >= 4) {
+        const newShapes = [...shapes, newShape];
+        setShapes(newShapes);
+        saveToHistory(newShapes);
+      }
+      // Для линии
+      else if (tool === 'line' && newShape.points && newShape.points.length === 4) {
+        const startX = newShape.points[0];
+        const startY = newShape.points[1];
+        const endX = newShape.points[2];
+        const endY = newShape.points[3];
+        
+        newShape.x = Math.min(startX, endX);
+        newShape.y = Math.min(startY, endY);
+        newShape.width = Math.abs(endX - startX);
+        newShape.height = Math.abs(endY - startY);
+        
+        const newShapes = [...shapes, newShape];
+        setShapes(newShapes);
+        saveToHistory(newShapes);
+      }
+      // Для прямоугольника и эллипса
+      else if ((tool === 'rectangle' || tool === 'ellipse') && 
+               drawingState.currentShape.width !== 0 && 
+               drawingState.currentShape.height !== 0) {
+        
+        const startX = drawingState.startX;
+        const startY = drawingState.startY;
+        const width = newShape.width || 0;
+        const height = newShape.height || 0;
+        
+        newShape.x = Math.min(startX, startX + width);
+        newShape.y = Math.min(startY, startY + height);
+        newShape.width = Math.abs(width);
+        newShape.height = Math.abs(height);
+        
+        const newShapes = [...shapes, newShape];
+        setShapes(newShapes);
+        saveToHistory(newShapes);
+      }
+      
+      setDrawingState({
+        isDrawing: false,
+        startX: 0,
+        startY: 0,
+        currentShape: null
+      });
     }
-    else if (tool === 'line' && newShape.points && newShape.points.length === 4) {
-      newShape.x = newShape.points[0];
-      newShape.y = newShape.points[1];
-      newShape.width = newShape.points[2] - newShape.points[0];
-      newShape.height = newShape.points[3] - newShape.points[1];
-      
-      const newShapes = [...shapes, newShape];
-      setShapes(newShapes);
-      saveToHistory(newShapes);
-    }
-    else if ((tool === 'rectangle' || tool === 'ellipse') && 
-             drawingState.currentShape.width !== 0 && 
-             drawingState.currentShape.height !== 0) {
-      
-      const startX = drawingState.startX;
-      const startY = drawingState.startY;
-      const endX = startX + newShape.width;
-      const endY = startY + newShape.height;
-      
-      newShape.x = Math.min(startX, endX);
-      newShape.y = Math.min(startY, endY);
-      newShape.width = Math.abs(newShape.width);
-      newShape.height = Math.abs(newShape.height);
-      
-      const newShapes = [...shapes, newShape];
-      setShapes(newShapes);
-      saveToHistory(newShapes);
+    
+    // Завершаем трансформацию
+    if (transformState.isTransforming) {
+      saveToHistory(shapes);
+      setTransformState({
+        isTransforming: false,
+        shapeId: null,
+        startWidth: 0,
+        startHeight: 0,
+        startX: 0,
+        startY: 0,
+        startMouseX: 0,
+        startMouseY: 0,
+        anchor: null
+      });
     }
     
-    setDrawingState({
-      isDrawing: false,
-      startX: 0,
-      startY: 0,
-      currentShape: null
-    });
-  };
-
-  const handleSelectShape = (id: string) => {
-    setSelectedId(id);
+    // Завершаем перетаскивание
+    if (isDragging) {
+      setIsDragging(false);
+      saveToHistory(shapes);
+    }
   };
 
   const handleDeleteShape = (id: string) => {
@@ -241,14 +454,6 @@ const App: React.FC = () => {
     saveToHistory([]);
   };
 
-  const handleUpdateShape = (id: string, updates: Partial<Shape>) => {
-    const newShapes = shapes.map(shape => 
-      shape.id === id ? { ...shape, ...updates } : shape
-    );
-    setShapes(newShapes);
-    saveToHistory(newShapes);
-  };
-
   const hexToRgba = (hex: string, opacity: number): string => {
     const r = parseInt(hex.slice(1, 3), 16);
     const g = parseInt(hex.slice(3, 5), 16);
@@ -256,11 +461,33 @@ const App: React.FC = () => {
     return `rgba(${r}, ${g}, ${b}, ${opacity})`;
   };
 
-  const renderShapes = () => {
+  // Функция для рендеринга всех фигур
+  const renderAllShapes = () => {
     const allShapes = [...shapes];
     
+    // Добавляем текущую рисуемую фигуру
     if (drawingState.currentShape) {
-      allShapes.push(drawingState.currentShape as Shape);
+      const shape = drawingState.currentShape;
+      
+      // Для превью фигур нормализуем координаты
+      if (shape.type === 'rectangle' || shape.type === 'ellipse') {
+        const startX = shape.x || 0;
+        const startY = shape.y || 0;
+        const width = shape.width || 0;
+        const height = shape.height || 0;
+        
+        const normalizedShape = {
+          ...shape,
+          x: Math.min(startX, startX + width),
+          y: Math.min(startY, startY + height),
+          width: Math.abs(width),
+          height: Math.abs(height)
+        };
+        
+        allShapes.push(normalizedShape as Shape);
+      } else {
+        allShapes.push(shape as Shape);
+      }
     }
     
     return allShapes.map((shape) => {
@@ -269,18 +496,11 @@ const App: React.FC = () => {
         ? '#ffffff'
         : hexToRgba(shape.stroke, shapeOpacity);
       
-      // Общие свойства для всех фигур
       const commonProps = {
         key: shape.id,
         id: shape.id,
         stroke: strokeColorWithOpacity,
         strokeWidth: shape.strokeWidth,
-        draggable: tool === 'select',
-        onClick: () => {
-          if (tool === 'select') {
-            handleSelectShape(shape.id);
-          }
-        }
       };
       
       switch (shape.type) {
@@ -292,33 +512,10 @@ const App: React.FC = () => {
               y={shape.y}
               width={shape.width}
               height={shape.height}
-              onDragEnd={(e) => {
-                handleUpdateShape(shape.id, {
-                  x: e.target.x(),
-                  y: e.target.y()
-                });
-              }}
-              onTransformEnd={(e) => {
-                const node = e.target;
-                const scaleX = node.scaleX();
-                const scaleY = node.scaleY();
-                
-                handleUpdateShape(shape.id, {
-                  x: node.x(),
-                  y: node.y(),
-                  width: Math.max(5, node.width() * scaleX),
-                  height: Math.max(5, node.height() * scaleY),
-                });
-                
-                node.scaleX(1);
-                node.scaleY(1);
-              }}
             />
           );
         
         case 'ellipse':
-          // Для эллипса: x и y - это левый верхний угол ограничивающего прямоугольника
-          // В Ellipse компонент ожидает x и y как центр, поэтому преобразуем
           const centerX = shape.x + shape.width / 2;
           const centerY = shape.y + shape.height / 2;
           const radiusX = shape.width / 2;
@@ -331,39 +528,6 @@ const App: React.FC = () => {
               y={centerY}
               radiusX={radiusX}
               radiusY={radiusY}
-              onDragEnd={(e) => {
-                const node = e.target;
-                // Конвертируем обратно из центра в левый верхний угол для хранения в состоянии
-                const newX = node.x() - shape.width / 2;
-                const newY = node.y() - shape.height / 2;
-                
-                handleUpdateShape(shape.id, {
-                  x: newX,
-                  y: newY
-                });
-              }}
-              onTransformEnd={(e) => {
-                const node = e.target;
-                const scaleX = node.scaleX();
-                const scaleY = node.scaleY();
-                
-                // Обновляем ширину и высоту эллипса
-                const newWidth = Math.max(5, node.radiusX() * 2 * scaleX);
-                const newHeight = Math.max(5, node.radiusY() * 2 * scaleY);
-                // Конвертируем обратно из центра в левый верхний угол для хранения
-                const newX = node.x() - newWidth / 2;
-                const newY = node.y() - newHeight / 2;
-                
-                handleUpdateShape(shape.id, {
-                  x: newX,
-                  y: newY,
-                  width: newWidth,
-                  height: newHeight
-                });
-                
-                node.scaleX(1);
-                node.scaleY(1);
-              }}
             />
           );
         
@@ -373,36 +537,6 @@ const App: React.FC = () => {
             <Line
               {...commonProps}
               points={linePoints}
-              onDragEnd={(e) => {
-                handleUpdateShape(shape.id, {
-                  x: e.target.x(),
-                  y: e.target.y()
-                });
-              }}
-              onTransformEnd={(e) => {
-                const node = e.target;
-                const scaleX = node.scaleX();
-                const scaleY = node.scaleY();
-                
-                const oldPoints = shape.points || [shape.x, shape.y, shape.x + shape.width, shape.y + shape.height];
-                const newPoints = [
-                  (oldPoints[0] - node.x()) * scaleX + node.x(),
-                  (oldPoints[1] - node.y()) * scaleY + node.y(),
-                  (oldPoints[2] - node.x()) * scaleX + node.x(),
-                  (oldPoints[3] - node.y()) * scaleY + node.y()
-                ];
-                
-                handleUpdateShape(shape.id, {
-                  x: newPoints[0],
-                  y: newPoints[1],
-                  width: newPoints[2] - newPoints[0],
-                  height: newPoints[3] - newPoints[1],
-                  points: newPoints
-                });
-                
-                node.scaleX(1);
-                node.scaleY(1);
-              }}
             />
           );
         
@@ -417,34 +551,6 @@ const App: React.FC = () => {
               globalCompositeOperation={
                 shape.stroke === '#ffffff' ? 'destination-out' : 'source-over'
               }
-              onDragEnd={(e) => {
-                handleUpdateShape(shape.id, {
-                  x: e.target.x(),
-                  y: e.target.y()
-                });
-              }}
-              onTransformEnd={(e) => {
-                const node = e.target;
-                const scaleX = node.scaleX();
-                const scaleY = node.scaleY();
-                
-                const oldPoints = shape.points || [];
-                const newPoints = [];
-                
-                for (let i = 0; i < oldPoints.length; i += 2) {
-                  newPoints.push((oldPoints[i] - node.x()) * scaleX + node.x());
-                  newPoints.push((oldPoints[i + 1] - node.y()) * scaleY + node.y());
-                }
-                
-                handleUpdateShape(shape.id, {
-                  x: node.x(),
-                  y: node.y(),
-                  points: newPoints
-                });
-                
-                node.scaleX(1);
-                node.scaleY(1);
-              }}
             />
           );
         
@@ -454,11 +560,68 @@ const App: React.FC = () => {
     });
   };
 
+  // Функция для рендеринга рамки и якорей выделенной фигуры
+  const renderSelection = () => {
+    if (!selectedId || tool !== 'select' || drawingState.isDrawing) return null;
+    
+    const shape = shapes.find(s => s.id === selectedId);
+    if (!shape) return null;
+    
+    const selectionPadding = 5;
+    const anchorSize = 10;
+    const halfAnchor = anchorSize / 2;
+    
+    // Координаты рамки
+    const x = shape.x - selectionPadding;
+    const y = shape.y - selectionPadding;
+    const width = shape.width + selectionPadding * 2;
+    const height = shape.height + selectionPadding * 2;
+    
+    // Координаты якорей
+    const anchors = [
+      { name: 'anchor-top-left', x: shape.x - halfAnchor, y: shape.y - halfAnchor },
+      { name: 'anchor-top-right', x: shape.x + shape.width - halfAnchor, y: shape.y - halfAnchor },
+      { name: 'anchor-bottom-left', x: shape.x - halfAnchor, y: shape.y + shape.height - halfAnchor },
+      { name: 'anchor-bottom-right', x: shape.x + shape.width - halfAnchor, y: shape.y + shape.height - halfAnchor }
+    ];
+    
+    return (
+      <>
+        {/* Рамка выделения */}
+        <Rect
+          x={x}
+          y={y}
+          width={width}
+          height={height}
+          stroke="#007bff"
+          strokeWidth={1}
+          dash={[5, 5]}
+        />
+        
+        {/* Якоря */}
+        {anchors.map(anchor => (
+          <Rect
+            key={anchor.name}
+            name={anchor.name}
+            shapeId={shape.id}
+            x={anchor.x}
+            y={anchor.y}
+            width={anchorSize}
+            height={anchorSize}
+            fill="#ffffff"
+            stroke="#007bff"
+            strokeWidth={2}
+          />
+        ))}
+      </>
+    );
+  };
+
   return (
     <div className="d-flex flex-column gap-2 p-2">
       <h1>Tools</h1>
       
-      <div className="d-flex gap-2 align-items-center">
+      <div className="d-flex gap-2 align-items-center flex-wrap">
         <div className="vr" />
         <button
           type="button"
@@ -564,7 +727,7 @@ const App: React.FC = () => {
         />
       </div>
       <h1>Canvas</h1>
-      <div style={{ border: '2px solid #000', width: '100%', height: '387px' }}>
+      <div style={{ border: '2px solid #000', width: '100%', height: '387px', backgroundColor: 'white' }}>
         <Stage
           ref={stageRef}
           width={window.innerWidth - 40}
@@ -572,31 +735,13 @@ const App: React.FC = () => {
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
+          onTouchStart={handleMouseDown}
+          onTouchMove={handleMouseMove}
+          onTouchEnd={handleMouseUp}
         >
           <Layer>
-            {renderShapes()}
-            <Transformer
-              ref={transformerRef}
-              boundBoxFunc={(oldBox, newBox) => {
-                if (shiftPressed) {
-                  const ratio = oldBox.width / oldBox.height;
-                  
-                  if (Math.abs(newBox.width) / Math.abs(newBox.height) > ratio) {
-                    newBox.width = newBox.height * ratio;
-                  } else {
-                    newBox.height = newBox.width / ratio;
-                  }
-                  
-                  if (oldBox.width < 0) newBox.width = -Math.abs(newBox.width);
-                  if (oldBox.height < 0) newBox.height = -Math.abs(newBox.height);
-                }
-                
-                return newBox;
-              }}
-              enabledAnchors={['top-left', 'top-right', 'bottom-left', 'bottom-right']}
-              keepRatio={shiftPressed}
-              rotateEnabled={false}
-            />
+            {renderAllShapes()}
+            {renderSelection()}
           </Layer>
         </Stage>
       </div>
