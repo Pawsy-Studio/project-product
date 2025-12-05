@@ -15,6 +15,7 @@ interface Shape {
   strokeWidth: number;
   points?: number[];
   radius?: number;
+  opacity?: number; // Добавляем opacity в интерфейс
 }
 
 interface DrawingState {
@@ -127,6 +128,7 @@ const App: React.FC = () => {
           height: 0,
           stroke: tool === 'eraser' ? '#ffffff' : strokeColor,
           strokeWidth: strokeWidth,
+          opacity: isHighlighter ? 0.5 : 1, // Сохраняем opacity для каждой фигуры
           points: [pos.x, pos.y]
         }
       });
@@ -230,6 +232,14 @@ const App: React.FC = () => {
     saveToHistory(newShapes);
   };
 
+  // Функция для преобразования HEX в RGBA
+  const hexToRgba = (hex: string, opacity: number): string => {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+  };
+
   const renderShapes = () => {
     const allShapes = [...shapes];
     
@@ -238,12 +248,17 @@ const App: React.FC = () => {
     }
     
     return allShapes.map((shape) => {
+      // Используем RGBA цвет для поддержки прозрачности Highlighter
+      const shapeOpacity = shape.opacity !== undefined ? shape.opacity : 1;
+      const strokeColorWithOpacity = shape.stroke === '#ffffff' 
+        ? '#ffffff' // Ластик всегда белый
+        : hexToRgba(shape.stroke, shapeOpacity);
+      
       const commonProps = {
         key: shape.id,
         id: shape.id,
-        stroke: shape.stroke,
+        stroke: strokeColorWithOpacity, // Используем RGBA цвет
         strokeWidth: shape.strokeWidth,
-        opacity: (isHighlighter && shape.stroke !== '#ffffff') ? 0.5 : 1,
         draggable: tool === 'select',
         onClick: () => {
           if (tool === 'select') {
@@ -332,78 +347,120 @@ const App: React.FC = () => {
   };
 
   return (
-    <div>
-      <h1>Paint</h1>
+    <div className="d-flex flex-column gap-2 p-2">
+      <h1>Tools</h1>
       
-      <div>
-        <button onClick={() => setTool('select')}>
+      <div className="d-flex gap-2 align-items-center">
+        <div className="vr" />
+        <button
+          type="button"
+          className="btn btn-sm btn-outline-primary"
+          onClick={handleUndo}
+        >
+          Undo
+        </button>
+        <button
+          type="button"
+          className="btn btn-sm btn-outline-primary"
+          onClick={handleRedo}
+        >
+          Redo
+        </button>
+        <button
+          type="button"
+          className="btn btn-sm btn-outline-primary"
+          onClick={handleClearCanvas}
+        >
+          Clear
+        </button>
+        <label htmlFor="color">Stroke color</label>
+        <input
+          type="color"
+          value={strokeColor}
+          onChange={(e) => setStrokeColor(e.target.value)}
+          disabled={tool === 'eraser'}
+        />
+        
+        <input
+          className="form-check-input"
+          type="checkbox"
+          id="highlighter"
+          disabled={tool === 'eraser'}
+          checked={isHighlighter}
+          onChange={(e) => setIsHighlighter(e.target.checked)}
+        />
+        <label className="form-check-label" htmlFor="highlighter">
+          Highlighter
+        </label>
+        
+        <button
+          type="button"
+          className={`btn btn-sm ${tool === 'select' ? 'btn-primary' : 'btn-outline-primary'}`}
+          onClick={() => setTool('select')}
+        >
           Select
         </button>
-        <button onClick={() => setTool('rectangle')}>
+        
+        <button
+          type="button"
+          className={`btn btn-sm ${tool === 'rectangle' ? 'btn-primary' : 'btn-outline-primary'}`}
+          onClick={() => setTool('rectangle')}
+        >
           Rectangle
         </button>
-        <button onClick={() => setTool('circle')}>
+        
+        <button
+          type="button"
+          className={`btn btn-sm ${tool === 'circle' ? 'btn-primary' : 'btn-outline-primary'}`}
+          onClick={() => setTool('circle')}
+        >
           Circle
         </button>
-        <button onClick={() => setTool('line')}>
+        
+        <button
+          type="button"
+          className={`btn btn-sm ${tool === 'line' ? 'btn-primary' : 'btn-outline-primary'}`}
+          onClick={() => setTool('line')}
+        >
           Line
         </button>
-        <button onClick={() => setTool('pencil')}>
+        
+        <button
+          type="button"
+          className={`btn btn-sm ${tool === 'pencil' ? 'btn-primary' : 'btn-outline-primary'}`}
+          onClick={() => setTool('pencil')}
+        >
           Pen
         </button>
-        <button onClick={() => setTool('eraser')}>
+        
+        <button
+          type="button"
+          className={`btn btn-sm ${tool === 'eraser' ? 'btn-primary' : 'btn-outline-primary'}`}
+          onClick={() => setTool('eraser')}
+        >
           Eraser
         </button>
         
-        <div>
-          <label>Color: </label>
-          <input
-            type="color"
-            value={strokeColor}
-            onChange={(e) => setStrokeColor(e.target.value)}
-            disabled={tool === 'eraser'}
-          />
-        </div>
-        
-        <div>
-          <input
-            type="checkbox"
-            id="highlighter"
-            checked={isHighlighter}
-            onChange={(e) => setIsHighlighter(e.target.checked)}
-            disabled={tool === 'eraser'}
-          />
-          <label htmlFor="highlighter">Highlighter</label>
-        </div>
-        
-        <div>
-          <label>Width: </label>
-          <input
-            type="range"
-            min="1"
-            max="30"
-            value={strokeWidth}
-            onChange={(e) => setStrokeWidth(+e.target.value)}
-          />
-          <span>{strokeWidth}px</span>
-        </div>
-        
-        <button onClick={handleUndo}>
-          Undo
-        </button>
-        <button onClick={handleRedo}>
-          Redo
-        </button>
-        <button onClick={handleClearCanvas}>
-          Clear
-        </button>
+        <label htmlFor="width" className="form-label">
+          Width
+        </label>
+        <input
+          type="range"
+          className="form-range"
+          min="1"
+          max="20"
+          step="1"
+          id="width"
+          value={strokeWidth}
+          onChange={(e) => setStrokeWidth(+e.target.value)}
+        />
       </div>
-      
-      <div style={{ border: '2px solid #ccc', borderRadius: '4px', overflow: 'hidden', backgroundColor: 'white' }}>
+      <h1>Canvas</h1>
+      <div style={{ border: '2px solid #000', width: '100%', height: '387px' }}>
         <Stage
           ref={stageRef}
-          width={window.innerWidth - 100}
-          height={600}
+          width={window.innerWidth - 40}
+          height={387}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
