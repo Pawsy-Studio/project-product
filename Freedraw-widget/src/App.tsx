@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Stage, Layer, Rect, Ellipse, Line, Circle } from 'react-konva';
+import { Stage, Layer, Rect, Ellipse, Line, Circle, Text } from 'react-konva';
 
-type ShapeType = 'rectangle' | 'ellipse' | 'line' | 'path';
-type ToolMode = 'select' | 'rectangle' | 'ellipse' | 'line' | 'pencil' | 'eraser';
+type ShapeType = 'rectangle' | 'ellipse' | 'line' | 'path' | 'text';
+type ToolMode = 'select' | 'rectangle' | 'ellipse' | 'line' | 'pencil' | 'eraser' | 'text';
 type AnchorType = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | null;
+type TextAlign = 'left' | 'center' | 'right';
 
 interface Shape {
   id: string;
@@ -17,6 +18,11 @@ interface Shape {
   points?: number[];
   opacity?: number;
   isSelected?: boolean;
+  text?: string;
+  fontSize?: number;
+  fontFamily?: string;
+  textAlign?: TextAlign;
+  isEditing?: boolean;
 }
 
 interface DrawingState {
@@ -47,6 +53,9 @@ const App: React.FC = () => {
   const [strokeColor, setStrokeColor] = useState('#000000');
   const [strokeWidth, setStrokeWidth] = useState(5);
   const [isHighlighter, setIsHighlighter] = useState(false);
+  const [fontSize, setFontSize] = useState(20);
+  const [fontFamily, setFontFamily] = useState('Arial');
+  const [textAlign, setTextAlign] = useState<TextAlign>('left');
   const [drawingState, setDrawingState] = useState<DrawingState>({
     isDrawing: false,
     startX: 0,
@@ -69,6 +78,7 @@ const App: React.FC = () => {
   });
   
   const stageRef = useRef<any>(null);
+  const textAreaRef = useRef<HTMLTextAreaElement>(null);
   const [shiftPressed, setShiftPressed] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
@@ -78,6 +88,8 @@ const App: React.FC = () => {
 
   const [history, setHistory] = useState<Shape[][]>([[]]);
   const [historyIndex, setHistoryIndex] = useState(0);
+  const [editingTextId, setEditingTextId] = useState<string | null>(null);
+  const [tempText, setTempText] = useState('');
 
   const calculateBoundingBox = (points: number[]): { x: number, y: number, width: number, height: number } => {
     if (points.length === 0) return { x: 0, y: 0, width: 0, height: 0 };
@@ -146,7 +158,7 @@ const App: React.FC = () => {
   const isPointInShape = (shape: Shape, point: { x: number, y: number }): boolean => {
     if (shape.type === 'path') return false; // Для path фигур не проверяем пересечение
     
-    if (shape.type === 'rectangle') {
+    if (shape.type === 'rectangle' || shape.type === 'text') {
       const realX = Math.min(shape.x, shape.x + shape.width);
       const realY = Math.min(shape.y, shape.y + shape.height);
       const realWidth = Math.abs(shape.width);
@@ -213,6 +225,65 @@ const App: React.FC = () => {
     return Math.sqrt(dx * dx + dy * dy);
   };
 
+  // Функция для начала редактирования текста
+  const startTextEditing = (shapeId: string) => {
+    const shape = shapes.find(s => s.id === shapeId);
+    if (shape && shape.type === 'text') {
+      setShapes(shapes.map(s => ({
+        ...s,
+        isEditing: s.id === shapeId,
+        isSelected: s.id === shapeId
+      })));
+      setSelectedId(shapeId);
+      setTempText(shape.text || '');
+      setEditingTextId(shapeId);
+      
+      // Фокус на текстовом поле после небольшой задержки
+      setTimeout(() => {
+        if (textAreaRef.current) {
+          textAreaRef.current.focus();
+          textAreaRef.current.select();
+        }
+      }, 10);
+    }
+  };
+
+  // Функция для завершения редактирования текста
+  const finishTextEditing = () => {
+    if (editingTextId) {
+      setShapes(shapes.map(s => {
+        if (s.id === editingTextId) {
+          const updatedShape = {
+            ...s,
+            text: tempText || 'Text', // Если текст пустой, оставляем "Text"
+            isEditing: false,
+            height: Math.max(s.height, fontSize * 1.5) // Минимальная высота
+          };
+          return updatedShape;
+        }
+        return { ...s, isEditing: false };
+      }));
+      
+      saveToHistory(shapes);
+      setEditingTextId(null);
+      setTempText('');
+    }
+  };
+
+  // Функция для обновления свойств выбранного текста
+  const updateSelectedTextProperty = (property: keyof Shape, value: any) => {
+    if (selectedId) {
+      const updatedShapes = shapes.map(s => {
+        if (s.id === selectedId && s.type === 'text') {
+          return { ...s, [property]: value };
+        }
+        return s;
+      });
+      setShapes(updatedShapes);
+      saveToHistory(updatedShapes);
+    }
+  };
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Shift') setShiftPressed(true);
@@ -220,6 +291,12 @@ const App: React.FC = () => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
         e.preventDefault();
         handleUndo();
+      }
+      if (e.key === 'Escape' && editingTextId) {
+        finishTextEditing();
+      }
+      if (e.key === 'Enter' && editingTextId && e.ctrlKey) {
+        finishTextEditing();
       }
     };
     
@@ -234,11 +311,19 @@ const App: React.FC = () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [selectedId]);
+  }, [selectedId, editingTextId, tempText]);
 
   const handleMouseDown = (e: any) => {
     const stage = e.target.getStage();
     const pos = stage.getPointerPosition();
+    
+    // Завершаем редактирование текста при клике вне текстового поля
+    if (editingTextId && e.target === stage) {
+      finishTextEditing();
+      setSelectedId(null);
+      setShapes(shapes.map(shape => ({ ...shape, isSelected: false })));
+      return;
+    }
     
     // Если кликнули на кнопку удаления
     if (e.target.attrs.name && e.target.attrs.name === 'delete-button') {
@@ -284,13 +369,51 @@ const App: React.FC = () => {
     
     // Если кликнули на пустое место холста
     if (e.target === stage) {
-      if (tool === 'select') {
-        setSelectedId(null);
-        setShapes(shapes.map(shape => ({ ...shape, isSelected: false })));
+      // Если мы в режиме select и есть редактируемый текст - завершаем редактирование
+      if (tool === 'select' && editingTextId) {
+        finishTextEditing();
       }
       
-      // Начинаем рисование если не в режиме select
-      if (!['select'].includes(tool)) {
+      if (tool === 'select') {
+        setSelectedId(null);
+        setShapes(shapes.map(shape => ({ ...shape, isSelected: false, isEditing: false })));
+      }
+      
+      // Если выбран инструмент text - создаем новое текстовое поле и сразу начинаем редактирование
+      if (tool === 'text') {
+        // Завершаем предыдущее редактирование, если было
+        if (editingTextId) {
+          finishTextEditing();
+        }
+        
+        const newTextShape: Shape = {
+          id: `text_${Date.now()}`,
+          type: 'text',
+          x: pos.x,
+          y: pos.y,
+          width: 200, // Начальная ширина
+          height: 50, // Начальная высота
+          stroke: strokeColor,
+          strokeWidth: 1,
+          text: 'Text',
+          fontSize: fontSize,
+          fontFamily: fontFamily,
+          textAlign: textAlign,
+          isSelected: true,
+          isEditing: false // Сначала создаем, потом сразу редактируем
+        };
+        
+        const newShapes = [...shapes, newTextShape];
+        setShapes(newShapes);
+        saveToHistory(newShapes);
+        
+        // СРАЗУ запускаем редактирование нового текста
+        setTimeout(() => {
+          startTextEditing(newTextShape.id);
+        }, 10);
+      }
+      // Начинаем рисование если не в режиме select и text
+      else if (!['select', 'text'].includes(tool)) {
         setDrawingState({
           isDrawing: true,
           startX: pos.x,
@@ -313,32 +436,54 @@ const App: React.FC = () => {
       return;
     }
     
-    // Если кликнули на фигуру в режиме select - начинаем перемещение
-    // ИСКЛЮЧАЕМ фигуры типа 'path' (нарисованные кистью/ластиком)
+    // Если кликнули на фигуру в режиме select
     if (tool === 'select' && e.target.attrs.id) {
       const targetId = e.target.attrs.id;
       const shape = shapes.find(s => s.id === targetId);
       
-      if (shape && shape.type !== 'path') { // Только не-path фигуры можно перемещать
-        setSelectedId(targetId);
-        setIsDragging(true);
-        setDragStart({ x: pos.x, y: pos.y });
-        setSelectedShapeStart({ x: shape.x, y: shape.y });
+      if (shape) {
+        // Завершаем редактирование текста, если редактировали другой текст
+        if (editingTextId && editingTextId !== targetId) {
+          finishTextEditing();
+        }
         
-        if ((shape.type === 'path' || shape.type === 'line') && shape.points) {
-          setOriginalPointsOnDragStart([...shape.points]);
+        setSelectedId(targetId);
+        
+        // Если кликнули на текст дважды - начинаем редактирование
+        // ОДИНОЧНЫЙ клик - только выделение и возможность перемещения
+        if (shape.type === 'text' && e.evt.detail === 2) {
+          startTextEditing(targetId);
+          return;
+        }
+        
+        // Для текста без двойного клика - просто выделяем (без перехода в редактирование)
+        if (shape.type === 'text') {
+          setIsDragging(true);
+          setDragStart({ x: pos.x, y: pos.y });
+          setSelectedShapeStart({ x: shape.x, y: shape.y });
+        } 
+        // Для остальных фигур - начинаем перемещение (кроме path)
+        else if (shape.type !== 'path') {
+          setIsDragging(true);
+          setDragStart({ x: pos.x, y: pos.y });
+          setSelectedShapeStart({ x: shape.x, y: shape.y });
+          
+          if ((shape.type === 'path' || shape.type === 'line') && shape.points) {
+            setOriginalPointsOnDragStart([...shape.points]);
+          }
         }
         
         setShapes(shapes.map(s => ({
           ...s,
-          isSelected: s.id === targetId
+          isSelected: s.id === targetId,
+          isEditing: false // НЕ переходим в режим редактирования при одиночном клике
         })));
       }
       return;
     }
     
     // Если не в режиме select и кликнули на существующую фигуру - начинаем рисование поверх
-    if (!['select'].includes(tool)) {
+    if (!['select', 'text'].includes(tool)) {
       setDrawingState({
         isDrawing: true,
         startX: pos.x,
@@ -375,7 +520,7 @@ const App: React.FC = () => {
         };
         setDrawingState(prev => ({ ...prev, currentShape: updatedShape }));
         
-        // Если это ластик, проверяем пересечение с другими фигурами
+        // Если это ластик, проверяем пересечение с другими фигур
         if (tool === 'eraser') {
           const newShapesToDelete = new Set(shapesToDelete);
           shapes.forEach(shape => {
@@ -520,7 +665,7 @@ const App: React.FC = () => {
       
       setShapes(updatedShapes);
     }
-    // Если перетаскиваем фигуру (только не-path фигуры)
+    // Если перетаскиваем фигуру
     else if (isDragging && selectedId) {
       const shape = shapes.find(s => s.id === selectedId);
       if (shape && shape.type === 'path') return; // Не перемещаем path фигуры
@@ -678,11 +823,17 @@ const App: React.FC = () => {
     setShapes(newShapes);
     saveToHistory(newShapes);
     if (selectedId === id) setSelectedId(null);
+    if (editingTextId === id) {
+      setEditingTextId(null);
+      setTempText('');
+    }
   };
 
   const handleClearCanvas = () => {
     setShapes([]);
     setSelectedId(null);
+    setEditingTextId(null);
+    setTempText('');
     saveToHistory([]);
   };
 
@@ -728,8 +879,9 @@ const App: React.FC = () => {
       const commonProps = {
         key: shape.id,
         id: shape.id,
-        stroke: strokeColorWithOpacity,
-        strokeWidth: shape.strokeWidth,
+        stroke: shape.type === 'text' ? undefined : strokeColorWithOpacity,
+        strokeWidth: shape.type === 'text' ? undefined : shape.strokeWidth,
+        fill: shape.type === 'text' ? shape.stroke : undefined,
       };
       
       switch (shape.type) {
@@ -782,6 +934,29 @@ const App: React.FC = () => {
               globalCompositeOperation={
                 shape.stroke === '#ffffff' ? 'destination-out' : 'source-over'
               }
+            />
+          );
+        
+        case 'text':
+          const textX = shape.width >= 0 ? shape.x : shape.x + shape.width;
+          const textY = shape.height >= 0 ? shape.y : shape.y + shape.height;
+          const textWidth = Math.abs(shape.width);
+          const textHeight = Math.abs(shape.height);
+          
+          return (
+            <Text
+              {...commonProps}
+              x={textX}
+              y={textY}
+              width={textWidth}
+              height={textHeight}
+              text={shape.text || ''}
+              fontSize={shape.fontSize || fontSize}
+              fontFamily={shape.fontFamily || fontFamily}
+              align={shape.textAlign || textAlign}
+              verticalAlign="top"
+              wrap="word"
+              onDblClick={() => startTextEditing(shape.id)}
             />
           );
         
@@ -907,6 +1082,206 @@ const App: React.FC = () => {
     );
   };
 
+  // Рендеринг текстового поля для редактирования
+  const renderTextInput = () => {
+    if (!editingTextId) return null;
+    
+    const shape = shapes.find(s => s.id === editingTextId);
+    if (!shape || shape.type !== 'text') return null;
+    
+    const stage = stageRef.current;
+    if (!stage) return null;
+    
+    // Конвертируем координаты сцены в координаты контейнера
+    const containerRect = stage.container().getBoundingClientRect();
+    const scaleX = stage.width() / stage.width();
+    const scaleY = stage.height() / stage.height();
+    
+    const x = shape.x * scaleX + containerRect.left;
+    const y = shape.y * scaleY + containerRect.top;
+    const width = Math.max(Math.abs(shape.width) * scaleX, 100);
+    const height = Math.max(Math.abs(shape.height) * scaleY, 40);
+    
+    return (
+      <textarea
+        ref={textAreaRef}
+        value={tempText}
+        onChange={(e) => setTempText(e.target.value)}
+        onBlur={finishTextEditing}
+        style={{
+          position: 'fixed',
+          left: `${x}px`,
+          top: `${y}px`,
+          width: `${width}px`,
+          height: `${height}px`,
+          fontSize: `${shape.fontSize || fontSize}px`,
+          fontFamily: shape.fontFamily || fontFamily,
+          textAlign: shape.textAlign || textAlign,
+          color: shape.stroke,
+          backgroundColor: 'rgba(255, 255, 255, 0.9)',
+          border: '1px dashed #007bff',
+          outline: 'none',
+          resize: 'none',
+          overflow: 'hidden',
+          padding: '2px',
+          zIndex: 1000,
+          lineHeight: '1.2',
+          whiteSpace: 'pre-wrap',
+          wordWrap: 'break-word'
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') {
+            finishTextEditing();
+          }
+          if (e.key === 'Enter' && e.ctrlKey) {
+            finishTextEditing();
+          }
+        }}
+        autoFocus
+      />
+    );
+  };
+
+  // Рендеринг тулбара для редактирования текста
+  const renderTextToolbar = () => {
+    // Показываем тулбар только в режиме select и когда выделен текст
+    if (tool !== 'select' || !selectedId) return null;
+    
+    const selectedShape = shapes.find(s => s.id === selectedId);
+    if (!selectedShape || selectedShape.type !== 'text') return null;
+    
+    // Не показываем тулбар, если текст в режиме редактирования
+    if (editingTextId) return null;
+    
+    const stage = stageRef.current;
+    if (!stage) return null;
+    
+    // Получаем координаты выделенного текста
+    const container = stage.container();
+    const containerRect = container.getBoundingClientRect();
+    
+    // Координаты текста в сцене
+    const textX = selectedShape.x;
+    const textY = selectedShape.y;
+    
+    // Масштаб (по умолчанию 1)
+    const scaleX = stage.scaleX();
+    const scaleY = stage.scaleY();
+    
+    // Пересчитываем в координаты контейнера
+    const x = textX * scaleX + containerRect.left;
+    const y = textY * scaleY + containerRect.top;
+    
+    // Высота панели
+    const panelHeight = 40;
+    const panelWidth = 500;
+    
+    // Позиционируем панель над текстом
+    let top = y - panelHeight - 10;
+    // Если панель выходит за верхний край окна, показываем ее под текстом
+    if (top < containerRect.top) {
+      top = y + Math.abs(selectedShape.height) * scaleY + 10;
+    }
+    
+    let left = x;
+    // Если панель выходит за правый край окна, сдвигаем влево
+    if (left + panelWidth > containerRect.right) {
+      left = containerRect.right - panelWidth;
+    }
+    // Если панель выходит за левый край окна, сдвигаем вправо
+    if (left < containerRect.left) {
+      left = containerRect.left;
+    }
+    
+    return (
+      <div 
+        style={{
+          position: 'fixed',
+          left: `${left}px`,
+          top: `${top}px`,
+          width: `${panelWidth}px`,
+          height: `${panelHeight}px`,
+          backgroundColor: 'white',
+          border: '1px solid #ccc',
+          borderRadius: '4px',
+          padding: '5px 10px',
+          display: 'flex',
+          gap: '10px',
+          alignItems: 'center',
+          boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+          zIndex: 1001,
+        }}
+      >
+        <label style={{ fontSize: '14px', fontWeight: 'bold', marginRight: '5px' }}>
+          Font:
+        </label>
+        <select
+          className="form-select form-select-sm"
+          value={selectedShape.fontFamily || fontFamily}
+          onChange={(e) => updateSelectedTextProperty('fontFamily', e.target.value)}
+          style={{ width: '120px', height: '30px' }}
+        >
+          <option value="Arial">Arial</option>
+          <option value="Times New Roman">Times New Roman</option>
+          <option value="Courier New">Courier New</option>
+          <option value="Verdana">Verdana</option>
+          <option value="Georgia">Georgia</option>
+          <option value="Comic Sans MS">Comic Sans MS</option>
+        </select>
+        
+        <label style={{ fontSize: '14px', fontWeight: 'bold', marginLeft: '10px' }}>
+          Size:
+        </label>
+        <input
+          type="range"
+          className="form-range"
+          min="8"
+          max="72"
+          step="1"
+          value={selectedShape.fontSize || fontSize}
+          onChange={(e) => updateSelectedTextProperty('fontSize', +e.target.value)}
+          style={{ width: '100px' }}
+        />
+        <span style={{ fontSize: '14px', minWidth: '40px' }}>
+          {selectedShape.fontSize || fontSize}px
+        </span>
+        
+        <label style={{ fontSize: '14px', fontWeight: 'bold', marginLeft: '10px' }}>
+          Align:
+        </label>
+        <select
+          className="form-select form-select-sm"
+          value={selectedShape.textAlign || textAlign}
+          onChange={(e) => updateSelectedTextProperty('textAlign', e.target.value)}
+          style={{ width: '80px', height: '30px' }}
+        >
+          <option value="left">Left</option>
+          <option value="center">Center</option>
+          <option value="right">Right</option>
+        </select>
+        
+        <label style={{ fontSize: '14px', fontWeight: 'bold', marginLeft: '10px' }}>
+          Color:
+        </label>
+        <input
+          type="color"
+          value={selectedShape.stroke || strokeColor}
+          onChange={(e) => updateSelectedTextProperty('stroke', e.target.value)}
+          style={{ width: '30px', height: '30px', cursor: 'pointer' }}
+        />
+        
+        <button
+          type="button"
+          className="btn btn-sm btn-outline-secondary"
+          onClick={() => startTextEditing(selectedId)}
+          style={{ marginLeft: '10px', height: '30px' }}
+        >
+          Edit Text
+        </button>
+      </div>
+    );
+  };
+
   return (
     <div className="d-flex flex-column gap-2 p-2">
       <h1>Tools</h1>
@@ -957,7 +1332,12 @@ const App: React.FC = () => {
         <button
           type="button"
           className={`btn btn-sm ${tool === 'select' ? 'btn-primary' : 'btn-outline-primary'}`}
-          onClick={() => setTool('select')}
+          onClick={() => {
+            if (editingTextId) {
+              finishTextEditing();
+            }
+            setTool('select');
+          }}
         >
           Select
         </button>
@@ -965,7 +1345,12 @@ const App: React.FC = () => {
         <button
           type="button"
           className={`btn btn-sm ${tool === 'rectangle' ? 'btn-primary' : 'btn-outline-primary'}`}
-          onClick={() => setTool('rectangle')}
+          onClick={() => {
+            if (editingTextId) {
+              finishTextEditing();
+            }
+            setTool('rectangle');
+          }}
         >
           Rectangle
         </button>
@@ -973,7 +1358,12 @@ const App: React.FC = () => {
         <button
           type="button"
           className={`btn btn-sm ${tool === 'ellipse' ? 'btn-primary' : 'btn-outline-primary'}`}
-          onClick={() => setTool('ellipse')}
+          onClick={() => {
+            if (editingTextId) {
+              finishTextEditing();
+            }
+            setTool('ellipse');
+          }}
         >
           Circle
         </button>
@@ -981,7 +1371,12 @@ const App: React.FC = () => {
         <button
           type="button"
           className={`btn btn-sm ${tool === 'line' ? 'btn-primary' : 'btn-outline-primary'}`}
-          onClick={() => setTool('line')}
+          onClick={() => {
+            if (editingTextId) {
+              finishTextEditing();
+            }
+            setTool('line');
+          }}
         >
           Line
         </button>
@@ -989,7 +1384,12 @@ const App: React.FC = () => {
         <button
           type="button"
           className={`btn btn-sm ${tool === 'pencil' ? 'btn-primary' : 'btn-outline-primary'}`}
-          onClick={() => setTool('pencil')}
+          onClick={() => {
+            if (editingTextId) {
+              finishTextEditing();
+            }
+            setTool('pencil');
+          }}
         >
           Pen
         </button>
@@ -997,9 +1397,27 @@ const App: React.FC = () => {
         <button
           type="button"
           className={`btn btn-sm ${tool === 'eraser' ? 'btn-primary' : 'btn-outline-primary'}`}
-          onClick={() => setTool('eraser')}
+          onClick={() => {
+            if (editingTextId) {
+              finishTextEditing();
+            }
+            setTool('eraser');
+          }}
         >
           Eraser
+        </button>
+        
+        <button
+          type="button"
+          className={`btn btn-sm ${tool === 'text' ? 'btn-primary' : 'btn-outline-primary'}`}
+          onClick={() => {
+            if (editingTextId) {
+              finishTextEditing();
+            }
+            setTool('text');
+          }}
+        >
+          Text
         </button>
         
         <label htmlFor="width" className="form-label">
@@ -1014,10 +1432,11 @@ const App: React.FC = () => {
           id="width"
           value={strokeWidth}
           onChange={(e) => setStrokeWidth(+e.target.value)}
+          disabled={tool === 'text'}
         />
       </div>
       <h1>Canvas</h1>
-      <div style={{ border: '2px solid #000', width: '100%', height: '387px', backgroundColor: 'white' }}>
+      <div style={{ border: '2px solid #000', width: '100%', height: '387px', backgroundColor: 'white', position: 'relative' }}>
         <Stage
           ref={stageRef}
           width={window.innerWidth - 40}
@@ -1034,7 +1453,9 @@ const App: React.FC = () => {
             {renderSelection()}
           </Layer>
         </Stage>
+        {renderTextInput()}
       </div>
+      {renderTextToolbar()}
     </div>
   );
 };
