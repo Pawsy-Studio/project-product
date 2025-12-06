@@ -158,9 +158,8 @@ const App: React.FC = () => {
     }
   };
 
-  // Функция для проверки пересечения точки с фигурой
   const isPointInShape = (shape: Shape, point: { x: number, y: number }): boolean => {
-    if (shape.type === 'path') return false; // Для path фигур не проверяем пересечение
+    if (shape.type === 'path') return false;
     
     if (shape.type === 'rectangle' || shape.type === 'text') {
       const realX = Math.min(shape.x, shape.x + shape.width);
@@ -188,16 +187,14 @@ const App: React.FC = () => {
     }
     
     if (shape.type === 'line' && shape.points) {
-      // Проверяем близость точки к линии
       const [x1, y1, x2, y2] = shape.points;
       const distance = distanceToLineSegment(point, { x: x1, y: y1 }, { x: x2, y: y2 });
-      return distance < 10; // Пороговое значение для толщины ластика
+      return distance < 10;
     }
     
     return false;
   };
 
-  // Функция для вычисления расстояния от точки до отрезка
   const distanceToLineSegment = (p: { x: number, y: number }, a: { x: number, y: number }, b: { x: number, y: number }): number => {
     const A = p.x - a.x;
     const B = p.y - a.y;
@@ -229,7 +226,6 @@ const App: React.FC = () => {
     return Math.sqrt(dx * dx + dy * dy);
   };
 
-  // Функция для начала редактирования текста
   const startTextEditing = (shapeId: string) => {
     const shape = shapes.find(s => s.id === shapeId);
     if (shape && shape.type === 'text') {
@@ -243,7 +239,6 @@ const App: React.FC = () => {
       setEditingTextId(shapeId);
       setIsTextChanged(false);
       
-      // Фокус на текстовом поле после небольшой задержки
       setTimeout(() => {
         if (textAreaRef.current) {
           textAreaRef.current.focus();
@@ -253,16 +248,15 @@ const App: React.FC = () => {
     }
   };
 
-  // Функция для завершения редактирования текста
   const finishTextEditing = (saveToHistoryFlag: boolean = true) => {
     if (editingTextId) {
       const updatedShapes = shapes.map(s => {
         if (s.id === editingTextId) {
           const updatedShape = {
             ...s,
-            text: tempText || 'Text', // Если текст пустой, оставляем "Text"
+            text: tempText || 'Text',
             isEditing: false,
-            height: Math.max(s.height, fontSize * 1.5) // Минимальная высота
+            height: Math.max(s.height, fontSize * 1.5)
           };
           return updatedShape;
         }
@@ -271,7 +265,6 @@ const App: React.FC = () => {
       
       setShapes(updatedShapes);
       
-      // Сохраняем в историю только если текст изменился
       if (isTextChanged && saveToHistoryFlag) {
         saveToHistory(updatedShapes);
       }
@@ -282,15 +275,12 @@ const App: React.FC = () => {
     }
   };
 
-  // Функция для обновления свойств выбранного текста
   const updateSelectedTextProperty = (property: keyof Shape, value: any) => {
     if (selectedId) {
       const updatedShapes = shapes.map(s => {
         if (s.id === selectedId && s.type === 'text') {
-          // Принудительно создаем новый объект с обновленным свойством
           const updatedShape = { ...s, [property]: value };
           
-          // Для fontStyle формируем комбинированную строку
           if (property === 'fontWeight' || property === 'fontStyle') {
             const fontWeight = property === 'fontWeight' ? value : (s.fontWeight || 'normal');
             const fontStyle = property === 'fontStyle' ? value : (s.fontStyle || 'normal');
@@ -307,13 +297,11 @@ const App: React.FC = () => {
     }
   };
 
-  // Обновление текста в реальном времени
   const updateTextInRealTime = (newText: string) => {
     if (editingTextId) {
       setTempText(newText);
       setIsTextChanged(true);
       
-      // Обновляем текст в фигуре в реальном времени
       const updatedShapes = shapes.map(s => {
         if (s.id === editingTextId) {
           return { ...s, text: newText };
@@ -324,7 +312,6 @@ const App: React.FC = () => {
     }
   };
 
-  // Функция для переключения жирного текста
   const toggleBold = () => {
     if (selectedId) {
       const selectedShape = shapes.find(s => s.id === selectedId);
@@ -335,7 +322,6 @@ const App: React.FC = () => {
     }
   };
 
-  // Функция для переключения курсивного текста
   const toggleItalic = () => {
     if (selectedId) {
       const selectedShape = shapes.find(s => s.id === selectedId);
@@ -346,7 +332,6 @@ const App: React.FC = () => {
     }
   };
 
-  // Функция для переключения подчеркнутого текста
   const toggleUnderline = () => {
     if (selectedId) {
       const selectedShape = shapes.find(s => s.id === selectedId);
@@ -355,7 +340,6 @@ const App: React.FC = () => {
         const currentDecoration = selectedShape.textDecoration || 'none';
         
         if (currentDecoration.includes('underline')) {
-          // Если уже есть подчеркивание, убираем его
           if (currentDecoration === 'underline') {
             newDecoration = 'none';
           } else if (currentDecoration === 'underline line-through') {
@@ -365,7 +349,6 @@ const App: React.FC = () => {
             if (newDecoration === '') newDecoration = 'none';
           }
         } else {
-          // Если нет подчеркивания, добавляем его
           if (currentDecoration === 'none') {
             newDecoration = 'underline';
           } else if (currentDecoration === 'line-through') {
@@ -380,7 +363,6 @@ const App: React.FC = () => {
     }
   };
 
-  // Функция для переключения зачеркнутого текста
   const toggleStrikethrough = () => {
     if (selectedId) {
       const selectedShape = shapes.find(s => s.id === selectedId);
@@ -389,7 +371,6 @@ const App: React.FC = () => {
         const currentDecoration = selectedShape.textDecoration || 'none';
         
         if (currentDecoration.includes('line-through')) {
-          // Если уже есть зачеркивание, убираем его
           if (currentDecoration === 'line-through') {
             newDecoration = 'none';
           } else if (currentDecoration === 'underline line-through') {
@@ -399,7 +380,6 @@ const App: React.FC = () => {
             if (newDecoration === '') newDecoration = 'none';
           }
         } else {
-          // Если нет зачеркивания, добавляем его
           if (currentDecoration === 'none') {
             newDecoration = 'line-through';
           } else if (currentDecoration === 'underline') {
@@ -428,7 +408,6 @@ const App: React.FC = () => {
       if (e.key === 'Enter' && editingTextId && e.ctrlKey) {
         finishTextEditing();
       }
-      // Горячие клавиши для форматирования текста
       if ((e.ctrlKey || e.metaKey) && selectedId) {
         const selectedShape = shapes.find(s => s.id === selectedId);
         if (selectedShape && selectedShape.type === 'text') {
@@ -464,9 +443,7 @@ const App: React.FC = () => {
   }, [selectedId, editingTextId, tempText, shapes]);
 
   useEffect(() => {
-    // Скрываем тулбар при изменении инструмента или снятии выделения
     if (tool !== 'select' || !selectedId) {
-      // Любая логика скрытия тулбара, если необходимо
     }
   }, [tool, selectedId]);
 
@@ -474,7 +451,6 @@ const App: React.FC = () => {
     const stage = e.target.getStage();
     const pos = stage.getPointerPosition();
     
-    // Завершаем редактирование текста при клике вне текстового поля
     if (editingTextId && e.target === stage) {
       finishTextEditing();
       setSelectedId(null);
@@ -482,7 +458,6 @@ const App: React.FC = () => {
       return;
     }
     
-    // Если кликнули на кнопку удаления
     if (e.target.attrs.name && e.target.attrs.name === 'delete-button') {
       const shapeId = e.target.attrs.shapeId;
       if (shapeId) {
@@ -491,7 +466,6 @@ const App: React.FC = () => {
       return;
     }
     
-    // Если кликнули на якорь трансформации
     if (e.target.attrs.name && e.target.attrs.name.startsWith('anchor-')) {
       const shapeId = e.target.attrs.shapeId;
       const shape = shapes.find(s => s.id === shapeId);
@@ -524,9 +498,7 @@ const App: React.FC = () => {
       return;
     }
     
-    // Если кликнули на пустое место холста
     if (e.target === stage) {
-      // Если мы в режиме select и есть редактируемый текст - завершаем редактирование
       if (tool === 'select' && editingTextId) {
         finishTextEditing();
       }
@@ -536,9 +508,7 @@ const App: React.FC = () => {
         setShapes(shapes.map(shape => ({ ...shape, isSelected: false, isEditing: false })));
       }
       
-      // Если выбран инструмент text - создаем новое текстовое поле и сразу начинаем редактирование
       if (tool === 'text') {
-        // Завершаем предыдущее редактирование, если было
         if (editingTextId) {
           finishTextEditing();
         }
@@ -548,8 +518,8 @@ const App: React.FC = () => {
           type: 'text',
           x: pos.x,
           y: pos.y,
-          width: 200, // Начальная ширина
-          height: 50, // Начальная высота
+          width: 200,
+          height: 50, 
           stroke: strokeColor,
           strokeWidth: 1,
           text: 'Text',
@@ -560,19 +530,17 @@ const App: React.FC = () => {
           fontStyle: 'normal',
           textDecoration: 'none',
           isSelected: true,
-          isEditing: false // Сначала создаем, потом сразу редактируем
+          isEditing: false 
         };
         
         const newShapes = [...shapes, newTextShape];
         setShapes(newShapes);
         saveToHistory(newShapes);
         
-        // СРАЗУ запускаем редактирование нового текста
         setTimeout(() => {
           startTextEditing(newTextShape.id);
         }, 10);
       }
-      // Начинаем рисование если не в режиме select и text
       else if (!['select', 'text'].includes(tool)) {
         setDrawingState({
           isDrawing: true,
@@ -591,38 +559,32 @@ const App: React.FC = () => {
             points: tool === 'pencil' || tool === 'eraser' ? [pos.x, pos.y] : undefined
           }
         });
-        setShapesToDelete(new Set()); // Сбрасываем набор фигур для удаления
+        setShapesToDelete(new Set());
       }
       return;
     }
     
-    // Если кликнули на фигуру в режиме select
     if (tool === 'select' && e.target.attrs.id) {
       const targetId = e.target.attrs.id;
       const shape = shapes.find(s => s.id === targetId);
       
       if (shape) {
-        // Завершаем редактирование текста, если редактировали другой текст
         if (editingTextId && editingTextId !== targetId) {
           finishTextEditing();
         }
         
         setSelectedId(targetId);
         
-        // Если кликнули на текст дважды - начинаем редактирование
-        // ОДИНОЧНЫЙ клик - только выделение и возможность перемещения
         if (shape.type === 'text' && e.evt.detail === 2) {
           startTextEditing(targetId);
           return;
         }
         
-        // Для текста без двойного клика - просто выделяем (без перехода в редактирование)
         if (shape.type === 'text') {
           setIsDragging(true);
           setDragStart({ x: pos.x, y: pos.y });
           setSelectedShapeStart({ x: shape.x, y: shape.y });
         } 
-        // Для остальных фигур - начинаем перемещение (кроме path)
         else if (shape.type !== 'path') {
           setIsDragging(true);
           setDragStart({ x: pos.x, y: pos.y });
@@ -636,13 +598,12 @@ const App: React.FC = () => {
         setShapes(shapes.map(s => ({
           ...s,
           isSelected: s.id === targetId,
-          isEditing: false // НЕ переходим в режим редактирования при одиночном клике
+          isEditing: false 
         })));
       }
       return;
     }
     
-    // Если не в режиме select и кликнули на существующую фигуру - начинаем рисование поверх
     if (!['select', 'text'].includes(tool)) {
       setDrawingState({
         isDrawing: true,
@@ -661,7 +622,7 @@ const App: React.FC = () => {
           points: tool === 'pencil' || tool === 'eraser' ? [pos.x, pos.y] : undefined
         }
       });
-      setShapesToDelete(new Set()); // Сбрасываем набор фигур для удаления
+      setShapesToDelete(new Set());
     }
   };
 
@@ -669,7 +630,6 @@ const App: React.FC = () => {
     const stage = e.target.getStage();
     const pos = stage.getPointerPosition();
     
-    // Если рисуем новую фигуру
     if (drawingState.isDrawing && drawingState.currentShape) {
       const { startX, startY, currentShape } = drawingState;
       
@@ -680,7 +640,6 @@ const App: React.FC = () => {
         };
         setDrawingState(prev => ({ ...prev, currentShape: updatedShape }));
         
-        // Если это ластик, проверяем пересечение с другими фигур
         if (tool === 'eraser') {
           const newShapesToDelete = new Set(shapesToDelete);
           shapes.forEach(shape => {
@@ -719,7 +678,6 @@ const App: React.FC = () => {
         setDrawingState(prev => ({ ...prev, currentShape: updatedShape }));
       }
     }
-    // Если трансформируем существующую фигуру
     else if (transformState.isTransforming && transformState.shapeId) {
       const { startWidth, startHeight, startX, startY, startMouseX, startMouseY, anchor, originalPoints, originalBbox } = transformState;
       
@@ -825,10 +783,8 @@ const App: React.FC = () => {
       
       setShapes(updatedShapes);
     }
-    // Если перетаскиваем фигуру
     else if (isDragging && selectedId) {
       const shape = shapes.find(s => s.id === selectedId);
-      if (shape && shape.type === 'path') return; // Не перемещаем path фигуры
       
       const deltaX = pos.x - dragStart.x;
       const deltaY = pos.y - dragStart.y;
@@ -870,18 +826,15 @@ const App: React.FC = () => {
   };
 
   const handleMouseUp = () => {
-    // Завершаем рисование
     if (drawingState.isDrawing && drawingState.currentShape) {
       let newShape = { ...drawingState.currentShape } as Shape;
       
-      // Если это ластик, удаляем все помеченные фигуры
       if (tool === 'eraser' && shapesToDelete.size > 0) {
         const newShapes = shapes.filter(shape => !shapesToDelete.has(shape.id));
         setShapes(newShapes);
         saveToHistory(newShapes);
         setShapesToDelete(new Set());
         
-        // Сбрасываем состояние рисования
         setDrawingState({
           isDrawing: false,
           startX: 0,
@@ -891,7 +844,6 @@ const App: React.FC = () => {
         return;
       }
       
-      // Для карандаша и ластика (без удаления фигур)
       if ((tool === 'pencil' || tool === 'eraser') && newShape.points && newShape.points.length >= 4) {
         const bbox = calculateBoundingBox(newShape.points);
         newShape.x = bbox.x;
@@ -903,7 +855,6 @@ const App: React.FC = () => {
         setShapes(newShapes);
         saveToHistory(newShapes);
       }
-      // Для линии
       else if (tool === 'line' && newShape.points && newShape.points.length === 4) {
         const startX = newShape.points[0];
         const startY = newShape.points[1];
@@ -924,7 +875,6 @@ const App: React.FC = () => {
         setShapes(newShapes);
         saveToHistory(newShapes);
       }
-      // Для прямоугольника и эллипса
       else if ((tool === 'rectangle' || tool === 'ellipse') && 
                drawingState.currentShape.width !== 0 && 
                drawingState.currentShape.height !== 0) {
@@ -952,7 +902,6 @@ const App: React.FC = () => {
       });
     }
     
-    // Завершаем трансформацию
     if (transformState.isTransforming) {
       saveToHistory(shapes);
       setTransformState({
@@ -970,7 +919,6 @@ const App: React.FC = () => {
       });
     }
     
-    // Завершаем перетаскивание
     if (isDragging) {
       setIsDragging(false);
       setOriginalPointsOnDragStart([]);
@@ -1103,12 +1051,10 @@ const App: React.FC = () => {
           const textWidth = Math.abs(shape.width);
           const textHeight = Math.abs(shape.height);
           
-          // Формируем стили для текста
           const fontWeight = shape.fontWeight || 'normal';
           const fontStyle = shape.fontStyle || 'normal';
           const textDecoration = shape.textDecoration || 'none';
           
-          // Формируем строку стиля шрифта
           const fontStyleString = `${fontWeight === 'bold' ? 'bold' : ''} ${fontStyle === 'italic' ? 'italic' : ''}`.trim();
           
           return (
@@ -1140,7 +1086,7 @@ const App: React.FC = () => {
     if (!selectedId || tool !== 'select' || drawingState.isDrawing) return null;
     
     const shape = shapes.find(s => s.id === selectedId);
-    if (!shape || shape.type === 'path') return null; // Не показываем выделение для path фигур
+    if (!shape || shape.type === 'path') return null;
     
     let displayShape = { ...shape };
     if ((shape.type === 'path' || shape.type === 'line') && shape.points && shape.points.length > 0) {
@@ -1252,7 +1198,6 @@ const App: React.FC = () => {
     );
   };
 
-  // Рендеринг текстового поля для редактирования
   const renderTextInput = () => {
     if (!editingTextId) return null;
     
@@ -1262,7 +1207,6 @@ const App: React.FC = () => {
     const stage = stageRef.current;
     if (!stage) return null;
     
-    // Конвертируем координаты сцены в координаты контейнера
     const containerRect = stage.container().getBoundingClientRect();
     const scaleX = stage.width() / stage.width();
     const scaleY = stage.height() / stage.height();
@@ -1272,7 +1216,6 @@ const App: React.FC = () => {
     const width = Math.max(Math.abs(shape.width) * scaleX, 100);
     const height = Math.max(Math.abs(shape.height) * scaleY, 40);
     
-    // Формируем стили для текста
     const fontWeight = shape.fontWeight || 'normal';
     const fontStyle = shape.fontStyle || 'normal';
     const textDecoration = shape.textDecoration || 'none';
@@ -1324,58 +1267,50 @@ const App: React.FC = () => {
     );
   };
 
-  // Рендеринг тулбара для редактирования текста
   const renderTextToolbar = () => {
-    // Показываем тулбар только в режиме select и когда выделен текст
     if (tool !== 'select' || !selectedId) return null;
     
     const selectedShape = shapes.find(s => s.id === selectedId);
     if (!selectedShape || selectedShape.type !== 'text') return null;
     
-    // Не показываем тулбар, если текст в режиме редактирования
     if (editingTextId) return null;
     
     const stage = stageRef.current;
     if (!stage) return null;
     
-    // Получаем координаты выделенного текста
     const container = stage.container();
     const containerRect = container.getBoundingClientRect();
     
-    // Координаты текста в сцене
     const textX = selectedShape.x;
     const textY = selectedShape.y;
     
-    // Масштаб (по умолчанию 1)
     const scaleX = stage.scaleX();
     const scaleY = stage.scaleY();
     
-    // Пересчитываем в координаты контейнера
+    const realY = Math.min(selectedShape.y, selectedShape.y + selectedShape.height);
+    const realHeight = Math.abs(selectedShape.height);
+    
     const x = textX * scaleX + containerRect.left;
-    const y = textY * scaleY + containerRect.top;
+    const y = realY * scaleY + containerRect.top;
     
-    // Высота панели
     const panelHeight = 40;
-    const panelWidth = 1000; // Увеличили ширину для дополнительных кнопок
+    const panelWidth = 1000;
     
-    // Позиционируем панель над текстом
-    let top = y - panelHeight - 10;
-    // Если панель выходит за верхний край окна, показываем ее под текстом
+    const offset = 20;
+    
+    let top = y - panelHeight - offset;
     if (top < containerRect.top) {
-      top = y + Math.abs(selectedShape.height) * scaleY + 10;
+      top = y + realHeight * scaleY + offset;
     }
     
     let left = x;
-    // Если панель выходит за правый край окна, сдвигаем влево
     if (left + panelWidth > containerRect.right) {
       left = containerRect.right - panelWidth;
     }
-    // Если панель выходит за левый край окна, сдвигаем вправо
     if (left < containerRect.left) {
       left = containerRect.left;
     }
     
-    // Получаем текущие свойства форматирования
     const isBold = selectedShape.fontWeight === 'bold';
     const isItalic = selectedShape.fontStyle === 'italic';
     const isUnderline = selectedShape.textDecoration?.includes('underline') || false;
@@ -1449,7 +1384,6 @@ const App: React.FC = () => {
           {selectedShape.fontSize || fontSize}px
         </span>
         
-        {/* Кнопки форматирования текста */}
         <button
           type="button"
           className={`btn btn-sm ${isBold ? 'btn-primary' : 'btn-outline-secondary'}`}
