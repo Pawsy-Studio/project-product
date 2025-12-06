@@ -252,15 +252,20 @@ const App: React.FC = () => {
     if (editingTextId) {
       const updatedShapes = shapes.map(s => {
         if (s.id === editingTextId) {
+          const finalText = tempText || 'Text';
+          const lineHeight = s.fontSize || fontSize;
+          const lines = finalText.split('\n').length || 1;
+          const newHeight = Math.max(lines * lineHeight * 1.2, 50);
+          
           const updatedShape = {
             ...s,
-            text: tempText || 'Text',
+            text: finalText,
             isEditing: false,
-            height: Math.max(s.height, fontSize * 1.5)
+            height: newHeight
           };
           return updatedShape;
         }
-        return { ...s, isEditing: false };
+        return { ...s, isEditing: false, isSelected: false };
       });
       
       setShapes(updatedShapes);
@@ -270,6 +275,7 @@ const App: React.FC = () => {
       }
       
       setEditingTextId(null);
+      setSelectedId(null);
       setTempText('');
       setIsTextChanged(false);
     }
@@ -304,7 +310,16 @@ const App: React.FC = () => {
       
       const updatedShapes = shapes.map(s => {
         if (s.id === editingTextId) {
-          return { ...s, text: newText };
+          const updatedShape = { ...s, text: newText };
+          
+          const lineHeight = updatedShape.fontSize || fontSize;
+          const lines = newText.split('\n').length || 1;
+          const newHeight = Math.max(lines * lineHeight * 1.2, 50);
+          
+          return { 
+            ...updatedShape, 
+            height: newHeight 
+          };
         }
         return s;
       });
@@ -452,9 +467,8 @@ const App: React.FC = () => {
     const pos = stage.getPointerPosition();
     
     if (editingTextId && e.target === stage) {
+      // Завершаем редактирование текста при клике вне текстового поля
       finishTextEditing();
-      setSelectedId(null);
-      setShapes(shapes.map(shape => ({ ...shape, isSelected: false })));
       return;
     }
     
@@ -1046,6 +1060,11 @@ const App: React.FC = () => {
           );
         
         case 'text':
+          // Если текст в режиме редактирования - не рендерим его как Konva.Text
+          if (shape.isEditing) {
+            return null;
+          }
+          
           const textX = shape.width >= 0 ? shape.x : shape.x + shape.width;
           const textY = shape.height >= 0 ? shape.y : shape.y + shape.height;
           const textWidth = Math.abs(shape.width);
@@ -1211,8 +1230,12 @@ const App: React.FC = () => {
     const scaleX = stage.width() / stage.width();
     const scaleY = stage.height() / stage.height();
     
-    const x = shape.x * scaleX + containerRect.left;
-    const y = shape.y * scaleY + containerRect.top;
+    // Используем те же вычисления, что и для рендеринга текста
+    const textX = shape.width >= 0 ? shape.x : shape.x + shape.width;
+    const textY = shape.height >= 0 ? shape.y : shape.y + shape.height;
+    
+    const x = textX * scaleX + containerRect.left;
+    const y = textY * scaleY + containerRect.top;
     const width = Math.max(Math.abs(shape.width) * scaleX, 100);
     const height = Math.max(Math.abs(shape.height) * scaleY, 40);
     
