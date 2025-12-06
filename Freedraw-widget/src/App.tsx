@@ -1,8 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Stage, Layer, Rect, Ellipse, Line, Circle, Text } from 'react-konva';
+import katex from 'katex';
+import 'katex/dist/katex.min.css';
 
-type ShapeType = 'rectangle' | 'ellipse' | 'line' | 'path' | 'text';
-type ToolMode = 'select' | 'rectangle' | 'ellipse' | 'line' | 'pencil' | 'eraser' | 'text';
+type ShapeType = 'rectangle' | 'ellipse' | 'line' | 'path' | 'text' | 'latex';
+type ToolMode = 'select' | 'rectangle' | 'ellipse' | 'line' | 'pencil' | 'eraser' | 'text' | 'latex';
 type AnchorType = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | null;
 type TextAlign = 'left' | 'center' | 'right';
 
@@ -19,6 +21,7 @@ interface Shape {
   opacity?: number;
   isSelected?: boolean;
   text?: string;
+  latex?: string;
   fontSize?: number;
   fontFamily?: string;
   textAlign?: TextAlign;
@@ -26,6 +29,8 @@ interface Shape {
   fontWeight?: 'normal' | 'bold';
   fontStyle?: 'normal' | 'italic';
   textDecoration?: 'none' | 'underline' | 'line-through' | 'underline line-through';
+  isLatex?: boolean;
+  latexRendered?: string;
 }
 
 interface DrawingState {
@@ -47,6 +52,13 @@ interface TransformState {
   anchor: AnchorType;
   originalPoints?: number[];
   originalBbox?: { x: number, y: number, width: number, height: number };
+}
+
+interface LatexSymbol {
+  name: string;
+  latex: string;
+  description: string;
+  category: 'fraction' | 'root' | 'superscript' | 'subscript' | 'brackets' | 'operators';
 }
 
 const App: React.FC = () => {
@@ -94,6 +106,44 @@ const App: React.FC = () => {
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
   const [tempText, setTempText] = useState('');
   const [isTextChanged, setIsTextChanged] = useState(false);
+
+  const [latexSymbols, setLatexSymbols] = useState<LatexSymbol[]>([
+    { name: 'Простая дробь', latex: '\\frac{}{}', description: 'Дробь с числителем и знаменателем', category: 'fraction' },
+    { name: 'Смешанная дробь', latex: '\\frac{числитель}{знаменатель}', description: 'Дробь с заполнителями', category: 'fraction' },
+    { name: 'Квадратный корень', latex: '\\sqrt{}', description: 'Квадратный корень', category: 'root' },
+    { name: 'Корень n-ой степени', latex: '\\sqrt[]{}', description: 'Корень с показателем степени', category: 'root' },
+    { name: 'Верхний индекс', latex: '^{}', description: 'Надстрочный индекс', category: 'superscript' },
+    { name: 'Нижний индекс', latex: '_{}', description: 'Подстрочный индекс', category: 'subscript' },
+    { name: 'Комбинированный', latex: '_{}^{}', description: 'И верхний и нижний индекс', category: 'superscript' },
+    { name: 'Модуль', latex: '\\left| \\right|', description: 'Скобки модуля', category: 'brackets' },
+    { name: 'Круглые скобки', latex: '\\left( \\right)', description: 'Круглые скобки', category: 'brackets' },
+    { name: 'Квадратные скобки', latex: '\\left[ \\right]', description: 'Квадратные скобки', category: 'brackets' },
+    { name: 'Фигурные скобки', latex: '\\left\\{ \\right\\}', description: 'Фигурные скобки', category: 'brackets' },
+    { name: 'Сумма', latex: '\\sum_{}^{}', description: 'Сумма', category: 'operators' },
+    { name: 'Интеграл', latex: '\\int_{}^{}', description: 'Интеграл', category: 'operators' },
+    { name: 'Предел', latex: '\\lim_{}', description: 'Предел', category: 'operators' },
+    { name: 'Производная', latex: '\\frac{d}{dx}', description: 'Производная', category: 'operators' },
+    { name: 'Бесконечность', latex: '\\infty', description: 'Символ бесконечности', category: 'operators' },
+    { name: 'Приблизительно', latex: '\\approx', description: 'Приблизительное равенство', category: 'operators' },
+    { name: 'Не равно', latex: '\\neq', description: 'Не равно', category: 'operators' },
+    { name: 'Меньше или равно', latex: '\\leq', description: 'Меньше или равно', category: 'operators' },
+    { name: 'Больше или равно', latex: '\\geq', description: 'Больше или равно', category: 'operators' },
+    { name: 'Принадлежит', latex: '\\in', description: 'Принадлежность множеству', category: 'operators' },
+    { name: 'Для всех', latex: '\\forall', description: 'Для всех', category: 'operators' },
+    { name: 'Существует', latex: '\\exists', description: 'Существует', category: 'operators' },
+    { name: 'Следовательно', latex: '\\therefore', description: 'Следовательно', category: 'operators' },
+  ]);
+  
+  const [showLatexMenu, setShowLatexMenu] = useState(false);
+  const [latexCategories, setLatexCategories] = useState<Array<{id: string, name: string}>>([
+    { id: 'all', name: 'Все символы' },
+    { id: 'fraction', name: 'Дроби' },
+    { id: 'root', name: 'Корни' },
+    { id: 'superscript', name: 'Верхние/нижние индексы' },
+    { id: 'brackets', name: 'Скобки' },
+    { id: 'operators', name: 'Операторы' },
+  ]);
+  const [selectedLatexCategory, setSelectedLatexCategory] = useState('all');
 
   const calculateBoundingBox = (points: number[]): { x: number, y: number, width: number, height: number } => {
     if (points.length === 0) return { x: 0, y: 0, width: 0, height: 0 };
@@ -161,7 +211,7 @@ const App: React.FC = () => {
   const isPointInShape = (shape: Shape, point: { x: number, y: number }): boolean => {
     if (shape.type === 'path') return false;
     
-    if (shape.type === 'rectangle' || shape.type === 'text') {
+    if (shape.type === 'rectangle' || shape.type === 'text' || shape.type === 'latex') {
       const realX = Math.min(shape.x, shape.x + shape.width);
       const realY = Math.min(shape.y, shape.y + shape.height);
       const realWidth = Math.abs(shape.width);
@@ -226,16 +276,30 @@ const App: React.FC = () => {
     return Math.sqrt(dx * dx + dy * dy);
   };
 
+  const renderLatexToHtml = (latex: string): string => {
+    try {
+      return katex.renderToString(latex, {
+        throwOnError: false,
+        displayMode: false,
+        output: 'html',
+        strict: false
+      });
+    } catch (error) {
+      console.error('LaTeX rendering error:', error);
+      return `<span style="color: red;">LaTeX error: ${latex}</span>`;
+    }
+  };
+
   const startTextEditing = (shapeId: string) => {
     const shape = shapes.find(s => s.id === shapeId);
-    if (shape && shape.type === 'text') {
+    if (shape && (shape.type === 'text' || shape.type === 'latex')) {
       setShapes(shapes.map(s => ({
         ...s,
         isEditing: s.id === shapeId,
         isSelected: s.id === shapeId
       })));
       setSelectedId(shapeId);
-      setTempText(shape.text || '');
+      setTempText(shape.text || shape.latex || '');
       setEditingTextId(shapeId);
       setIsTextChanged(false);
       
@@ -253,17 +317,31 @@ const App: React.FC = () => {
       const updatedShapes = shapes.map(s => {
         if (s.id === editingTextId) {
           const finalText = tempText || 'Text';
-          const lineHeight = s.fontSize || fontSize;
-          const lines = finalText.split('\n').length || 1;
-          const newHeight = Math.max(lines * lineHeight * 1.2, 50);
           
-          const updatedShape = {
-            ...s,
-            text: finalText,
-            isEditing: false,
-            height: newHeight
-          };
-          return updatedShape;
+          if (s.type === 'latex') {
+            const renderedLatex = renderLatexToHtml(finalText);
+            const updatedShape = {
+              ...s,
+              latex: finalText,
+              latexRendered: renderedLatex,
+              isEditing: false,
+              text: '',
+              height: Math.max(s.fontSize || fontSize, 50)
+            };
+            return updatedShape;
+          } else {
+            const lineHeight = s.fontSize || fontSize;
+            const lines = finalText.split('\n').length || 1;
+            const newHeight = Math.max(lines * lineHeight * 1.2, 50);
+            
+            const updatedShape = {
+              ...s,
+              text: finalText,
+              isEditing: false,
+              height: newHeight
+            };
+            return updatedShape;
+          }
         }
         return { ...s, isEditing: false, isSelected: false };
       });
@@ -284,7 +362,7 @@ const App: React.FC = () => {
   const updateSelectedTextProperty = (property: keyof Shape, value: any) => {
     if (selectedId) {
       const updatedShapes = shapes.map(s => {
-        if (s.id === selectedId && s.type === 'text') {
+        if (s.id === selectedId && (s.type === 'text' || s.type === 'latex')) {
           const updatedShape = { ...s, [property]: value };
           
           if (property === 'fontWeight' || property === 'fontStyle') {
@@ -292,6 +370,11 @@ const App: React.FC = () => {
             const fontStyle = property === 'fontStyle' ? value : (s.fontStyle || 'normal');
             updatedShape.fontWeight = fontWeight;
             updatedShape.fontStyle = fontStyle;
+          }
+          
+          if (s.type === 'latex' && (property === 'stroke' || property === 'fontSize')) {
+            const renderedLatex = renderLatexToHtml(s.latex || '');
+            updatedShape.latexRendered = renderedLatex;
           }
           
           return updatedShape;
@@ -312,14 +395,29 @@ const App: React.FC = () => {
         if (s.id === editingTextId) {
           const updatedShape = { ...s, text: newText };
           
-          const lineHeight = updatedShape.fontSize || fontSize;
-          const lines = newText.split('\n').length || 1;
-          const newHeight = Math.max(lines * lineHeight * 1.2, 50);
-          
-          return { 
-            ...updatedShape, 
-            height: newHeight 
-          };
+          if (s.type === 'latex') {
+            updatedShape.latex = newText;
+            const renderedLatex = renderLatexToHtml(newText);
+            updatedShape.latexRendered = renderedLatex;
+            
+            const lineHeight = updatedShape.fontSize || fontSize;
+            const lines = newText.split('\n').length || 1;
+            const newHeight = Math.max(lines * lineHeight * 1.2, 50);
+            
+            return { 
+              ...updatedShape, 
+              height: newHeight 
+            };
+          } else {
+            const lineHeight = updatedShape.fontSize || fontSize;
+            const lines = newText.split('\n').length || 1;
+            const newHeight = Math.max(lines * lineHeight * 1.2, 50);
+            
+            return { 
+              ...updatedShape, 
+              height: newHeight 
+            };
+          }
         }
         return s;
       });
@@ -409,6 +507,78 @@ const App: React.FC = () => {
     }
   };
 
+  const insertLatexSymbol = (latex: string) => {
+    if (textAreaRef.current && editingTextId) {
+      const textarea = textAreaRef.current;
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      
+      let insertPosition = start;
+      let newText = latex;
+      
+      if (latex.includes('\\left') && latex.includes('\\right')) {
+        const leftIndex = latex.indexOf('\\right');
+        if (leftIndex !== -1) {
+          insertPosition = start + leftIndex - 1;
+        }
+      }
+      else if (latex.includes('_{}^{}')) {
+        const firstBrace = latex.indexOf('_{}');
+        if (firstBrace !== -1) {
+          insertPosition = start + firstBrace + 2;
+        }
+      }
+      else if (latex.includes('^{}')) {
+        const braceIndex = latex.indexOf('^{}');
+        if (braceIndex !== -1) {
+          insertPosition = start + braceIndex + 2;
+        }
+      }
+      else if (latex.includes('_{}')) {
+        const braceIndex = latex.indexOf('_{}');
+        if (braceIndex !== -1) {
+          insertPosition = start + braceIndex + 2;
+        }
+      }
+      else if (latex.includes('\\frac{}{}')) {
+        const firstBrace = latex.indexOf('\\frac{') + 6;
+        if (firstBrace !== -1) {
+          insertPosition = start + firstBrace;
+        }
+      }
+      else if (latex.includes('\\sqrt[]{}')) {
+        const braceIndex = latex.indexOf('\\sqrt[]{}') + 7;
+        if (braceIndex !== -1) {
+          insertPosition = start + braceIndex;
+        }
+      }
+      else if (latex.includes('{}')) {
+        const braceIndex = latex.indexOf('{}');
+        if (braceIndex !== -1) {
+          insertPosition = start + braceIndex + 1;
+        }
+      }
+      
+      const currentText = textarea.value;
+      const textBefore = currentText.substring(0, start);
+      const textAfter = currentText.substring(end);
+      
+      const updatedText = textBefore + newText + textAfter;
+      updateTextInRealTime(updatedText);
+      
+      setTimeout(() => {
+        if (textAreaRef.current) {
+          textAreaRef.current.focus();
+          textAreaRef.current.setSelectionRange(
+            start + insertPosition,
+            start + insertPosition
+          );
+        }
+      }, 0);
+    }
+    setShowLatexMenu(false);
+  };
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Shift') setShiftPressed(true);
@@ -467,7 +637,6 @@ const App: React.FC = () => {
     const pos = stage.getPointerPosition();
     
     if (editingTextId && e.target === stage) {
-      // Завершаем редактирование текста при клике вне текстового поля
       finishTextEditing();
       return;
     }
@@ -522,21 +691,24 @@ const App: React.FC = () => {
         setShapes(shapes.map(shape => ({ ...shape, isSelected: false, isEditing: false })));
       }
       
-      if (tool === 'text') {
+      if (tool === 'text' || tool === 'latex') {
         if (editingTextId) {
           finishTextEditing();
         }
         
+        const isLatex = tool === 'latex';
         const newTextShape: Shape = {
-          id: `text_${Date.now()}`,
-          type: 'text',
+          id: `${isLatex ? 'latex' : 'text'}_${Date.now()}`,
+          type: isLatex ? 'latex' : 'text',
           x: pos.x,
           y: pos.y,
-          width: 200,
-          height: 50, 
+          width: isLatex ? 300 : 200,
+          height: isLatex ? 80 : 50,
           stroke: strokeColor,
           strokeWidth: 1,
-          text: 'Text',
+          text: isLatex ? '' : 'Text',
+          latex: isLatex ? 'E = mc^2' : undefined,
+          latexRendered: isLatex ? renderLatexToHtml('E = mc^2') : undefined,
           fontSize: fontSize,
           fontFamily: fontFamily,
           textAlign: textAlign,
@@ -544,7 +716,8 @@ const App: React.FC = () => {
           fontStyle: 'normal',
           textDecoration: 'none',
           isSelected: true,
-          isEditing: false 
+          isEditing: false,
+          isLatex: isLatex
         };
         
         const newShapes = [...shapes, newTextShape];
@@ -555,7 +728,7 @@ const App: React.FC = () => {
           startTextEditing(newTextShape.id);
         }, 10);
       }
-      else if (!['select', 'text'].includes(tool)) {
+      else if (!['select', 'text', 'latex'].includes(tool)) {
         setDrawingState({
           isDrawing: true,
           startX: pos.x,
@@ -589,12 +762,12 @@ const App: React.FC = () => {
         
         setSelectedId(targetId);
         
-        if (shape.type === 'text' && e.evt.detail === 2) {
+        if ((shape.type === 'text' || shape.type === 'latex') && e.evt.detail === 2) {
           startTextEditing(targetId);
           return;
         }
         
-        if (shape.type === 'text') {
+        if (shape.type === 'text' || shape.type === 'latex') {
           setIsDragging(true);
           setDragStart({ x: pos.x, y: pos.y });
           setSelectedShapeStart({ x: shape.x, y: shape.y });
@@ -612,13 +785,13 @@ const App: React.FC = () => {
         setShapes(shapes.map(s => ({
           ...s,
           isSelected: s.id === targetId,
-          isEditing: false 
+          isEditing: false
         })));
       }
       return;
     }
     
-    if (!['select', 'text'].includes(tool)) {
+    if (!['select', 'text', 'latex'].includes(tool)) {
       setDrawingState({
         isDrawing: true,
         startX: pos.x,
@@ -993,6 +1166,10 @@ const App: React.FC = () => {
     }
     
     return allShapes.map((shape) => {
+      if (shape.type === 'latex' && !shape.isEditing) {
+        return null;
+      }
+      
       const shapeOpacity = shape.opacity !== undefined ? shape.opacity : 1;
       const strokeColorWithOpacity = shape.stroke === '#ffffff' 
         ? '#ffffff'
@@ -1001,9 +1178,9 @@ const App: React.FC = () => {
       const commonProps = {
         key: shape.id,
         id: shape.id,
-        stroke: shape.type === 'text' ? undefined : strokeColorWithOpacity,
-        strokeWidth: shape.type === 'text' ? undefined : shape.strokeWidth,
-        fill: shape.type === 'text' ? shape.stroke : undefined,
+        stroke: shape.type === 'text' || shape.type === 'latex' ? undefined : strokeColorWithOpacity,
+        strokeWidth: shape.type === 'text' || shape.type === 'latex' ? undefined : shape.strokeWidth,
+        fill: shape.type === 'text' || shape.type === 'latex' ? shape.stroke : undefined,
       };
       
       switch (shape.type) {
@@ -1060,7 +1237,6 @@ const App: React.FC = () => {
           );
         
         case 'text':
-          // Если текст в режиме редактирования - не рендерим его как Konva.Text
           if (shape.isEditing) {
             return null;
           }
@@ -1099,6 +1275,63 @@ const App: React.FC = () => {
           return null;
       }
     });
+  };
+
+  const renderLatexShapes = () => {
+    return shapes
+      .filter(shape => shape.type === 'latex' && !shape.isEditing)
+      .map((shape) => {
+        const stage = stageRef.current;
+        if (!stage) return null;
+        
+        const containerRect = stage.container().getBoundingClientRect();
+        const scaleX = stage.width() / stage.width();
+        const scaleY = stage.height() / stage.height();
+        
+        const latexX = shape.width >= 0 ? shape.x : shape.x + shape.width;
+        const latexY = shape.height >= 0 ? shape.y : shape.y + shape.height;
+        const latexWidth = Math.abs(shape.width);
+        const latexHeight = Math.abs(shape.height);
+        
+        const x = latexX * scaleX + containerRect.left;
+        const y = latexY * scaleY + containerRect.top;
+        const width = Math.max(latexWidth * scaleX, 100);
+        const height = Math.max(latexHeight * scaleY, 50);
+        
+        return (
+          <div
+            key={shape.id}
+            style={{
+              position: 'fixed',
+              left: `${x}px`,
+              top: `${y}px`,
+              width: `${width}px`,
+              height: `${height}px`,
+              pointerEvents: 'none',
+              zIndex: 999,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+            onDoubleClick={() => startTextEditing(shape.id)}
+          >
+            <div
+              dangerouslySetInnerHTML={{ 
+                __html: shape.latexRendered || renderLatexToHtml(shape.latex || '') 
+              }}
+              style={{
+                fontSize: `${shape.fontSize || fontSize}px`,
+                color: shape.stroke,
+                transform: 'scale(1)',
+                pointerEvents: 'auto',
+                cursor: 'pointer',
+                textAlign: 'center',
+                lineHeight: 'normal',
+              }}
+            />
+          </div>
+        );
+      });
   };
 
   const renderSelection = () => {
@@ -1221,7 +1454,7 @@ const App: React.FC = () => {
     if (!editingTextId) return null;
     
     const shape = shapes.find(s => s.id === editingTextId);
-    if (!shape || shape.type !== 'text') return null;
+    if (!shape || (shape.type !== 'text' && shape.type !== 'latex')) return null;
     
     const stage = stageRef.current;
     if (!stage) return null;
@@ -1230,7 +1463,6 @@ const App: React.FC = () => {
     const scaleX = stage.width() / stage.width();
     const scaleY = stage.height() / stage.height();
     
-    // Используем те же вычисления, что и для рендеринга текста
     const textX = shape.width >= 0 ? shape.x : shape.x + shape.width;
     const textY = shape.height >= 0 ? shape.y : shape.y + shape.height;
     
@@ -1250,15 +1482,15 @@ const App: React.FC = () => {
       width: `${width}px`,
       height: `${height}px`,
       fontSize: `${shape.fontSize || fontSize}px`,
-      fontFamily: shape.fontFamily || fontFamily,
+      fontFamily: shape.type === 'latex' ? 'KaTeX_Main, Times New Roman, serif' : (shape.fontFamily || fontFamily),
       textAlign: shape.textAlign || textAlign,
       color: shape.stroke,
-      backgroundColor: 'transparent',
-      border: '1px dashed #007bff',
+      backgroundColor: 'rgba(255, 255, 255, 0.9)',
+      border: shape.type === 'latex' ? '2px solid #4CAF50' : '1px dashed #007bff',
       outline: 'none',
-      resize: 'none',
-      overflow: 'hidden',
-      padding: '2px',
+      resize: 'both',
+      overflow: 'auto',
+      padding: '4px',
       zIndex: 1000,
       lineHeight: '1.2',
       whiteSpace: 'pre-wrap',
@@ -1266,9 +1498,89 @@ const App: React.FC = () => {
       fontWeight: fontWeight === 'bold' ? 'bold' : 'normal',
       fontStyle: fontStyle === 'italic' ? 'italic' : 'normal',
       textDecoration: textDecoration,
-      background: 'none',
-      backdropFilter: 'none',
+      backdropFilter: 'blur(2px)',
     };
+    
+    if (shape.type === 'latex') {
+      return (
+        <div style={{
+          position: 'fixed',
+          left: `${x}px`,
+          top: `${y - 100}px`,
+          width: `${width}px`,
+          zIndex: 1001,
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            border: '1px solid #ccc',
+            borderRadius: '4px',
+            padding: '8px',
+            marginBottom: '5px',
+            boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+          }}>
+            <div style={{ fontSize: '12px', color: '#666', marginBottom: '5px' }}>
+              Ввод LaTeX формулы (поддерживается большинство команд LaTeX)
+            </div>
+            <div 
+              dangerouslySetInnerHTML={{ __html: renderLatexToHtml(tempText || '') }}
+              style={{
+                fontSize: `${shape.fontSize || fontSize}px`,
+                color: shape.stroke,
+                textAlign: 'center',
+                padding: '5px',
+                backgroundColor: '#f5f5f5',
+                borderRadius: '3px',
+                minHeight: '40px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            />
+          </div>
+          <textarea
+            ref={textAreaRef}
+            value={tempText}
+            onChange={(e) => updateTextInRealTime(e.target.value)}
+            onBlur={() => finishTextEditing()}
+            style={textareaStyle}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                finishTextEditing();
+              }
+              if (e.key === 'Enter' && e.ctrlKey) {
+                finishTextEditing();
+              }
+              if (e.key === 'Tab') {
+                e.preventDefault();
+                const textarea = e.target as HTMLTextAreaElement;
+                const start = textarea.selectionStart;
+                const end = textarea.selectionEnd;
+                const text = textarea.value;
+                
+                const pairs: { [key: string]: string } = {
+                  '(': ')',
+                  '[': ']',
+                  '{': '}',
+                  '|': '|',
+                  '\\': '\\',
+                };
+                
+                const charBefore = text.substring(start - 1, start);
+                if (pairs[charBefore]) {
+                  const newText = text.substring(0, start) + pairs[charBefore] + text.substring(end);
+                  updateTextInRealTime(newText);
+                  setTimeout(() => {
+                    textarea.setSelectionRange(start, start);
+                  }, 0);
+                }
+              }
+            }}
+            autoFocus
+            placeholder="Введите LaTeX формулу (например: \frac{a}{b} или \sqrt{x^2 + y^2})"
+          />
+        </div>
+      );
+    }
     
     return (
       <textarea
@@ -1294,7 +1606,7 @@ const App: React.FC = () => {
     if (tool !== 'select' || !selectedId) return null;
     
     const selectedShape = shapes.find(s => s.id === selectedId);
-    if (!selectedShape || selectedShape.type !== 'text') return null;
+    if (!selectedShape || (selectedShape.type !== 'text' && selectedShape.type !== 'latex')) return null;
     
     if (editingTextId) return null;
     
@@ -1316,7 +1628,7 @@ const App: React.FC = () => {
     const x = textX * scaleX + containerRect.left;
     const y = realY * scaleY + containerRect.top;
     
-    const panelHeight = 40;
+    const panelHeight = selectedShape.type === 'latex' ? 100 : 40;
     const panelWidth = 1000;
     
     const offset = 20;
@@ -1339,6 +1651,10 @@ const App: React.FC = () => {
     const isUnderline = selectedShape.textDecoration?.includes('underline') || false;
     const isStrikethrough = selectedShape.textDecoration?.includes('line-through') || false;
     
+    const filteredSymbols = selectedLatexCategory === 'all' 
+      ? latexSymbols 
+      : latexSymbols.filter(sym => sym.category === selectedLatexCategory);
+    
     return (
       <div 
         style={{
@@ -1346,196 +1662,354 @@ const App: React.FC = () => {
           left: `${left}px`,
           top: `${top}px`,
           width: `${panelWidth}px`,
-          height: `${panelHeight}px`,
           backgroundColor: 'white',
           border: '1px solid #ccc',
           borderRadius: '4px',
           padding: '5px 10px',
           display: 'flex',
+          flexDirection: 'column',
           gap: '8px',
-          alignItems: 'center',
           boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
           zIndex: 1001,
         }}
       >
-        <label style={{ 
-          fontSize: '14px', 
-          fontWeight: 'bold', 
-          marginRight: '3px',
-          whiteSpace: 'nowrap' 
-        }}>
-          Font:
-        </label>
-        <select
-          className="form-select form-select-sm"
-          value={selectedShape.fontFamily || fontFamily}
-          onChange={(e) => updateSelectedTextProperty('fontFamily', e.target.value)}
-          style={{ width: '130px', height: '30px' }}
-        >
-          <option value="Arial">Arial</option>
-          <option value="Times New Roman">Times New Roman</option>
-          <option value="Courier New">Courier New</option>
-          <option value="Verdana">Verdana</option>
-          <option value="Georgia">Georgia</option>
-          <option value="Comic Sans MS">Comic Sans MS</option>
-        </select>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <label style={{ 
+            fontSize: '14px', 
+            fontWeight: 'bold', 
+            marginRight: '3px',
+            whiteSpace: 'nowrap' 
+          }}>
+            {selectedShape.type === 'latex' ? 'LaTeX Formula' : 'Font'}:
+          </label>
+          
+          {selectedShape.type === 'text' ? (
+            <>
+              <select
+                className="form-select form-select-sm"
+                value={selectedShape.fontFamily || fontFamily}
+                onChange={(e) => updateSelectedTextProperty('fontFamily', e.target.value)}
+                style={{ width: '130px', height: '30px' }}
+              >
+                <option value="Arial">Arial</option>
+                <option value="Times New Roman">Times New Roman</option>
+                <option value="Courier New">Courier New</option>
+                <option value="Verdana">Verdana</option>
+                <option value="Georgia">Georgia</option>
+                <option value="Comic Sans MS">Comic Sans MS</option>
+              </select>
+              
+              <label style={{ 
+                fontSize: '14px', 
+                fontWeight: 'bold', 
+                marginLeft: '3px',
+                whiteSpace: 'nowrap' 
+              }}>
+                Size:
+              </label>
+              <input
+                type="range"
+                className="form-range"
+                min="8"
+                max="72"
+                step="1"
+                value={selectedShape.fontSize || fontSize}
+                onChange={(e) => updateSelectedTextProperty('fontSize', +e.target.value)}
+                style={{ width: '100px' }}
+              />
+              <span style={{ 
+                fontSize: '14px', 
+                minWidth: '40px', 
+                whiteSpace: 'nowrap',
+                marginRight: '3px'
+              }}>
+                {selectedShape.fontSize || fontSize}px
+              </span>
+            </>
+          ) : (
+            <span style={{ 
+              fontSize: '14px', 
+              color: '#4CAF50',
+              fontWeight: 'bold',
+              padding: '4px 8px',
+              backgroundColor: '#f0f9f0',
+              borderRadius: '4px',
+            }}>
+              LaTeX Formula Editor
+            </span>
+          )}
+          
+          {selectedShape.type === 'text' && (
+            <>
+              <button
+                type="button"
+                className={`btn btn-sm ${isBold ? 'btn-primary' : 'btn-outline-secondary'}`}
+                onClick={toggleBold}
+                style={{ 
+                  height: '30px',
+                  width: '30px',
+                  padding: '0',
+                  fontWeight: 'bold',
+                  fontSize: '14px',
+                  backgroundColor: isBold ? '#007bff' : 'transparent',
+                  color: isBold ? 'white' : '#6c757d',
+                  border: `1px solid ${isBold ? '#007bff' : '#6c757d'}`
+                }}
+                title="Жирный (Ctrl+B)"
+              >
+                B
+              </button>
+              
+              <button
+                type="button"
+                className={`btn btn-sm ${isItalic ? 'btn-primary' : 'btn-outline-secondary'}`}
+                onClick={toggleItalic}
+                style={{ 
+                  height: '30px',
+                  width: '30px',
+                  padding: '0',
+                  fontStyle: 'italic',
+                  fontSize: '14px',
+                  backgroundColor: isItalic ? '#007bff' : 'transparent',
+                  color: isItalic ? 'white' : '#6c757d',
+                  border: `1px solid ${isItalic ? '#007bff' : '#6c757d'}`
+                }}
+                title="Курсив (Ctrl+I)"
+              >
+                I
+              </button>
+              
+              <button
+                type="button"
+                className={`btn btn-sm ${isUnderline ? 'btn-primary' : 'btn-outside-secondary'}`}
+                onClick={toggleUnderline}
+                style={{ 
+                  height: '30px',
+                  width: '30px',
+                  padding: '0',
+                  textDecoration: 'underline',
+                  fontSize: '14px',
+                  backgroundColor: isUnderline ? '#007bff' : 'transparent',
+                  color: isUnderline ? 'white' : '#6c757d',
+                  border: `1px solid ${isUnderline ? '#007bff' : '#6c757d'}`
+                }}
+                title="Подчеркнутый (Ctrl+U)"
+              >
+                U
+              </button>
+              
+              <button
+                type="button"
+                className={`btn btn-sm ${isStrikethrough ? 'btn-primary' : 'btn-outside-secondary'}`}
+                onClick={toggleStrikethrough}
+                style={{ 
+                  height: '30px',
+                  width: '30px',
+                  padding: '0',
+                  textDecoration: 'line-through',
+                  fontSize: '14px',
+                  backgroundColor: isStrikethrough ? '#007bff' : 'transparent',
+                  color: isStrikethrough ? 'white' : '#6c757d',
+                  border: `1px solid ${isStrikethrough ? '#007bff' : '#6c757d'}`
+                }}
+                title="Зачеркнутый"
+              >
+                S
+              </button>
+            </>
+          )}
+          
+          <label style={{ 
+            fontSize: '14px', 
+            fontWeight: 'bold', 
+            marginLeft: '5px',
+            whiteSpace: 'nowrap' 
+          }}>
+            {selectedShape.type === 'text' ? 'Align:' : 'Text Align:'}
+          </label>
+          <select
+            className="form-select form-select-sm"
+            value={selectedShape.textAlign || textAlign}
+            onChange={(e) => updateSelectedTextProperty('textAlign', e.target.value)}
+            style={{ width: '80px', height: '30px' }}
+          >
+            <option value="left">Left</option>
+            <option value="center">Center</option>
+            <option value="right">Right</option>
+          </select>
+          
+          <label style={{ 
+            fontSize: '14px', 
+            fontWeight: 'bold', 
+            marginLeft: '5px',
+            whiteSpace: 'nowrap' 
+          }}>
+            Color:
+          </label>
+          <input
+            type="color"
+            value={selectedShape.stroke || strokeColor}
+            onChange={(e) => updateSelectedTextProperty('stroke', e.target.value)}
+            style={{ 
+              width: '30px', 
+              height: '30px', 
+              cursor: 'pointer',
+              marginRight: '3px'
+            }}
+          />
+          
+          <button
+            type="button"
+            className="btn btn-sm btn-outline-secondary"
+            onClick={() => startTextEditing(selectedId)}
+            style={{ 
+              height: '30px',
+              whiteSpace: 'nowrap',
+              padding: '0 12px',
+              fontSize: '14px',
+              marginLeft: '5px'
+            }}
+          >
+            {selectedShape.type === 'latex' ? 'Edit LaTeX' : 'Edit Text'}
+          </button>
+          
+          {editingTextId && (
+            <div style={{ position: 'relative', display: 'inline-block' }}>
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-success"
+                onClick={() => setShowLatexMenu(!showLatexMenu)}
+                style={{ 
+                  height: '30px',
+                  whiteSpace: 'nowrap',
+                  padding: '0 12px',
+                  fontSize: '14px',
+                  marginLeft: '5px'
+                }}
+              >
+                LaTeX Symbols
+              </button>
+              
+              {showLatexMenu && (
+                <div style={{
+                  position: 'absolute',
+                  top: '100%',
+                  left: 0,
+                  backgroundColor: 'white',
+                  border: '1px solid #ccc',
+                  borderRadius: '4px',
+                  padding: '10px',
+                  zIndex: 1002,
+                  width: '400px',
+                  maxHeight: '400px',
+                  overflow: 'auto',
+                  boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+                }}>
+                  <div style={{ 
+                    display: 'flex', 
+                    gap: '5px', 
+                    marginBottom: '10px',
+                    flexWrap: 'wrap' 
+                  }}>
+                    {latexCategories.map(cat => (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        className={`btn btn-sm ${selectedLatexCategory === cat.id ? 'btn-primary' : 'btn-outline-secondary'}`}
+                        onClick={() => setSelectedLatexCategory(cat.id)}
+                        style={{ 
+                          padding: '2px 8px',
+                          fontSize: '12px',
+                        }}
+                      >
+                        {cat.name}
+                      </button>
+                    ))}
+                  </div>
+                  
+                  <div style={{ 
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+                    gap: '8px',
+                  }}>
+                    {filteredSymbols.map(symbol => (
+                      <button
+                        key={symbol.name}
+                        type="button"
+                        className="btn btn-sm btn-outline-info"
+                        onClick={() => insertLatexSymbol(symbol.latex)}
+                        style={{ 
+                          padding: '6px 8px',
+                          fontSize: '12px',
+                          textAlign: 'left',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'flex-start',
+                          justifyContent: 'center',
+                          height: 'auto',
+                          minHeight: '60px',
+                        }}
+                        title={symbol.description}
+                      >
+                        <div style={{ 
+                          fontWeight: 'bold',
+                          marginBottom: '2px',
+                          fontSize: '11px',
+                        }}>
+                          {symbol.name}
+                        </div>
+                        <div style={{ 
+                          fontSize: '10px',
+                          color: '#666',
+                          fontFamily: 'monospace',
+                          wordBreak: 'break-all',
+                        }}>
+                          {symbol.latex}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                  
+                  <div style={{ 
+                    marginTop: '10px',
+                    padding: '8px',
+                    backgroundColor: '#f8f9fa',
+                    borderRadius: '4px',
+                    fontSize: '11px',
+                    color: '#666',
+                    borderTop: '1px solid #eee',
+                  }}>
+                    <strong>Совет:</strong> Нажмите на символ, чтобы вставить его в формулу. Курсор автоматически поместится в нужное место.
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
         
-        <label style={{ 
-          fontSize: '14px', 
-          fontWeight: 'bold', 
-          marginLeft: '3px',
-          whiteSpace: 'nowrap' 
-        }}>
-          Size:
-        </label>
-        <input
-          type="range"
-          className="form-range"
-          min="8"
-          max="72"
-          step="1"
-          value={selectedShape.fontSize || fontSize}
-          onChange={(e) => updateSelectedTextProperty('fontSize', +e.target.value)}
-          style={{ width: '100px' }}
-        />
-        <span style={{ 
-          fontSize: '14px', 
-          minWidth: '40px', 
-          whiteSpace: 'nowrap',
-          marginRight: '3px'
-        }}>
-          {selectedShape.fontSize || fontSize}px
-        </span>
-        
-        <button
-          type="button"
-          className={`btn btn-sm ${isBold ? 'btn-primary' : 'btn-outline-secondary'}`}
-          onClick={toggleBold}
-          style={{ 
-            height: '30px',
-            width: '30px',
-            padding: '0',
-            fontWeight: 'bold',
-            fontSize: '14px',
-            backgroundColor: isBold ? '#007bff' : 'transparent',
-            color: isBold ? 'white' : '#6c757d',
-            border: `1px solid ${isBold ? '#007bff' : '#6c757d'}`
-          }}
-          title="Жирный (Ctrl+B)"
-        >
-          B
-        </button>
-        
-        <button
-          type="button"
-          className={`btn btn-sm ${isItalic ? 'btn-primary' : 'btn-outline-secondary'}`}
-          onClick={toggleItalic}
-          style={{ 
-            height: '30px',
-            width: '30px',
-            padding: '0',
-            fontStyle: 'italic',
-            fontSize: '14px',
-            backgroundColor: isItalic ? '#007bff' : 'transparent',
-            color: isItalic ? 'white' : '#6c757d',
-            border: `1px solid ${isItalic ? '#007bff' : '#6c757d'}`
-          }}
-          title="Курсив (Ctrl+I)"
-        >
-          I
-        </button>
-        
-        <button
-          type="button"
-          className={`btn btn-sm ${isUnderline ? 'btn-primary' : 'btn-outside-secondary'}`}
-          onClick={toggleUnderline}
-          style={{ 
-            height: '30px',
-            width: '30px',
-            padding: '0',
-            textDecoration: 'underline',
-            fontSize: '14px',
-            backgroundColor: isUnderline ? '#007bff' : 'transparent',
-            color: isUnderline ? 'white' : '#6c757d',
-            border: `1px solid ${isUnderline ? '#007bff' : '#6c757d'}`
-          }}
-          title="Подчеркнутый (Ctrl+U)"
-        >
-          U
-        </button>
-        
-        <button
-          type="button"
-          className={`btn btn-sm ${isStrikethrough ? 'btn-primary' : 'btn-outside-secondary'}`}
-          onClick={toggleStrikethrough}
-          style={{ 
-            height: '30px',
-            width: '30px',
-            padding: '0',
-            textDecoration: 'line-through',
-            fontSize: '14px',
-            backgroundColor: isStrikethrough ? '#007bff' : 'transparent',
-            color: isStrikethrough ? 'white' : '#6c757d',
-            border: `1px solid ${isStrikethrough ? '#007bff' : '#6c757d'}`
-          }}
-          title="Зачеркнутый"
-        >
-          S
-        </button>
-        
-        <label style={{ 
-          fontSize: '14px', 
-          fontWeight: 'bold', 
-          marginLeft: '5px',
-          whiteSpace: 'nowrap' 
-        }}>
-          Align:
-        </label>
-        <select
-          className="form-select form-select-sm"
-          value={selectedShape.textAlign || textAlign}
-          onChange={(e) => updateSelectedTextProperty('textAlign', e.target.value)}
-          style={{ width: '80px', height: '30px' }}
-        >
-          <option value="left">Left</option>
-          <option value="center">Center</option>
-          <option value="right">Right</option>
-        </select>
-        
-        <label style={{ 
-          fontSize: '14px', 
-          fontWeight: 'bold', 
-          marginLeft: '5px',
-          whiteSpace: 'nowrap' 
-        }}>
-          Color:
-        </label>
-        <input
-          type="color"
-          value={selectedShape.stroke || strokeColor}
-          onChange={(e) => updateSelectedTextProperty('stroke', e.target.value)}
-          style={{ 
-            width: '30px', 
-            height: '30px', 
-            cursor: 'pointer',
-            marginRight: '3px'
-          }}
-        />
-        
-        <button
-          type="button"
-          className="btn btn-sm btn-outline-secondary"
-          onClick={() => startTextEditing(selectedId)}
-          style={{ 
-            height: '30px',
-            whiteSpace: 'nowrap',
-            padding: '0 12px',
-            fontSize: '14px',
-            marginLeft: '5px'
-          }}
-        >
-          Edit Text
-        </button>
+        {selectedShape.type === 'latex' && !editingTextId && (
+          <div style={{
+            marginTop: '5px',
+            padding: '8px',
+            backgroundColor: '#f8f9fa',
+            borderRadius: '4px',
+            border: '1px dashed #ccc',
+          }}>
+            <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#4CAF50', marginBottom: '5px' }}>
+              LaTeX Preview:
+            </div>
+            <div 
+              dangerouslySetInnerHTML={{ 
+                __html: selectedShape.latexRendered || renderLatexToHtml(selectedShape.latex || '') 
+              }}
+              style={{
+                fontSize: `${selectedShape.fontSize || fontSize}px`,
+                color: selectedShape.stroke,
+                textAlign: 'center',
+              }}
+            />
+          </div>
+        )}
       </div>
     );
   };
@@ -1678,6 +2152,24 @@ const App: React.FC = () => {
           Text
         </button>
         
+        <button
+          type="button"
+          className={`btn btn-sm ${tool === 'latex' ? 'btn-primary' : 'btn-outline-success'}`}
+          onClick={() => {
+            if (editingTextId) {
+              finishTextEditing();
+            }
+            setTool('latex');
+          }}
+          style={{ 
+            borderColor: '#4CAF50',
+            color: tool === 'latex' ? 'white' : '#4CAF50',
+            backgroundColor: tool === 'latex' ? '#4CAF50' : 'transparent',
+          }}
+        >
+          LaTeX Formula
+        </button>
+        
         <label htmlFor="width" className="form-label">
           Width
         </label>
@@ -1690,7 +2182,7 @@ const App: React.FC = () => {
           id="width"
           value={strokeWidth}
           onChange={(e) => setStrokeWidth(+e.target.value)}
-          disabled={tool === 'text'}
+          disabled={tool === 'text' || tool === 'latex'}
         />
       </div>
       <h1>Canvas</h1>
@@ -1712,6 +2204,7 @@ const App: React.FC = () => {
           </Layer>
         </Stage>
         {renderTextInput()}
+        {renderLatexShapes()}
       </div>
       {renderTextToolbar()}
     </div>
