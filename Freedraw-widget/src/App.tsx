@@ -1174,7 +1174,7 @@ const App: React.FC = () => {
     
     // Высота панели
     const panelHeight = 40;
-    const panelWidth = 500;
+    const panelWidth = 800; // ЕЩЁ УВЕЛИЧИЛИ ШИРИНУ С 700 ДО 850px
     
     // Позиционируем панель над текстом
     let top = y - panelHeight - 10;
@@ -1204,22 +1204,27 @@ const App: React.FC = () => {
           backgroundColor: 'white',
           border: '1px solid #ccc',
           borderRadius: '4px',
-          padding: '5px 10px',
+          padding: '5px 10px', // УМЕНЬШИЛИ PADDING ПО БОКАМ
           display: 'flex',
-          gap: '10px',
+          gap: '8px', // УМЕНЬШИЛИ GAP МЕЖДУ ЭЛЕМЕНТАМИ С 15px ДО 8px
           alignItems: 'center',
           boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
           zIndex: 1001,
         }}
       >
-        <label style={{ fontSize: '14px', fontWeight: 'bold', marginRight: '5px' }}>
+        <label style={{ 
+          fontSize: '14px', 
+          fontWeight: 'bold', 
+          marginRight: '3px', // УМЕНЬШИЛИ ОТСТУП
+          whiteSpace: 'nowrap' 
+        }}>
           Font:
         </label>
         <select
           className="form-select form-select-sm"
           value={selectedShape.fontFamily || fontFamily}
           onChange={(e) => updateSelectedTextProperty('fontFamily', e.target.value)}
-          style={{ width: '120px', height: '30px' }}
+          style={{ width: '150px', height: '30px' }} // УВЕЛИЧИЛИ ШИРИНУ
         >
           <option value="Arial">Arial</option>
           <option value="Times New Roman">Times New Roman</option>
@@ -1229,7 +1234,12 @@ const App: React.FC = () => {
           <option value="Comic Sans MS">Comic Sans MS</option>
         </select>
         
-        <label style={{ fontSize: '14px', fontWeight: 'bold', marginLeft: '10px' }}>
+        <label style={{ 
+          fontSize: '14px', 
+          fontWeight: 'bold', 
+          marginLeft: '3px', // УМЕНЬШИЛИ ОТСТУП
+          whiteSpace: 'nowrap' 
+        }}>
           Size:
         </label>
         <input
@@ -1240,41 +1250,67 @@ const App: React.FC = () => {
           step="1"
           value={selectedShape.fontSize || fontSize}
           onChange={(e) => updateSelectedTextProperty('fontSize', +e.target.value)}
-          style={{ width: '100px' }}
+          style={{ width: '130px' }} // УВЕЛИЧИЛИ ШИРИНУ
         />
-        <span style={{ fontSize: '14px', minWidth: '40px' }}>
+        <span style={{ 
+          fontSize: '14px', 
+          minWidth: '45px', 
+          whiteSpace: 'nowrap',
+          marginRight: '3px' // ДОБАВИЛИ ОТСТУП СПРАВА
+        }}>
           {selectedShape.fontSize || fontSize}px
         </span>
         
-        <label style={{ fontSize: '14px', fontWeight: 'bold', marginLeft: '10px' }}>
+        <label style={{ 
+          fontSize: '14px', 
+          fontWeight: 'bold', 
+          marginLeft: '3px', // УМЕНЬШИЛИ ОТСТУП
+          whiteSpace: 'nowrap' 
+        }}>
           Align:
         </label>
         <select
           className="form-select form-select-sm"
           value={selectedShape.textAlign || textAlign}
           onChange={(e) => updateSelectedTextProperty('textAlign', e.target.value)}
-          style={{ width: '80px', height: '30px' }}
+          style={{ width: '100px', height: '30px' }} // УВЕЛИЧИЛИ ШИРИНУ
         >
           <option value="left">Left</option>
           <option value="center">Center</option>
           <option value="right">Right</option>
         </select>
         
-        <label style={{ fontSize: '14px', fontWeight: 'bold', marginLeft: '10px' }}>
+        <label style={{ 
+          fontSize: '14px', 
+          fontWeight: 'bold', 
+          marginLeft: '3px', // УМЕНЬШИЛИ ОТСТУП
+          whiteSpace: 'nowrap' 
+        }}>
           Color:
         </label>
         <input
           type="color"
           value={selectedShape.stroke || strokeColor}
           onChange={(e) => updateSelectedTextProperty('stroke', e.target.value)}
-          style={{ width: '30px', height: '30px', cursor: 'pointer' }}
+          style={{ 
+            width: '35px', 
+            height: '35px', 
+            cursor: 'pointer',
+            marginRight: '3px' // ДОБАВИЛИ ОТСТУП СПРАВА
+          }}
         />
         
         <button
           type="button"
           className="btn btn-sm btn-outline-secondary"
           onClick={() => startTextEditing(selectedId)}
-          style={{ marginLeft: '10px', height: '30px' }}
+          style={{ 
+            height: '30px',
+            whiteSpace: 'nowrap',
+            padding: '0 12px',
+            fontSize: '14px',
+            marginLeft: '5px' // УМЕНЬШИЛИ ОТСТУП СЛЕВА
+          }}
         >
           Edit Text
         </button>
