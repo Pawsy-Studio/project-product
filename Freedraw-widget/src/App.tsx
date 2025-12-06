@@ -90,6 +90,7 @@ const App: React.FC = () => {
   const [historyIndex, setHistoryIndex] = useState(0);
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
   const [tempText, setTempText] = useState('');
+  const [isTextChanged, setIsTextChanged] = useState(false);
 
   const calculateBoundingBox = (points: number[]): { x: number, y: number, width: number, height: number } => {
     if (points.length === 0) return { x: 0, y: 0, width: 0, height: 0 };
@@ -237,6 +238,7 @@ const App: React.FC = () => {
       setSelectedId(shapeId);
       setTempText(shape.text || '');
       setEditingTextId(shapeId);
+      setIsTextChanged(false);
       
       // Фокус на текстовом поле после небольшой задержки
       setTimeout(() => {
@@ -249,9 +251,9 @@ const App: React.FC = () => {
   };
 
   // Функция для завершения редактирования текста
-  const finishTextEditing = () => {
+  const finishTextEditing = (saveToHistoryFlag: boolean = true) => {
     if (editingTextId) {
-      setShapes(shapes.map(s => {
+      const updatedShapes = shapes.map(s => {
         if (s.id === editingTextId) {
           const updatedShape = {
             ...s,
@@ -262,11 +264,18 @@ const App: React.FC = () => {
           return updatedShape;
         }
         return { ...s, isEditing: false };
-      }));
+      });
       
-      saveToHistory(shapes);
+      setShapes(updatedShapes);
+      
+      // Сохраняем в историю только если текст изменился
+      if (isTextChanged && saveToHistoryFlag) {
+        saveToHistory(updatedShapes);
+      }
+      
       setEditingTextId(null);
       setTempText('');
+      setIsTextChanged(false);
     }
   };
 
@@ -281,6 +290,23 @@ const App: React.FC = () => {
       });
       setShapes(updatedShapes);
       saveToHistory(updatedShapes);
+    }
+  };
+
+  // Обновление текста в реальном времени
+  const updateTextInRealTime = (newText: string) => {
+    if (editingTextId) {
+      setTempText(newText);
+      setIsTextChanged(true);
+      
+      // Обновляем текст в фигуре в реальном времени
+      const updatedShapes = shapes.map(s => {
+        if (s.id === editingTextId) {
+          return { ...s, text: newText };
+        }
+        return s;
+      });
+      setShapes(updatedShapes);
     }
   };
 
@@ -1106,8 +1132,8 @@ const App: React.FC = () => {
       <textarea
         ref={textAreaRef}
         value={tempText}
-        onChange={(e) => setTempText(e.target.value)}
-        onBlur={finishTextEditing}
+        onChange={(e) => updateTextInRealTime(e.target.value)}
+        onBlur={() => finishTextEditing()}
         style={{
           position: 'fixed',
           left: `${x}px`,
@@ -1174,7 +1200,7 @@ const App: React.FC = () => {
     
     // Высота панели
     const panelHeight = 40;
-    const panelWidth = 800; // ЕЩЁ УВЕЛИЧИЛИ ШИРИНУ С 700 ДО 850px
+    const panelWidth = 850;
     
     // Позиционируем панель над текстом
     let top = y - panelHeight - 10;
@@ -1204,9 +1230,9 @@ const App: React.FC = () => {
           backgroundColor: 'white',
           border: '1px solid #ccc',
           borderRadius: '4px',
-          padding: '5px 10px', // УМЕНЬШИЛИ PADDING ПО БОКАМ
+          padding: '5px 10px',
           display: 'flex',
-          gap: '8px', // УМЕНЬШИЛИ GAP МЕЖДУ ЭЛЕМЕНТАМИ С 15px ДО 8px
+          gap: '8px',
           alignItems: 'center',
           boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
           zIndex: 1001,
@@ -1215,7 +1241,7 @@ const App: React.FC = () => {
         <label style={{ 
           fontSize: '14px', 
           fontWeight: 'bold', 
-          marginRight: '3px', // УМЕНЬШИЛИ ОТСТУП
+          marginRight: '3px',
           whiteSpace: 'nowrap' 
         }}>
           Font:
@@ -1224,7 +1250,7 @@ const App: React.FC = () => {
           className="form-select form-select-sm"
           value={selectedShape.fontFamily || fontFamily}
           onChange={(e) => updateSelectedTextProperty('fontFamily', e.target.value)}
-          style={{ width: '150px', height: '30px' }} // УВЕЛИЧИЛИ ШИРИНУ
+          style={{ width: '150px', height: '30px' }}
         >
           <option value="Arial">Arial</option>
           <option value="Times New Roman">Times New Roman</option>
@@ -1237,7 +1263,7 @@ const App: React.FC = () => {
         <label style={{ 
           fontSize: '14px', 
           fontWeight: 'bold', 
-          marginLeft: '3px', // УМЕНЬШИЛИ ОТСТУП
+          marginLeft: '3px',
           whiteSpace: 'nowrap' 
         }}>
           Size:
@@ -1250,13 +1276,13 @@ const App: React.FC = () => {
           step="1"
           value={selectedShape.fontSize || fontSize}
           onChange={(e) => updateSelectedTextProperty('fontSize', +e.target.value)}
-          style={{ width: '130px' }} // УВЕЛИЧИЛИ ШИРИНУ
+          style={{ width: '130px' }}
         />
         <span style={{ 
           fontSize: '14px', 
           minWidth: '45px', 
           whiteSpace: 'nowrap',
-          marginRight: '3px' // ДОБАВИЛИ ОТСТУП СПРАВА
+          marginRight: '3px'
         }}>
           {selectedShape.fontSize || fontSize}px
         </span>
@@ -1264,7 +1290,7 @@ const App: React.FC = () => {
         <label style={{ 
           fontSize: '14px', 
           fontWeight: 'bold', 
-          marginLeft: '3px', // УМЕНЬШИЛИ ОТСТУП
+          marginLeft: '3px',
           whiteSpace: 'nowrap' 
         }}>
           Align:
@@ -1273,7 +1299,7 @@ const App: React.FC = () => {
           className="form-select form-select-sm"
           value={selectedShape.textAlign || textAlign}
           onChange={(e) => updateSelectedTextProperty('textAlign', e.target.value)}
-          style={{ width: '100px', height: '30px' }} // УВЕЛИЧИЛИ ШИРИНУ
+          style={{ width: '100px', height: '30px' }}
         >
           <option value="left">Left</option>
           <option value="center">Center</option>
@@ -1283,7 +1309,7 @@ const App: React.FC = () => {
         <label style={{ 
           fontSize: '14px', 
           fontWeight: 'bold', 
-          marginLeft: '3px', // УМЕНЬШИЛИ ОТСТУП
+          marginLeft: '3px',
           whiteSpace: 'nowrap' 
         }}>
           Color:
@@ -1296,7 +1322,7 @@ const App: React.FC = () => {
             width: '35px', 
             height: '35px', 
             cursor: 'pointer',
-            marginRight: '3px' // ДОБАВИЛИ ОТСТУП СПРАВА
+            marginRight: '3px'
           }}
         />
         
@@ -1309,7 +1335,7 @@ const App: React.FC = () => {
             whiteSpace: 'nowrap',
             padding: '0 12px',
             fontSize: '14px',
-            marginLeft: '5px' // УМЕНЬШИЛИ ОТСТУП СЛЕВА
+            marginLeft: '5px'
           }}
         >
           Edit Text
