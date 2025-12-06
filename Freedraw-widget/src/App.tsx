@@ -23,6 +23,9 @@ interface Shape {
   fontFamily?: string;
   textAlign?: TextAlign;
   isEditing?: boolean;
+  fontWeight?: 'normal' | 'bold';
+  fontStyle?: 'normal' | 'italic';
+  textDecoration?: 'none' | 'underline' | 'line-through' | 'underline line-through';
 }
 
 interface DrawingState {
@@ -284,7 +287,18 @@ const App: React.FC = () => {
     if (selectedId) {
       const updatedShapes = shapes.map(s => {
         if (s.id === selectedId && s.type === 'text') {
-          return { ...s, [property]: value };
+          // Принудительно создаем новый объект с обновленным свойством
+          const updatedShape = { ...s, [property]: value };
+          
+          // Для fontStyle формируем комбинированную строку
+          if (property === 'fontWeight' || property === 'fontStyle') {
+            const fontWeight = property === 'fontWeight' ? value : (s.fontWeight || 'normal');
+            const fontStyle = property === 'fontStyle' ? value : (s.fontStyle || 'normal');
+            updatedShape.fontWeight = fontWeight;
+            updatedShape.fontStyle = fontStyle;
+          }
+          
+          return updatedShape;
         }
         return s;
       });
@@ -310,6 +324,96 @@ const App: React.FC = () => {
     }
   };
 
+  // Функция для переключения жирного текста
+  const toggleBold = () => {
+    if (selectedId) {
+      const selectedShape = shapes.find(s => s.id === selectedId);
+      if (selectedShape && selectedShape.type === 'text') {
+        const newFontWeight = selectedShape.fontWeight === 'bold' ? 'normal' : 'bold';
+        updateSelectedTextProperty('fontWeight', newFontWeight);
+      }
+    }
+  };
+
+  // Функция для переключения курсивного текста
+  const toggleItalic = () => {
+    if (selectedId) {
+      const selectedShape = shapes.find(s => s.id === selectedId);
+      if (selectedShape && selectedShape.type === 'text') {
+        const newFontStyle = selectedShape.fontStyle === 'italic' ? 'normal' : 'italic';
+        updateSelectedTextProperty('fontStyle', newFontStyle);
+      }
+    }
+  };
+
+  // Функция для переключения подчеркнутого текста
+  const toggleUnderline = () => {
+    if (selectedId) {
+      const selectedShape = shapes.find(s => s.id === selectedId);
+      if (selectedShape && selectedShape.type === 'text') {
+        let newDecoration: 'none' | 'underline' | 'line-through' | 'underline line-through';
+        const currentDecoration = selectedShape.textDecoration || 'none';
+        
+        if (currentDecoration.includes('underline')) {
+          // Если уже есть подчеркивание, убираем его
+          if (currentDecoration === 'underline') {
+            newDecoration = 'none';
+          } else if (currentDecoration === 'underline line-through') {
+            newDecoration = 'line-through';
+          } else {
+            newDecoration = currentDecoration.replace('underline', '').trim() as any;
+            if (newDecoration === '') newDecoration = 'none';
+          }
+        } else {
+          // Если нет подчеркивания, добавляем его
+          if (currentDecoration === 'none') {
+            newDecoration = 'underline';
+          } else if (currentDecoration === 'line-through') {
+            newDecoration = 'underline line-through';
+          } else {
+            newDecoration = (currentDecoration + ' underline').trim() as any;
+          }
+        }
+        
+        updateSelectedTextProperty('textDecoration', newDecoration);
+      }
+    }
+  };
+
+  // Функция для переключения зачеркнутого текста
+  const toggleStrikethrough = () => {
+    if (selectedId) {
+      const selectedShape = shapes.find(s => s.id === selectedId);
+      if (selectedShape && selectedShape.type === 'text') {
+        let newDecoration: 'none' | 'underline' | 'line-through' | 'underline line-through';
+        const currentDecoration = selectedShape.textDecoration || 'none';
+        
+        if (currentDecoration.includes('line-through')) {
+          // Если уже есть зачеркивание, убираем его
+          if (currentDecoration === 'line-through') {
+            newDecoration = 'none';
+          } else if (currentDecoration === 'underline line-through') {
+            newDecoration = 'underline';
+          } else {
+            newDecoration = currentDecoration.replace('line-through', '').trim() as any;
+            if (newDecoration === '') newDecoration = 'none';
+          }
+        } else {
+          // Если нет зачеркивания, добавляем его
+          if (currentDecoration === 'none') {
+            newDecoration = 'line-through';
+          } else if (currentDecoration === 'underline') {
+            newDecoration = 'underline line-through';
+          } else {
+            newDecoration = (currentDecoration + ' line-through').trim() as any;
+          }
+        }
+        
+        updateSelectedTextProperty('textDecoration', newDecoration);
+      }
+    }
+  };
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Shift') setShiftPressed(true);
@@ -324,6 +428,26 @@ const App: React.FC = () => {
       if (e.key === 'Enter' && editingTextId && e.ctrlKey) {
         finishTextEditing();
       }
+      // Горячие клавиши для форматирования текста
+      if ((e.ctrlKey || e.metaKey) && selectedId) {
+        const selectedShape = shapes.find(s => s.id === selectedId);
+        if (selectedShape && selectedShape.type === 'text') {
+          switch (e.key) {
+            case 'b':
+              e.preventDefault();
+              toggleBold();
+              break;
+            case 'i':
+              e.preventDefault();
+              toggleItalic();
+              break;
+            case 'u':
+              e.preventDefault();
+              toggleUnderline();
+              break;
+          }
+        }
+      }
     };
     
     const handleKeyUp = (e: KeyboardEvent) => {
@@ -337,7 +461,14 @@ const App: React.FC = () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [selectedId, editingTextId, tempText]);
+  }, [selectedId, editingTextId, tempText, shapes]);
+
+  useEffect(() => {
+    // Скрываем тулбар при изменении инструмента или снятии выделения
+    if (tool !== 'select' || !selectedId) {
+      // Любая логика скрытия тулбара, если необходимо
+    }
+  }, [tool, selectedId]);
 
   const handleMouseDown = (e: any) => {
     const stage = e.target.getStage();
@@ -425,6 +556,9 @@ const App: React.FC = () => {
           fontSize: fontSize,
           fontFamily: fontFamily,
           textAlign: textAlign,
+          fontWeight: 'normal',
+          fontStyle: 'normal',
+          textDecoration: 'none',
           isSelected: true,
           isEditing: false // Сначала создаем, потом сразу редактируем
         };
@@ -969,6 +1103,14 @@ const App: React.FC = () => {
           const textWidth = Math.abs(shape.width);
           const textHeight = Math.abs(shape.height);
           
+          // Формируем стили для текста
+          const fontWeight = shape.fontWeight || 'normal';
+          const fontStyle = shape.fontStyle || 'normal';
+          const textDecoration = shape.textDecoration || 'none';
+          
+          // Формируем строку стиля шрифта
+          const fontStyleString = `${fontWeight === 'bold' ? 'bold' : ''} ${fontStyle === 'italic' ? 'italic' : ''}`.trim();
+          
           return (
             <Text
               {...commonProps}
@@ -982,6 +1124,8 @@ const App: React.FC = () => {
               align={shape.textAlign || textAlign}
               verticalAlign="top"
               wrap="word"
+              fontStyle={fontStyleString}
+              textDecoration={textDecoration}
               onDblClick={() => startTextEditing(shape.id)}
             />
           );
@@ -1128,33 +1272,45 @@ const App: React.FC = () => {
     const width = Math.max(Math.abs(shape.width) * scaleX, 100);
     const height = Math.max(Math.abs(shape.height) * scaleY, 40);
     
+    // Формируем стили для текста
+    const fontWeight = shape.fontWeight || 'normal';
+    const fontStyle = shape.fontStyle || 'normal';
+    const textDecoration = shape.textDecoration || 'none';
+    
+    const textareaStyle: React.CSSProperties = {
+      position: 'fixed',
+      left: `${x}px`,
+      top: `${y}px`,
+      width: `${width}px`,
+      height: `${height}px`,
+      fontSize: `${shape.fontSize || fontSize}px`,
+      fontFamily: shape.fontFamily || fontFamily,
+      textAlign: shape.textAlign || textAlign,
+      color: shape.stroke,
+      backgroundColor: 'transparent',
+      border: '1px dashed #007bff',
+      outline: 'none',
+      resize: 'none',
+      overflow: 'hidden',
+      padding: '2px',
+      zIndex: 1000,
+      lineHeight: '1.2',
+      whiteSpace: 'pre-wrap',
+      wordWrap: 'break-word',
+      fontWeight: fontWeight === 'bold' ? 'bold' : 'normal',
+      fontStyle: fontStyle === 'italic' ? 'italic' : 'normal',
+      textDecoration: textDecoration,
+      background: 'none',
+      backdropFilter: 'none',
+    };
+    
     return (
       <textarea
         ref={textAreaRef}
         value={tempText}
         onChange={(e) => updateTextInRealTime(e.target.value)}
         onBlur={() => finishTextEditing()}
-        style={{
-          position: 'fixed',
-          left: `${x}px`,
-          top: `${y}px`,
-          width: `${width}px`,
-          height: `${height}px`,
-          fontSize: `${shape.fontSize || fontSize}px`,
-          fontFamily: shape.fontFamily || fontFamily,
-          textAlign: shape.textAlign || textAlign,
-          color: shape.stroke,
-          backgroundColor: 'rgba(255, 255, 255, 0.9)',
-          border: '1px dashed #007bff',
-          outline: 'none',
-          resize: 'none',
-          overflow: 'hidden',
-          padding: '2px',
-          zIndex: 1000,
-          lineHeight: '1.2',
-          whiteSpace: 'pre-wrap',
-          wordWrap: 'break-word'
-        }}
+        style={textareaStyle}
         onKeyDown={(e) => {
           if (e.key === 'Escape') {
             finishTextEditing();
@@ -1200,7 +1356,7 @@ const App: React.FC = () => {
     
     // Высота панели
     const panelHeight = 40;
-    const panelWidth = 850;
+    const panelWidth = 1000; // Увеличили ширину для дополнительных кнопок
     
     // Позиционируем панель над текстом
     let top = y - panelHeight - 10;
@@ -1218,6 +1374,12 @@ const App: React.FC = () => {
     if (left < containerRect.left) {
       left = containerRect.left;
     }
+    
+    // Получаем текущие свойства форматирования
+    const isBold = selectedShape.fontWeight === 'bold';
+    const isItalic = selectedShape.fontStyle === 'italic';
+    const isUnderline = selectedShape.textDecoration?.includes('underline') || false;
+    const isStrikethrough = selectedShape.textDecoration?.includes('line-through') || false;
     
     return (
       <div 
@@ -1250,7 +1412,7 @@ const App: React.FC = () => {
           className="form-select form-select-sm"
           value={selectedShape.fontFamily || fontFamily}
           onChange={(e) => updateSelectedTextProperty('fontFamily', e.target.value)}
-          style={{ width: '150px', height: '30px' }}
+          style={{ width: '130px', height: '30px' }}
         >
           <option value="Arial">Arial</option>
           <option value="Times New Roman">Times New Roman</option>
@@ -1276,21 +1438,98 @@ const App: React.FC = () => {
           step="1"
           value={selectedShape.fontSize || fontSize}
           onChange={(e) => updateSelectedTextProperty('fontSize', +e.target.value)}
-          style={{ width: '130px' }}
+          style={{ width: '100px' }}
         />
         <span style={{ 
           fontSize: '14px', 
-          minWidth: '45px', 
+          minWidth: '40px', 
           whiteSpace: 'nowrap',
           marginRight: '3px'
         }}>
           {selectedShape.fontSize || fontSize}px
         </span>
         
+        {/* Кнопки форматирования текста */}
+        <button
+          type="button"
+          className={`btn btn-sm ${isBold ? 'btn-primary' : 'btn-outline-secondary'}`}
+          onClick={toggleBold}
+          style={{ 
+            height: '30px',
+            width: '30px',
+            padding: '0',
+            fontWeight: 'bold',
+            fontSize: '14px',
+            backgroundColor: isBold ? '#007bff' : 'transparent',
+            color: isBold ? 'white' : '#6c757d',
+            border: `1px solid ${isBold ? '#007bff' : '#6c757d'}`
+          }}
+          title="Жирный (Ctrl+B)"
+        >
+          B
+        </button>
+        
+        <button
+          type="button"
+          className={`btn btn-sm ${isItalic ? 'btn-primary' : 'btn-outline-secondary'}`}
+          onClick={toggleItalic}
+          style={{ 
+            height: '30px',
+            width: '30px',
+            padding: '0',
+            fontStyle: 'italic',
+            fontSize: '14px',
+            backgroundColor: isItalic ? '#007bff' : 'transparent',
+            color: isItalic ? 'white' : '#6c757d',
+            border: `1px solid ${isItalic ? '#007bff' : '#6c757d'}`
+          }}
+          title="Курсив (Ctrl+I)"
+        >
+          I
+        </button>
+        
+        <button
+          type="button"
+          className={`btn btn-sm ${isUnderline ? 'btn-primary' : 'btn-outside-secondary'}`}
+          onClick={toggleUnderline}
+          style={{ 
+            height: '30px',
+            width: '30px',
+            padding: '0',
+            textDecoration: 'underline',
+            fontSize: '14px',
+            backgroundColor: isUnderline ? '#007bff' : 'transparent',
+            color: isUnderline ? 'white' : '#6c757d',
+            border: `1px solid ${isUnderline ? '#007bff' : '#6c757d'}`
+          }}
+          title="Подчеркнутый (Ctrl+U)"
+        >
+          U
+        </button>
+        
+        <button
+          type="button"
+          className={`btn btn-sm ${isStrikethrough ? 'btn-primary' : 'btn-outside-secondary'}`}
+          onClick={toggleStrikethrough}
+          style={{ 
+            height: '30px',
+            width: '30px',
+            padding: '0',
+            textDecoration: 'line-through',
+            fontSize: '14px',
+            backgroundColor: isStrikethrough ? '#007bff' : 'transparent',
+            color: isStrikethrough ? 'white' : '#6c757d',
+            border: `1px solid ${isStrikethrough ? '#007bff' : '#6c757d'}`
+          }}
+          title="Зачеркнутый"
+        >
+          S
+        </button>
+        
         <label style={{ 
           fontSize: '14px', 
           fontWeight: 'bold', 
-          marginLeft: '3px',
+          marginLeft: '5px',
           whiteSpace: 'nowrap' 
         }}>
           Align:
@@ -1299,7 +1538,7 @@ const App: React.FC = () => {
           className="form-select form-select-sm"
           value={selectedShape.textAlign || textAlign}
           onChange={(e) => updateSelectedTextProperty('textAlign', e.target.value)}
-          style={{ width: '100px', height: '30px' }}
+          style={{ width: '80px', height: '30px' }}
         >
           <option value="left">Left</option>
           <option value="center">Center</option>
@@ -1309,7 +1548,7 @@ const App: React.FC = () => {
         <label style={{ 
           fontSize: '14px', 
           fontWeight: 'bold', 
-          marginLeft: '3px',
+          marginLeft: '5px',
           whiteSpace: 'nowrap' 
         }}>
           Color:
@@ -1319,8 +1558,8 @@ const App: React.FC = () => {
           value={selectedShape.stroke || strokeColor}
           onChange={(e) => updateSelectedTextProperty('stroke', e.target.value)}
           style={{ 
-            width: '35px', 
-            height: '35px', 
+            width: '30px', 
+            height: '30px', 
             cursor: 'pointer',
             marginRight: '3px'
           }}
