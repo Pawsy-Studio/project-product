@@ -31,6 +31,9 @@ interface Shape {
   textDecoration?: 'none' | 'underline' | 'line-through' | 'underline line-through';
   isLatex?: boolean;
   latexRendered?: string;
+  scaleX?: number;
+  scaleY?: number;
+  rotation?: number;
 }
 
 interface DrawingState {
@@ -52,6 +55,7 @@ interface TransformState {
   anchor: AnchorType;
   originalPoints?: number[];
   originalBbox?: { x: number, y: number, width: number, height: number };
+  startFontSize?: number;
 }
 
 interface LatexSymbol {
@@ -675,7 +679,8 @@ const App: React.FC = () => {
           startMouseY: pos.y,
           anchor,
           originalPoints,
-          originalBbox
+          originalBbox,
+          startFontSize: shape.fontSize || fontSize
         });
       }
       return;
@@ -717,7 +722,10 @@ const App: React.FC = () => {
           textDecoration: 'none',
           isSelected: true,
           isEditing: false,
-          isLatex: isLatex
+          isLatex: isLatex,
+          scaleX: 1,
+          scaleY: 1,
+          rotation: 0
         };
         
         const newShapes = [...shapes, newTextShape];
@@ -767,19 +775,12 @@ const App: React.FC = () => {
           return;
         }
         
-        if (shape.type === 'text' || shape.type === 'latex') {
-          setIsDragging(true);
-          setDragStart({ x: pos.x, y: pos.y });
-          setSelectedShapeStart({ x: shape.x, y: shape.y });
-        } 
-        else if (shape.type !== 'path') {
-          setIsDragging(true);
-          setDragStart({ x: pos.x, y: pos.y });
-          setSelectedShapeStart({ x: shape.x, y: shape.y });
-          
-          if ((shape.type === 'path' || shape.type === 'line') && shape.points) {
-            setOriginalPointsOnDragStart([...shape.points]);
-          }
+        setIsDragging(true);
+        setDragStart({ x: pos.x, y: pos.y });
+        setSelectedShapeStart({ x: shape.x, y: shape.y });
+        
+        if ((shape.type === 'path' || shape.type === 'line') && shape.points) {
+          setOriginalPointsOnDragStart([...shape.points]);
         }
         
         setShapes(shapes.map(s => ({
@@ -866,7 +867,7 @@ const App: React.FC = () => {
       }
     }
     else if (transformState.isTransforming && transformState.shapeId) {
-      const { startWidth, startHeight, startX, startY, startMouseX, startMouseY, anchor, originalPoints, originalBbox } = transformState;
+      const { startWidth, startHeight, startX, startY, startMouseX, startMouseY, anchor, originalPoints, originalBbox, startFontSize } = transformState;
       
       if (!anchor) return;
       
@@ -960,6 +961,18 @@ const App: React.FC = () => {
               x: newX, 
               y: newY,
               points: transformedPoints
+            };
+          } else if (s.type === 'latex' && startFontSize) {
+            const scaleFactor = Math.min(newWidth / startWidth, newHeight / startHeight);
+            const newFontSize = Math.max(startFontSize * scaleFactor, 8);
+            
+            return { 
+              ...s, 
+              width: newWidth, 
+              height: newHeight, 
+              x: newX, 
+              y: newY,
+              fontSize: newFontSize
             };
           } else {
             return { ...s, width: newWidth, height: newHeight, x: newX, y: newY };
@@ -1166,10 +1179,6 @@ const App: React.FC = () => {
     }
     
     return allShapes.map((shape) => {
-      if (shape.type === 'latex' && !shape.isEditing) {
-        return null;
-      }
-      
       const shapeOpacity = shape.opacity !== undefined ? shape.opacity : 1;
       const strokeColorWithOpacity = shape.stroke === '#ffffff' 
         ? '#ffffff'
@@ -1271,6 +1280,31 @@ const App: React.FC = () => {
             />
           );
         
+        case 'latex':
+          if (shape.isEditing) {
+            return null;
+          }
+          
+          const latexX = shape.width >= 0 ? shape.x : shape.x + shape.width;
+          const latexY = shape.height >= 0 ? shape.y : shape.y + shape.height;
+          const latexWidth = Math.abs(shape.width);
+          const latexHeight = Math.abs(shape.height);
+          
+          return (
+            <Rect
+              key={shape.id}
+              id={shape.id}
+              x={latexX}
+              y={latexY}
+              width={latexWidth}
+              height={latexHeight}
+              fill="transparent"
+              stroke="transparent"
+              strokeWidth={0}
+              onDblClick={() => startTextEditing(shape.id)}
+            />
+          );
+        
         default:
           return null;
       }
@@ -1295,7 +1329,7 @@ const App: React.FC = () => {
         
         const x = latexX * scaleX + containerRect.left;
         const y = latexY * scaleY + containerRect.top;
-        const width = Math.max(latexWidth * scaleX, 100);
+        const width = Math.max(latexWidth * scaleX, 50);
         const height = Math.max(latexHeight * scaleY, 50);
         
         return (
@@ -1313,7 +1347,6 @@ const App: React.FC = () => {
               alignItems: 'center',
               justifyContent: 'center',
             }}
-            onDoubleClick={() => startTextEditing(shape.id)}
           >
             <div
               dangerouslySetInnerHTML={{ 
@@ -1323,10 +1356,16 @@ const App: React.FC = () => {
                 fontSize: `${shape.fontSize || fontSize}px`,
                 color: shape.stroke,
                 transform: 'scale(1)',
-                pointerEvents: 'auto',
-                cursor: 'pointer',
+                pointerEvents: 'none',
+                cursor: 'default',
                 textAlign: 'center',
                 lineHeight: 'normal',
+                width: '100%',
+                height: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                overflow: 'visible',
               }}
             />
           </div>
@@ -1338,7 +1377,9 @@ const App: React.FC = () => {
     if (!selectedId || tool !== 'select' || drawingState.isDrawing) return null;
     
     const shape = shapes.find(s => s.id === selectedId);
-    if (!shape || shape.type === 'path') return null;
+    if (!shape) return null;
+    
+    if (shape.type === 'path') return null;
     
     let displayShape = { ...shape };
     if ((shape.type === 'path' || shape.type === 'line') && shape.points && shape.points.length > 0) {
@@ -1873,7 +1914,7 @@ const App: React.FC = () => {
             {selectedShape.type === 'latex' ? 'Edit LaTeX' : 'Edit Text'}
           </button>
           
-          {editingTextId && (
+          {selectedShape.type === 'latex' && !editingTextId && (
             <div style={{ position: 'relative', display: 'inline-block' }}>
               <button
                 type="button"
@@ -2161,13 +2202,8 @@ const App: React.FC = () => {
             }
             setTool('latex');
           }}
-          style={{ 
-            borderColor: '#4CAF50',
-            color: tool === 'latex' ? 'white' : '#4CAF50',
-            backgroundColor: tool === 'latex' ? '#4CAF50' : 'transparent',
-          }}
         >
-          LaTeX Formula
+          Formula
         </button>
         
         <label htmlFor="width" className="form-label">
