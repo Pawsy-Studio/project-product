@@ -767,7 +767,6 @@ const App: React.FC = () => {
       return;
     }
     
-    // Убрана проверка на delete-button, так как мы удалили крестик
     if (e.target.attrs.name && e.target.attrs.name.startsWith('anchor-')) {
       const shapeId = e.target.attrs.shapeId;
       const shape = shapes.find(s => s.id === shapeId);
@@ -1711,12 +1710,16 @@ const App: React.FC = () => {
     };
     
     if (shape.type === 'latex') {
+      const filteredSymbols = selectedLatexCategory === 'all' 
+        ? latexSymbols 
+        : latexSymbols.filter(sym => sym.category === selectedLatexCategory);
+      
       return (
         <div style={{
           position: 'fixed',
           left: `${x}px`,
           top: `${y - 100}px`,
-          width: `${width}px`,
+          width: `${width + 200}px`,
           zIndex: 1001,
         }}>
           <div style={{
@@ -1726,10 +1729,10 @@ const App: React.FC = () => {
             padding: '8px',
             marginBottom: '5px',
             boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px',
           }}>
-            <div style={{ fontSize: '12px', color: '#666', marginBottom: '5px' }}>
-              Ввод LaTeX формулы (поддерживается большинство команд LaTeX)
-            </div>
             <div 
               dangerouslySetInnerHTML={{ __html: renderLatexToHtml(tempText || '', shape.fontSize || fontSize) }}
               style={{
@@ -1745,6 +1748,116 @@ const App: React.FC = () => {
                 justifyContent: 'center',
               }}
             />
+            
+            <div className="latex-symbols-dropdown" style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-success"
+                onClick={() => setShowLatexMenu(!showLatexMenu)}
+                style={{ 
+                  height: '30px',
+                  whiteSpace: 'nowrap',
+                  padding: '0 12px',
+                  fontSize: '14px',
+                }}
+              >
+                LaTeX Symbols
+              </button>
+              
+              <div style={{ 
+                display: 'flex', 
+                gap: '5px', 
+                alignItems: 'center',
+                flexWrap: 'wrap' 
+              }}>
+                {latexCategories.map(cat => (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    className={`btn btn-sm ${selectedLatexCategory === cat.id ? 'btn-primary' : 'btn-outline-secondary'}`}
+                    onClick={() => setSelectedLatexCategory(cat.id)}
+                    style={{ 
+                      padding: '2px 8px',
+                      fontSize: '12px',
+                    }}
+                  >
+                    {cat.name}
+                  </button>
+                ))}
+              </div>
+              
+              {showLatexMenu && (
+                <div style={{
+                  position: 'absolute',
+                  top: '100%',
+                  left: 0,
+                  backgroundColor: 'white',
+                  border: '1px solid #ccc',
+                  borderRadius: '4px',
+                  padding: '10px',
+                  zIndex: 1002,
+                  width: '400px',
+                  maxHeight: '400px',
+                  overflow: 'auto',
+                  boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+                }}>
+                  <div style={{ 
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+                    gap: '8px',
+                  }}>
+                    {filteredSymbols.map(symbol => (
+                      <button
+                        key={symbol.name}
+                        type="button"
+                        className="btn btn-sm btn-outline-info"
+                        onClick={() => insertLatexSymbol(symbol.latex)}
+                        style={{ 
+                          padding: '6px 8px',
+                          fontSize: '12px',
+                          textAlign: 'left',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'flex-start',
+                          justifyContent: 'center',
+                          height: 'auto',
+                          minHeight: '60px',
+                        }}
+                        title={symbol.description}
+                      >
+                        <div style={{ 
+                          fontWeight: 'bold',
+                          marginBottom: '2px',
+                          fontSize: '11px',
+                        }}>
+                          {symbol.name}
+                        </div>
+                        <div style={{ 
+                          fontSize: '10px',
+                          color: '#666',
+                          fontFamily: 'monospace',
+                          wordBreak: 'break-all',
+                        }}>
+                          {symbol.latex}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                  
+                  <div style={{ 
+                    marginTop: '10px',
+                    padding: '8px',
+                    backgroundColor: '#f8f9fa',
+                    borderRadius: '4px',
+                    fontSize: '11px',
+                    color: '#666',
+                    borderTop: '1px solid #eee',
+                  }}>
+                    <strong>Совет:</strong> Нажмите на символ, чтобы вставить его в формулу. Курсор автоматически поместится в нужное место.
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
           <textarea
             ref={textAreaRef}
@@ -1859,10 +1972,6 @@ const App: React.FC = () => {
     const isItalic = selectedShape.fontStyle === 'italic';
     const isUnderline = selectedShape.textDecoration?.includes('underline') || false;
     const isStrikethrough = selectedShape.textDecoration?.includes('line-through') || false;
-    
-    const filteredSymbols = selectedLatexCategory === 'all' 
-      ? latexSymbols 
-      : latexSymbols.filter(sym => sym.category === selectedLatexCategory);
     
     return (
       <div 
@@ -2091,119 +2200,6 @@ const App: React.FC = () => {
           >
             {selectedShape.type === 'latex' ? 'Edit Formula' : 'Edit Text'}
           </button>
-          
-          {selectedShape.type === 'latex' && !editingTextId && (
-            <div className="latex-symbols-dropdown" style={{ position: 'relative', display: 'inline-block' }}>
-              <button
-                type="button"
-                className="btn btn-sm btn-outline-success"
-                onClick={() => setShowLatexMenu(!showLatexMenu)}
-                style={{ 
-                  height: '30px',
-                  whiteSpace: 'nowrap',
-                  padding: '0 12px',
-                  fontSize: '14px',
-                  marginLeft: '5px'
-                }}
-              >
-                LaTeX Symbols
-              </button>
-              
-              {showLatexMenu && (
-                <div style={{
-                  position: 'absolute',
-                  top: '100%',
-                  left: 0,
-                  backgroundColor: 'white',
-                  border: '1px solid #ccc',
-                  borderRadius: '4px',
-                  padding: '10px',
-                  zIndex: 1002,
-                  width: '400px',
-                  maxHeight: '400px',
-                  overflow: 'auto',
-                  boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
-                }}>
-                  <div style={{ 
-                    display: 'flex', 
-                    gap: '5px', 
-                    marginBottom: '10px',
-                    flexWrap: 'wrap' 
-                  }}>
-                    {latexCategories.map(cat => (
-                      <button
-                        key={cat.id}
-                        type="button"
-                        className={`btn btn-sm ${selectedLatexCategory === cat.id ? 'btn-primary' : 'btn-outline-secondary'}`}
-                        onClick={() => setSelectedLatexCategory(cat.id)}
-                        style={{ 
-                          padding: '2px 8px',
-                          fontSize: '12px',
-                        }}
-                      >
-                        {cat.name}
-                      </button>
-                    ))}
-                  </div>
-                  
-                  <div style={{ 
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
-                    gap: '8px',
-                  }}>
-                    {filteredSymbols.map(symbol => (
-                      <button
-                        key={symbol.name}
-                        type="button"
-                        className="btn btn-sm btn-outline-info"
-                        onClick={() => insertLatexSymbol(symbol.latex)}
-                        style={{ 
-                          padding: '6px 8px',
-                          fontSize: '12px',
-                          textAlign: 'left',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          alignItems: 'flex-start',
-                          justifyContent: 'center',
-                          height: 'auto',
-                          minHeight: '60px',
-                        }}
-                        title={symbol.description}
-                      >
-                        <div style={{ 
-                          fontWeight: 'bold',
-                          marginBottom: '2px',
-                          fontSize: '11px',
-                        }}>
-                          {symbol.name}
-                        </div>
-                        <div style={{ 
-                          fontSize: '10px',
-                          color: '#666',
-                          fontFamily: 'monospace',
-                          wordBreak: 'break-all',
-                        }}>
-                          {symbol.latex}
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                  
-                  <div style={{ 
-                    marginTop: '10px',
-                    padding: '8px',
-                    backgroundColor: '#f8f9fa',
-                    borderRadius: '4px',
-                    fontSize: '11px',
-                    color: '#666',
-                    borderTop: '1px solid #eee',
-                  }}>
-                    <strong>Совет:</strong> Нажмите на символ, чтобы вставить его в формулу. Курсор автоматически поместится в нужное место.
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
         </div>
       </div>
     );
@@ -2237,7 +2233,6 @@ const App: React.FC = () => {
           Clear
         </button>
         
-        {/* Кнопка Delete */}
         <button
           type="button"
           className="btn btn-sm btn-danger"
