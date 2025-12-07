@@ -1384,16 +1384,16 @@ const App: React.FC = () => {
 
   const renderAllShapes = () => {
     const allShapes = [...shapes];
-    
+
     if (drawingState.currentShape && tool !== 'eraser') {
       const shape = drawingState.currentShape;
-      
+
       if (shape.type === 'rectangle' || shape.type === 'ellipse') {
         const startX = shape.x || 0;
         const startY = shape.y || 0;
         const width = shape.width || 0;
         const height = shape.height || 0;
-        
+
         const normalizedShape = {
           ...shape,
           x: Math.min(startX, startX + width),
@@ -1401,13 +1401,15 @@ const App: React.FC = () => {
           width: Math.abs(width),
           height: Math.abs(height)
         };
-        
+
         allShapes.push(normalizedShape as Shape);
       } else if (shape.type === 'path' && shape.points && shape.points.length > 0) {
         allShapes.push(shape as Shape);
+      } else if (shape.type === 'line' && shape.points) {
+        allShapes.push(shape as Shape);
       }
     }
-    
+
     return allShapes.map((shape) => {
       const shapeOpacity = shape.opacity !== undefined ? shape.opacity : 1;
       const strokeColorWithOpacity = hexToRgba(shape.stroke, shapeOpacity);
