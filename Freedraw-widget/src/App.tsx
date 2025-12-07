@@ -1669,7 +1669,7 @@ const App: React.FC = () => {
     const x = textX * scaleX + containerRect.left;
     const y = realY * scaleY + containerRect.top;
     
-    const panelHeight = selectedShape.type === 'latex' ? 100 : 40;
+    const panelHeight = 40;
     const panelWidth = 1000;
     
     const offset = 20;
@@ -1715,14 +1715,16 @@ const App: React.FC = () => {
         }}
       >
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-          <label style={{
-            fontSize: '14px',
-            fontWeight: 'bold',
-            marginRight: '3px',
-            whiteSpace: 'nowrap'
-          }}>
-            Font:
-          </label>
+          {selectedShape.type === 'text' && (
+            <label style={{
+              fontSize: '14px',
+              fontWeight: 'bold',
+              marginRight: '3px',
+              whiteSpace: 'nowrap'
+            }}>
+              Font:
+            </label>
+          )}
 
           {selectedShape.type === 'text' && (
             <>
