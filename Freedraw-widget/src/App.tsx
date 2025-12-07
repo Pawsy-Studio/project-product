@@ -149,8 +149,9 @@ const App: React.FC = () => {
     { id: 'operators', name: 'Операторы' },
   ]);
   const [selectedLatexCategory, setSelectedLatexCategory] = useState('all');
+  
+  const [showTextFormatDropdown, setShowTextFormatDropdown] = useState(false);
 
-  // Добавляем список доступных шрифтов
   const availableFonts = [
     'Arial',
     'Verdana',
@@ -233,7 +234,6 @@ const App: React.FC = () => {
     if (shape.type === 'path') {
       if (!shape.points || shape.points.length < 4) return false;
       
-      // Проверка для path (линии): проверяем близость к любому сегменту линии
       for (let i = 0; i < shape.points.length - 2; i += 2) {
         const x1 = shape.points[i];
         const y1 = shape.points[i + 1];
@@ -328,7 +328,6 @@ const App: React.FC = () => {
   };
 
   const measureLatexSize = (latex: string, fontSize: number): { width: number, height: number } => {
-    // Создаем временный элемент для измерения размера формулы
     const container = document.createElement('div');
     container.style.position = 'absolute';
     container.style.visibility = 'hidden';
@@ -347,7 +346,6 @@ const App: React.FC = () => {
         strict: false
       });
       
-      // Добавляем отступы для лучшего отображения
       const width = container.offsetWidth + 20;
       const height = container.offsetHeight + 10;
       
@@ -447,18 +445,15 @@ const App: React.FC = () => {
             updatedShape.fontStyle = fontStyle;
           }
           
-          // Обработка изменения размера шрифта
           if (property === 'fontSize') {
             const newFontSize = parseInt(value) || 20;
             
             if (s.type === 'text') {
-              // Для текста пересчитываем высоту
               const lineHeight = newFontSize;
               const lines = (s.text || '').split('\n').length || 1;
               const newHeight = Math.max(lines * lineHeight * 1.2, 50);
               updatedShape.height = newHeight;
             } else if (s.type === 'latex') {
-              // Для формулы пересчитываем размер и перерендериваем
               const size = measureLatexSize(s.latex || '', newFontSize);
               updatedShape.width = size.width;
               updatedShape.height = size.height;
@@ -467,7 +462,6 @@ const App: React.FC = () => {
             }
           }
           
-          // Обновление рендера LaTeX при изменении цвета
           if (s.type === 'latex' && property === 'stroke') {
             const renderedLatex = renderLatexToHtml(s.latex || '', s.fontSize || fontSize);
             updatedShape.latexRendered = renderedLatex;
@@ -702,7 +696,6 @@ const App: React.FC = () => {
         finishTextEditing();
       }
       
-      // Изменение размера шрифта стрелками
       if (!editingTextId && (e.key === 'ArrowUp' || e.key === 'ArrowDown') && selectedId) {
         e.preventDefault();
         const direction = e.key === 'ArrowUp' ? 'up' : 'down';
@@ -748,6 +741,23 @@ const App: React.FC = () => {
     }
   }, [tool, selectedId]);
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest('.text-format-dropdown')) {
+        setShowTextFormatDropdown(false);
+      }
+      if (!target.closest('.latex-symbols-dropdown')) {
+        setShowLatexMenu(false);
+      }
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, []);
+
   const handleMouseDown = (e: any) => {
     const stage = e.target.getStage();
     const pos = stage.getPointerPosition();
@@ -757,14 +767,7 @@ const App: React.FC = () => {
       return;
     }
     
-    if (e.target.attrs.name && e.target.attrs.name === 'delete-button') {
-      const shapeId = e.target.attrs.shapeId;
-      if (shapeId) {
-        handleDeleteShape(shapeId);
-      }
-      return;
-    }
-    
+    // Убрана проверка на delete-button, так как мы удалили крестик
     if (e.target.attrs.name && e.target.attrs.name.startsWith('anchor-')) {
       const shapeId = e.target.attrs.shapeId;
       const shape = shapes.find(s => s.id === shapeId);
@@ -885,10 +888,8 @@ const App: React.FC = () => {
         }, 10);
       }
       else if (tool === 'eraser') {
-        // Сохраняем текущее состояние в историю при начале стирания
         setEraserHistoryStart([...shapes]);
         
-        // Собираем ID фигур, которые будут стерты сразу
         const newErasedShapes = new Set<string>();
         shapes.forEach(shape => {
           if (isPointInShape(shape, pos)) {
@@ -896,7 +897,6 @@ const App: React.FC = () => {
           }
         });
         
-        // Удаляем фигуры сразу
         if (newErasedShapes.size > 0) {
           const newShapes = shapes.filter(shape => !newErasedShapes.has(shape.id));
           setShapes(newShapes);
@@ -904,7 +904,6 @@ const App: React.FC = () => {
         
         setErasedShapes(newErasedShapes);
         
-        // Для ластика создаем временную фигуру для отображения
         setDrawingState({
           isDrawing: true,
           startX: pos.x,
@@ -916,7 +915,7 @@ const App: React.FC = () => {
             y: pos.y,
             width: 0,
             height: 0,
-            stroke: '#000000', // Цвет не важен для ластика
+            stroke: '#000000',
             strokeWidth: strokeWidth,
             opacity: 1,
             points: [pos.x, pos.y]
@@ -980,10 +979,8 @@ const App: React.FC = () => {
     
     if (!['select', 'text', 'latex'].includes(tool)) {
       if (tool === 'eraser') {
-        // Сохраняем текущее состояние в истории при начале стирания
         setEraserHistoryStart([...shapes]);
         
-        // Собираем ID фигур, которые будут стерты сразу
         const newErasedShapes = new Set<string>();
         shapes.forEach(shape => {
           if (isPointInShape(shape, pos)) {
@@ -991,7 +988,6 @@ const App: React.FC = () => {
           }
         });
         
-        // Удаляем фигуры сразу
         if (newErasedShapes.size > 0) {
           const newShapes = shapes.filter(shape => !newErasedShapes.has(shape.id));
           setShapes(newShapes);
@@ -1053,7 +1049,6 @@ const App: React.FC = () => {
         setDrawingState(prev => ({ ...prev, currentShape: updatedShape }));
         
         if (tool === 'eraser') {
-          // Для ластика находим и немедленно удаляем фигуры при касании
           const shapesToErase = shapes.filter(shape => isPointInShape(shape, pos));
           
           if (shapesToErase.length > 0) {
@@ -1062,7 +1057,6 @@ const App: React.FC = () => {
               newErasedShapes.add(shape.id);
             });
             
-            // Удаляем фигуры немедленно
             const newShapes = shapes.filter(shape => !newErasedShapes.has(shape.id));
             setShapes(newShapes);
             setErasedShapes(newErasedShapes);
@@ -1194,7 +1188,6 @@ const App: React.FC = () => {
               points: transformedPoints
             };
           } else if (s.type === 'latex') {
-            // Для формулы при трансформации через якоря НЕ меняем fontSize, только размеры контейнера
             return { ...s, width: newWidth, height: newHeight, x: newX, y: newY };
           } else {
             return { ...s, width: newWidth, height: newHeight, x: newX, y: newY };
@@ -1252,12 +1245,10 @@ const App: React.FC = () => {
       let newShape = { ...drawingState.currentShape } as Shape;
       
       if (tool === 'eraser') {
-        // Сохраняем изменения в истории
         if (erasedShapes.size > 0 && eraserHistoryStart) {
-          // Сохраняем переход от начального состояния к текущему
           const newHistory = history.slice(0, historyIndex + 1);
-          newHistory.push([...eraserHistoryStart]); // Состояние до стирания
-          newHistory.push([...shapes]); // Состояние после стирания
+          newHistory.push([...eraserHistoryStart]);
+          newHistory.push([...shapes]);
           setHistory(newHistory);
           setHistoryIndex(newHistory.length - 1);
         }
@@ -1606,12 +1597,10 @@ const App: React.FC = () => {
     const shape = shapes.find(s => s.id === selectedId);
     if (!shape) return null;
     
-    // Для path показываем выделение только если есть точки
     if (shape.type === 'path' && (!shape.points || shape.points.length === 0)) return null;
     
     let displayShape = { ...shape };
     
-    // Для path вычисляем bounding box на основе точек
     if ((shape.type === 'path' || shape.type === 'line') && shape.points && shape.points.length > 0) {
       const bbox = calculateBoundingBox(shape.points);
       displayShape = { ...shape, x: bbox.x, y: bbox.y, width: bbox.width, height: bbox.height };
@@ -1620,8 +1609,6 @@ const App: React.FC = () => {
     const selectionPadding = 5;
     const anchorSize = 10;
     const halfAnchor = anchorSize / 2;
-    const deleteButtonSize = 12;
-    const deleteButtonOffset = 4;
     
     const realX = Math.min(displayShape.x, displayShape.x + displayShape.width);
     const realY = Math.min(displayShape.y, displayShape.y + displayShape.height);
@@ -1639,9 +1626,6 @@ const App: React.FC = () => {
       { name: 'anchor-bottom-left', x: displayShape.x, y: displayShape.y + displayShape.height },
       { name: 'anchor-bottom-right', x: displayShape.x + displayShape.width, y: displayShape.y + displayShape.height }
     ];
-    
-    const deleteButtonX = x + width - deleteButtonOffset;
-    const deleteButtonY = y - deleteButtonOffset;
     
     return (
       <>
@@ -1671,50 +1655,6 @@ const App: React.FC = () => {
             strokeWidth={2}
           />
         ))}
-        
-        <Circle
-          name="delete-button"
-          shapeId={displayShape.id}
-          x={deleteButtonX}
-          y={deleteButtonY}
-          radius={deleteButtonSize / 2}
-          fill="#ff4444"
-          stroke="#ffffff"
-          strokeWidth={1}
-          onMouseEnter={(e) => {
-            const stage = e.target.getStage();
-            if (stage) {
-              stage.container().style.cursor = 'pointer';
-            }
-          }}
-          onMouseLeave={(e) => {
-            const stage = e.target.getStage();
-            if (stage) {
-              stage.container().style.cursor = 'default';
-            }
-          }}
-        />
-        
-        <Line
-          points={[
-            deleteButtonX - deleteButtonSize/3, deleteButtonY - deleteButtonSize/3,
-            deleteButtonX + deleteButtonSize/3, deleteButtonY + deleteButtonSize/3
-          ]}
-          stroke="#ffffff"
-          strokeWidth={1.5}
-          lineCap="round"
-          listening={false}
-        />
-        <Line
-          points={[
-            deleteButtonX + deleteButtonSize/3, deleteButtonY - deleteButtonSize/3,
-            deleteButtonX - deleteButtonSize/3, deleteButtonY + deleteButtonSize/3
-          ]}
-          stroke="#ffffff"
-          strokeWidth={1.5}
-          lineCap="round"
-          listening={false}
-        />
       </>
     );
   };
@@ -1943,7 +1883,6 @@ const App: React.FC = () => {
         }}
       >
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-          {/* Для обычного текста: выбор шрифта */}
           {selectedShape.type === 'text' && (
             <>
               <label style={{
@@ -1967,88 +1906,114 @@ const App: React.FC = () => {
             </>
           )}
 
-          {/* Кнопки форматирования текста (только для обычного текста) */}
           {selectedShape.type === 'text' && (
-            <>
+            <div className="text-format-dropdown" style={{ display: 'inline-block', position: 'relative' }}>
               <button
                 type="button"
-                className={`btn btn-sm ${isBold ? 'btn-primary' : 'btn-outline-secondary'}`}
-                onClick={toggleBold}
+                className={`btn btn-sm ${showTextFormatDropdown ? 'btn-primary' : 'btn-outline-secondary'}`}
+                onClick={() => setShowTextFormatDropdown(!showTextFormatDropdown)}
                 style={{ 
                   height: '30px',
                   width: '30px',
                   padding: '0',
                   fontWeight: 'bold',
                   fontSize: '14px',
-                  backgroundColor: isBold ? '#007bff' : 'transparent',
-                  color: isBold ? 'white' : '#6c757d',
-                  border: `1px solid ${isBold ? '#007bff' : '#6c757d'}`
                 }}
-                title="Жирный (Ctrl+B)"
+                title="Формат текста"
               >
-                B
+                A
               </button>
-              
-              <button
-                type="button"
-                className={`btn btn-sm ${isItalic ? 'btn-primary' : 'btn-outline-secondary'}`}
-                onClick={toggleItalic}
-                style={{ 
-                  height: '30px',
-                  width: '30px',
-                  padding: '0',
-                  fontStyle: 'italic',
-                  fontSize: '14px',
-                  backgroundColor: isItalic ? '#007bff' : 'transparent',
-                  color: isItalic ? 'white' : '#6c757d',
-                  border: `1px solid ${isItalic ? '#007bff' : '#6c757d'}`
-                }}
-                title="Курсив (Ctrl+I)"
-              >
-                I
-              </button>
-              
-              <button
-                type="button"
-                className={`btn btn-sm ${isUnderline ? 'btn-primary' : 'btn-outside-secondary'}`}
-                onClick={toggleUnderline}
-                style={{ 
-                  height: '30px',
-                  width: '30px',
-                  padding: '0',
-                  textDecoration: 'underline',
-                  fontSize: '14px',
-                  backgroundColor: isUnderline ? '#007bff' : 'transparent',
-                  color: isUnderline ? 'white' : '#6c757d',
-                  border: `1px solid ${isUnderline ? '#007bff' : '#6c757d'}`
-                }}
-                title="Подчеркнутый (Ctrl+U)"
-              >
-                U
-              </button>
-              
-              <button
-                type="button"
-                className={`btn btn-sm ${isStrikethrough ? 'btn-primary' : 'btn-outside-secondary'}`}
-                onClick={toggleStrikethrough}
-                style={{ 
-                  height: '30px',
-                  width: '30px',
-                  padding: '0',
-                  textDecoration: 'line-through',
-                  fontSize: '14px',
-                  backgroundColor: isStrikethrough ? '#007bff' : 'transparent',
-                  color: isStrikethrough ? 'white' : '#6c757d',
-                  border: `1px solid ${isStrikethrough ? '#007bff' : '#6c757d'}`
-                }}
-                title="Зачеркнутый"
-              >
-                S
-              </button>
-            </>
+              {showTextFormatDropdown && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    backgroundColor: 'white',
+                    border: '1px solid #ccc',
+                    borderRadius: '4px',
+                    zIndex: 1002,
+                    minWidth: '150px',
+                    boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
+                  }}
+                >
+                  <button
+                    type="button"
+                    className="dropdown-item"
+                    onClick={() => { toggleBold(); setShowTextFormatDropdown(false); }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      padding: '5px 10px',
+                      width: '100%',
+                      border: 'none',
+                      backgroundColor: 'transparent',
+                      cursor: 'pointer',
+                      color: isBold ? '#007bff' : '#000',
+                    }}
+                  >
+                    <span style={{ fontWeight: 'bold', width: '20px' }}>B</span>
+                    <span style={{ marginLeft: '5px' }}>Жирный</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="dropdown-item"
+                    onClick={() => { toggleItalic(); setShowTextFormatDropdown(false); }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      padding: '5px 10px',
+                      width: '100%',
+                      border: 'none',
+                      backgroundColor: 'transparent',
+                      cursor: 'pointer',
+                      color: isItalic ? '#007bff' : '#000',
+                    }}
+                  >
+                    <span style={{ fontStyle: 'italic', width: '20px' }}>I</span>
+                    <span style={{ marginLeft: '5px' }}>Курсив</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="dropdown-item"
+                    onClick={() => { toggleUnderline(); setShowTextFormatDropdown(false); }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      padding: '5px 10px',
+                      width: '100%',
+                      border: 'none',
+                      backgroundColor: 'transparent',
+                      cursor: 'pointer',
+                      color: isUnderline ? '#007bff' : '#000',
+                    }}
+                  >
+                    <span style={{ textDecoration: 'underline', width: '20px' }}>U</span>
+                    <span style={{ marginLeft: '5px' }}>Подчеркнутый</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="dropdown-item"
+                    onClick={() => { toggleStrikethrough(); setShowTextFormatDropdown(false); }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      padding: '5px 10px',
+                      width: '100%',
+                      border: 'none',
+                      backgroundColor: 'transparent',
+                      cursor: 'pointer',
+                      color: isStrikethrough ? '#007bff' : '#000',
+                    }}
+                  >
+                    <span style={{ textDecoration: 'line-through', width: '20px' }}>S</span>
+                    <span style={{ marginLeft: '5px' }}>Зачеркнутый</span>
+                  </button>
+                </div>
+              )}
+            </div>
           )}
           
-          {/* Размер шрифта (для текста и формул) */}
           <label style={{ 
             fontSize: '14px', 
             fontWeight: 'bold', 
@@ -2069,7 +2034,6 @@ const App: React.FC = () => {
           />
           <span style={{ fontSize: '12px', color: '#666', marginRight: '5px' }}>px</span>
           
-          {/* Выбор цвета (для текста и формул) */}
           <label style={{ 
             fontSize: '14px', 
             fontWeight: 'bold', 
@@ -2090,7 +2054,6 @@ const App: React.FC = () => {
             }}
           />
           
-          {/* Выравнивание текста (только для обычного текста) */}
           {selectedShape.type === 'text' && (
             <>
               <label style={{ 
@@ -2114,7 +2077,6 @@ const App: React.FC = () => {
             </>
           )}
           
-          {/* Кнопка редактирования */}
           <button
             type="button"
             className="btn btn-sm btn-outline-secondary"
@@ -2130,9 +2092,8 @@ const App: React.FC = () => {
             {selectedShape.type === 'latex' ? 'Edit Formula' : 'Edit Text'}
           </button>
           
-          {/* LaTeX символы (только для формул) */}
           {selectedShape.type === 'latex' && !editingTextId && (
-            <div style={{ position: 'relative', display: 'inline-block' }}>
+            <div className="latex-symbols-dropdown" style={{ position: 'relative', display: 'inline-block' }}>
               <button
                 type="button"
                 className="btn btn-sm btn-outline-success"
@@ -2275,6 +2236,22 @@ const App: React.FC = () => {
         >
           Clear
         </button>
+        
+        {/* Кнопка Delete */}
+        <button
+          type="button"
+          className="btn btn-sm btn-danger"
+          onClick={() => {
+            if (selectedId) {
+              handleDeleteShape(selectedId);
+            }
+          }}
+          disabled={!selectedId || tool !== 'select'}
+          title="Удалить выделенную фигуру"
+        >
+          Delete
+        </button>
+        
         <label htmlFor="color">Stroke color</label>
         <input
           type="color"
