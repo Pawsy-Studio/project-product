@@ -412,9 +412,7 @@ const App: React.FC = () => {
               latex: finalText,
               latexRendered: renderedLatex,
               isEditing: false,
-              text: '',
-              width: size.width,
-              height: size.height
+              text: ''
             };
             return updatedShape;
           } else {
@@ -1938,7 +1936,8 @@ const App: React.FC = () => {
             onBlur={() => {
               // Добавляем небольшую задержку перед сохранением
               setTimeout(() => {
-                if (!showLatexMenu) {
+                const activeElement = document.activeElement;
+                if (!activeElement || (!activeElement.closest('.latex-editor-container') && !activeElement.closest('.latex-symbols-menu'))) {
                   finishTextEditing();
                 }
               }, 100);
@@ -1957,7 +1956,7 @@ const App: React.FC = () => {
                 const start = textarea.selectionStart;
                 const end = textarea.selectionEnd;
                 const text = textarea.value;
-                
+
                 const pairs: { [key: string]: string } = {
                   '(': ')',
                   '[': ']',
@@ -1965,7 +1964,7 @@ const App: React.FC = () => {
                   '|': '|',
                   '\\': '\\',
                 };
-                
+
                 const charBefore = text.substring(start - 1, start);
                 if (pairs[charBefore]) {
                   const newText = text.substring(0, start) + pairs[charBefore] + text.substring(end);
