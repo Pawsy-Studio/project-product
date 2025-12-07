@@ -103,7 +103,7 @@ const App: React.FC = () => {
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [selectedShapeStart, setSelectedShapeStart] = useState({ x: 0, y: 0 });
   const [originalPointsOnDragStart, setOriginalPointsOnDragStart] = useState<number[]>([]);
-  const [shapesToDelete, setShapesToDelete] = useState<Set<string>>(new Set());
+  const [erasedShapes, setErasedShapes] = useState<Set<string>>(new Set());
 
   const [history, setHistory] = useState<Shape[][]>([[]]);
   const [historyIndex, setHistoryIndex] = useState(0);
@@ -148,6 +148,22 @@ const App: React.FC = () => {
     { id: 'operators', name: 'Операторы' },
   ]);
   const [selectedLatexCategory, setSelectedLatexCategory] = useState('all');
+
+  // Добавляем список доступных шрифтов
+  const availableFonts = [
+    'Arial',
+    'Verdana',
+    'Helvetica',
+    'Tahoma',
+    'Trebuchet MS',
+    'Times New Roman',
+    'Georgia',
+    'Garamond',
+    'Courier New',
+    'Brush Script MT',
+    'Comic Sans MS',
+    'Impact'
+  ];
 
   const calculateBoundingBox = (points: number[]): { x: number, y: number, width: number, height: number } => {
     if (points.length === 0) return { x: 0, y: 0, width: 0, height: 0 };
@@ -213,7 +229,22 @@ const App: React.FC = () => {
   };
 
   const isPointInShape = (shape: Shape, point: { x: number, y: number }): boolean => {
-    if (shape.type === 'path') return false;
+    if (shape.type === 'path') {
+      if (!shape.points || shape.points.length < 4) return false;
+      
+      // Проверка для path (линии): проверяем близость к любому сегменту линии
+      for (let i = 0; i < shape.points.length - 2; i += 2) {
+        const x1 = shape.points[i];
+        const y1 = shape.points[i + 1];
+        const x2 = shape.points[i + 2];
+        const y2 = shape.points[i + 3];
+        
+        if (distanceToLineSegment(point, { x: x1, y: y1 }, { x: x2, y: y2 }) < 10) {
+          return true;
+        }
+      }
+      return false;
+    }
     
     if (shape.type === 'rectangle' || shape.type === 'text' || shape.type === 'latex') {
       const realX = Math.min(shape.x, shape.x + shape.width);
@@ -280,17 +311,51 @@ const App: React.FC = () => {
     return Math.sqrt(dx * dx + dy * dy);
   };
 
-  const renderLatexToHtml = (latex: string): string => {
+  const renderLatexToHtml = (latex: string, fontSize: number = 20): string => {
     try {
       return katex.renderToString(latex, {
         throwOnError: false,
         displayMode: false,
         output: 'html',
-        strict: false
+        strict: false,
+        fontSize: `${fontSize}px`
       });
     } catch (error) {
       console.error('LaTeX rendering error:', error);
       return `<span style="color: red;">LaTeX error: ${latex}</span>`;
+    }
+  };
+
+  const measureLatexSize = (latex: string, fontSize: number): { width: number, height: number } => {
+    // Создаем временный элемент для измерения размера формулы
+    const container = document.createElement('div');
+    container.style.position = 'absolute';
+    container.style.visibility = 'hidden';
+    container.style.display = 'inline-block';
+    container.style.fontSize = `${fontSize}px`;
+    container.style.padding = '0';
+    container.style.margin = '0';
+    container.style.lineHeight = '1';
+    document.body.appendChild(container);
+    
+    try {
+      katex.render(latex, container, {
+        throwOnError: false,
+        displayMode: false,
+        output: 'html',
+        strict: false
+      });
+      
+      // Добавляем отступы для лучшего отображения
+      const width = container.offsetWidth + 20;
+      const height = container.offsetHeight + 10;
+      
+      return { width, height };
+    } catch (error) {
+      console.error('LaTeX measurement error:', error);
+      return { width: 200, height: 50 };
+    } finally {
+      document.body.removeChild(container);
     }
   };
 
@@ -323,18 +388,23 @@ const App: React.FC = () => {
           const finalText = tempText || 'Text';
           
           if (s.type === 'latex') {
-            const renderedLatex = renderLatexToHtml(finalText);
+            const currentFontSize = s.fontSize || fontSize;
+            const renderedLatex = renderLatexToHtml(finalText, currentFontSize);
+            const size = measureLatexSize(finalText, currentFontSize);
+            
             const updatedShape = {
               ...s,
               latex: finalText,
               latexRendered: renderedLatex,
               isEditing: false,
               text: '',
-              height: Math.max(s.fontSize || fontSize, 50)
+              width: size.width,
+              height: size.height
             };
             return updatedShape;
           } else {
-            const lineHeight = s.fontSize || fontSize;
+            const currentFontSize = s.fontSize || fontSize;
+            const lineHeight = currentFontSize;
             const lines = finalText.split('\n').length || 1;
             const newHeight = Math.max(lines * lineHeight * 1.2, 50);
             
@@ -376,8 +446,29 @@ const App: React.FC = () => {
             updatedShape.fontStyle = fontStyle;
           }
           
-          if (s.type === 'latex' && (property === 'stroke' || property === 'fontSize')) {
-            const renderedLatex = renderLatexToHtml(s.latex || '');
+          // Обработка изменения размера шрифта
+          if (property === 'fontSize') {
+            const newFontSize = parseInt(value) || 20;
+            
+            if (s.type === 'text') {
+              // Для текста пересчитываем высоту
+              const lineHeight = newFontSize;
+              const lines = (s.text || '').split('\n').length || 1;
+              const newHeight = Math.max(lines * lineHeight * 1.2, 50);
+              updatedShape.height = newHeight;
+            } else if (s.type === 'latex') {
+              // Для формулы пересчитываем размер и перерендериваем
+              const size = measureLatexSize(s.latex || '', newFontSize);
+              updatedShape.width = size.width;
+              updatedShape.height = size.height;
+              const renderedLatex = renderLatexToHtml(s.latex || '', newFontSize);
+              updatedShape.latexRendered = renderedLatex;
+            }
+          }
+          
+          // Обновление рендера LaTeX при изменении цвета
+          if (s.type === 'latex' && property === 'stroke') {
+            const renderedLatex = renderLatexToHtml(s.latex || '', s.fontSize || fontSize);
             updatedShape.latexRendered = renderedLatex;
           }
           
@@ -401,19 +492,16 @@ const App: React.FC = () => {
           
           if (s.type === 'latex') {
             updatedShape.latex = newText;
-            const renderedLatex = renderLatexToHtml(newText);
+            const currentFontSize = s.fontSize || fontSize;
+            const renderedLatex = renderLatexToHtml(newText, currentFontSize);
             updatedShape.latexRendered = renderedLatex;
             
-            const lineHeight = updatedShape.fontSize || fontSize;
-            const lines = newText.split('\n').length || 1;
-            const newHeight = Math.max(lines * lineHeight * 1.2, 50);
-            
-            return { 
-              ...updatedShape, 
-              height: newHeight 
-            };
+            const size = measureLatexSize(newText, currentFontSize);
+            updatedShape.width = size.width;
+            updatedShape.height = size.height;
           } else {
-            const lineHeight = updatedShape.fontSize || fontSize;
+            const currentFontSize = s.fontSize || fontSize;
+            const lineHeight = currentFontSize;
             const lines = newText.split('\n').length || 1;
             const newHeight = Math.max(lines * lineHeight * 1.2, 50);
             
@@ -702,31 +790,67 @@ const App: React.FC = () => {
         }
         
         const isLatex = tool === 'latex';
-        const newTextShape: Shape = {
-          id: `${isLatex ? 'latex' : 'text'}_${Date.now()}`,
-          type: isLatex ? 'latex' : 'text',
-          x: pos.x,
-          y: pos.y,
-          width: isLatex ? 300 : 200,
-          height: isLatex ? 80 : 50,
-          stroke: strokeColor,
-          strokeWidth: 1,
-          text: isLatex ? '' : 'Text',
-          latex: isLatex ? 'E = mc^2' : undefined,
-          latexRendered: isLatex ? renderLatexToHtml('E = mc^2') : undefined,
-          fontSize: fontSize,
-          fontFamily: fontFamily,
-          textAlign: textAlign,
-          fontWeight: 'normal',
-          fontStyle: 'normal',
-          textDecoration: 'none',
-          isSelected: true,
-          isEditing: false,
-          isLatex: isLatex,
-          scaleX: 1,
-          scaleY: 1,
-          rotation: 0
-        };
+        let initialText = isLatex ? 'E = mc^2' : 'Text';
+        const currentFontSize = fontSize;
+        
+        if (isLatex) {
+          const size = measureLatexSize(initialText, currentFontSize);
+          var newTextShape: Shape = {
+            id: `${isLatex ? 'latex' : 'text'}_${Date.now()}`,
+            type: isLatex ? 'latex' : 'text',
+            x: pos.x,
+            y: pos.y,
+            width: size.width,
+            height: size.height,
+            stroke: strokeColor,
+            strokeWidth: 1,
+            text: isLatex ? '' : 'Text',
+            latex: isLatex ? initialText : undefined,
+            latexRendered: isLatex ? renderLatexToHtml(initialText, currentFontSize) : undefined,
+            fontSize: currentFontSize,
+            fontFamily: fontFamily,
+            textAlign: textAlign,
+            fontWeight: 'normal',
+            fontStyle: 'normal',
+            textDecoration: 'none',
+            isSelected: true,
+            isEditing: false,
+            isLatex: isLatex,
+            scaleX: 1,
+            scaleY: 1,
+            rotation: 0
+          };
+        } else {
+          const lineHeight = currentFontSize;
+          const lines = initialText.split('\n').length || 1;
+          const height = Math.max(lines * lineHeight * 1.2, 50);
+          
+          var newTextShape: Shape = {
+            id: `${isLatex ? 'latex' : 'text'}_${Date.now()}`,
+            type: isLatex ? 'latex' : 'text',
+            x: pos.x,
+            y: pos.y,
+            width: 200,
+            height: height,
+            stroke: strokeColor,
+            strokeWidth: 1,
+            text: initialText,
+            latex: undefined,
+            latexRendered: undefined,
+            fontSize: currentFontSize,
+            fontFamily: fontFamily,
+            textAlign: textAlign,
+            fontWeight: 'normal',
+            fontStyle: 'normal',
+            textDecoration: 'none',
+            isSelected: true,
+            isEditing: false,
+            isLatex: isLatex,
+            scaleX: 1,
+            scaleY: 1,
+            rotation: 0
+          };
+        }
         
         const newShapes = [...shapes, newTextShape];
         setShapes(newShapes);
@@ -736,6 +860,35 @@ const App: React.FC = () => {
           startTextEditing(newTextShape.id);
         }, 10);
       }
+      else if (tool === 'eraser') {
+        // Для ластика создаем временную фигуру для стирания
+        setDrawingState({
+          isDrawing: true,
+          startX: pos.x,
+          startY: pos.y,
+          currentShape: {
+            id: `eraser_${Date.now()}`,
+            type: 'path',
+            x: pos.x,
+            y: pos.y,
+            width: 0,
+            height: 0,
+            stroke: '#000000', // Цвет не важен для ластика
+            strokeWidth: strokeWidth,
+            opacity: 1,
+            points: [pos.x, pos.y]
+          }
+        });
+        
+        // Собираем ID фигур, которые будут стерты
+        const newErasedShapes = new Set<string>();
+        shapes.forEach(shape => {
+          if (isPointInShape(shape, pos)) {
+            newErasedShapes.add(shape.id);
+          }
+        });
+        setErasedShapes(newErasedShapes);
+      }
       else if (!['select', 'text', 'latex'].includes(tool)) {
         setDrawingState({
           isDrawing: true,
@@ -743,18 +896,17 @@ const App: React.FC = () => {
           startY: pos.y,
           currentShape: {
             id: `${tool}_${Date.now()}`,
-            type: tool === 'pencil' || tool === 'eraser' ? 'path' : tool as ShapeType,
+            type: tool === 'pencil' ? 'path' : tool as ShapeType,
             x: pos.x,
             y: pos.y,
             width: 0,
             height: 0,
-            stroke: tool === 'eraser' ? '#ffffff' : strokeColor,
+            stroke: strokeColor,
             strokeWidth: strokeWidth,
             opacity: isHighlighter ? 0.5 : 1,
-            points: tool === 'pencil' || tool === 'eraser' ? [pos.x, pos.y] : undefined
+            points: tool === 'pencil' ? [pos.x, pos.y] : undefined
           }
         });
-        setShapesToDelete(new Set());
       }
       return;
     }
@@ -793,24 +945,51 @@ const App: React.FC = () => {
     }
     
     if (!['select', 'text', 'latex'].includes(tool)) {
-      setDrawingState({
-        isDrawing: true,
-        startX: pos.x,
-        startY: pos.y,
-        currentShape: {
-          id: `${tool}_${Date.now()}`,
-          type: tool === 'pencil' || tool === 'eraser' ? 'path' : tool as ShapeType,
-          x: pos.x,
-          y: pos.y,
-          width: 0,
-          height: 0,
-          stroke: tool === 'eraser' ? '#ffffff' : strokeColor,
-          strokeWidth: strokeWidth,
-          opacity: isHighlighter ? 0.5 : 1,
-          points: tool === 'pencil' || tool === 'eraser' ? [pos.x, pos.y] : undefined
-        }
-      });
-      setShapesToDelete(new Set());
+      if (tool === 'eraser') {
+        setDrawingState({
+          isDrawing: true,
+          startX: pos.x,
+          startY: pos.y,
+          currentShape: {
+            id: `eraser_${Date.now()}`,
+            type: 'path',
+            x: pos.x,
+            y: pos.y,
+            width: 0,
+            height: 0,
+            stroke: '#000000',
+            strokeWidth: strokeWidth,
+            opacity: 1,
+            points: [pos.x, pos.y]
+          }
+        });
+        
+        const newErasedShapes = new Set<string>();
+        shapes.forEach(shape => {
+          if (isPointInShape(shape, pos)) {
+            newErasedShapes.add(shape.id);
+          }
+        });
+        setErasedShapes(newErasedShapes);
+      } else {
+        setDrawingState({
+          isDrawing: true,
+          startX: pos.x,
+          startY: pos.y,
+          currentShape: {
+            id: `${tool}_${Date.now()}`,
+            type: tool === 'pencil' ? 'path' : tool as ShapeType,
+            x: pos.x,
+            y: pos.y,
+            width: 0,
+            height: 0,
+            stroke: strokeColor,
+            strokeWidth: strokeWidth,
+            opacity: isHighlighter ? 0.5 : 1,
+            points: tool === 'pencil' ? [pos.x, pos.y] : undefined
+          }
+        });
+      }
     }
   };
 
@@ -829,13 +1008,13 @@ const App: React.FC = () => {
         setDrawingState(prev => ({ ...prev, currentShape: updatedShape }));
         
         if (tool === 'eraser') {
-          const newShapesToDelete = new Set(shapesToDelete);
+          const newErasedShapes = new Set(erasedShapes);
           shapes.forEach(shape => {
-            if (shape.type !== 'path' && isPointInShape(shape, pos)) {
-              newShapesToDelete.add(shape.id);
+            if (isPointInShape(shape, pos)) {
+              newErasedShapes.add(shape.id);
             }
           });
-          setShapesToDelete(newShapesToDelete);
+          setErasedShapes(newErasedShapes);
         }
       } 
       else if (tool === 'line') {
@@ -962,18 +1141,9 @@ const App: React.FC = () => {
               y: newY,
               points: transformedPoints
             };
-          } else if (s.type === 'latex' && startFontSize) {
-            const scaleFactor = Math.min(newWidth / startWidth, newHeight / startHeight);
-            const newFontSize = Math.max(startFontSize * scaleFactor, 8);
-            
-            return { 
-              ...s, 
-              width: newWidth, 
-              height: newHeight, 
-              x: newX, 
-              y: newY,
-              fontSize: newFontSize
-            };
+          } else if (s.type === 'latex') {
+            // Для формулы при трансформации через якоря НЕ меняем fontSize, только размеры контейнера
+            return { ...s, width: newWidth, height: newHeight, x: newX, y: newY };
           } else {
             return { ...s, width: newWidth, height: newHeight, x: newX, y: newY };
           }
@@ -1029,11 +1199,14 @@ const App: React.FC = () => {
     if (drawingState.isDrawing && drawingState.currentShape) {
       let newShape = { ...drawingState.currentShape } as Shape;
       
-      if (tool === 'eraser' && shapesToDelete.size > 0) {
-        const newShapes = shapes.filter(shape => !shapesToDelete.has(shape.id));
-        setShapes(newShapes);
-        saveToHistory(newShapes);
-        setShapesToDelete(new Set());
+      if (tool === 'eraser') {
+        // Удаляем фигуры, которые были затронуты ластиком
+        if (erasedShapes.size > 0) {
+          const newShapes = shapes.filter(shape => !erasedShapes.has(shape.id));
+          setShapes(newShapes);
+          saveToHistory(newShapes);
+          setErasedShapes(new Set());
+        }
         
         setDrawingState({
           isDrawing: false,
@@ -1044,7 +1217,7 @@ const App: React.FC = () => {
         return;
       }
       
-      if ((tool === 'pencil' || tool === 'eraser') && newShape.points && newShape.points.length >= 4) {
+      if (tool === 'pencil' && newShape.points && newShape.points.length >= 4) {
         const bbox = calculateBoundingBox(newShape.points);
         newShape.x = bbox.x;
         newShape.y = bbox.y;
@@ -1155,7 +1328,7 @@ const App: React.FC = () => {
   const renderAllShapes = () => {
     const allShapes = [...shapes];
     
-    if (drawingState.currentShape) {
+    if (drawingState.currentShape && tool !== 'eraser') {
       const shape = drawingState.currentShape;
       
       if (shape.type === 'rectangle' || shape.type === 'ellipse') {
@@ -1173,16 +1346,14 @@ const App: React.FC = () => {
         };
         
         allShapes.push(normalizedShape as Shape);
-      } else {
+      } else if (shape.type === 'path' && shape.points && shape.points.length > 0) {
         allShapes.push(shape as Shape);
       }
     }
     
     return allShapes.map((shape) => {
       const shapeOpacity = shape.opacity !== undefined ? shape.opacity : 1;
-      const strokeColorWithOpacity = shape.stroke === '#ffffff' 
-        ? '#ffffff'
-        : hexToRgba(shape.stroke, shapeOpacity);
+      const strokeColorWithOpacity = hexToRgba(shape.stroke, shapeOpacity);
       
       const commonProps = {
         key: shape.id,
@@ -1239,9 +1410,6 @@ const App: React.FC = () => {
               tension={0}
               lineCap="round"
               lineJoin="round"
-              globalCompositeOperation={
-                shape.stroke === '#ffffff' ? 'destination-out' : 'source-over'
-              }
             />
           );
         
@@ -1350,7 +1518,7 @@ const App: React.FC = () => {
           >
             <div
               dangerouslySetInnerHTML={{ 
-                __html: shape.latexRendered || renderLatexToHtml(shape.latex || '') 
+                __html: shape.latexRendered || renderLatexToHtml(shape.latex || '', shape.fontSize || fontSize)
               }}
               style={{
                 fontSize: `${shape.fontSize || fontSize}px`,
@@ -1379,14 +1547,15 @@ const App: React.FC = () => {
     const shape = shapes.find(s => s.id === selectedId);
     if (!shape) return null;
     
-    if (shape.type === 'path') return null;
+    // Для path показываем выделение только если есть точки
+    if (shape.type === 'path' && (!shape.points || shape.points.length === 0)) return null;
     
     let displayShape = { ...shape };
+    
+    // Для path вычисляем bounding box на основе точек
     if ((shape.type === 'path' || shape.type === 'line') && shape.points && shape.points.length > 0) {
-      if ((!shape.width || !shape.height || shape.width === 0 || shape.height === 0)) {
-        const bbox = calculateBoundingBox(shape.points);
-        displayShape = { ...shape, ...bbox };
-      }
+      const bbox = calculateBoundingBox(shape.points);
+      displayShape = { ...shape, x: bbox.x, y: bbox.y, width: bbox.width, height: bbox.height };
     }
     
     const selectionPadding = 5;
@@ -1563,7 +1732,7 @@ const App: React.FC = () => {
               Ввод LaTeX формулы (поддерживается большинство команд LaTeX)
             </div>
             <div 
-              dangerouslySetInnerHTML={{ __html: renderLatexToHtml(tempText || '') }}
+              dangerouslySetInnerHTML={{ __html: renderLatexToHtml(tempText || '', shape.fontSize || fontSize) }}
               style={{
                 fontSize: `${shape.fontSize || fontSize}px`,
                 color: shape.stroke,
@@ -1715,17 +1884,31 @@ const App: React.FC = () => {
         }}
       >
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+          {/* Для обычного текста: выбор шрифта */}
           {selectedShape.type === 'text' && (
-            <label style={{
-              fontSize: '14px',
-              fontWeight: 'bold',
-              marginRight: '3px',
-              whiteSpace: 'nowrap'
-            }}>
-              Font:
-            </label>
+            <>
+              <label style={{
+                fontSize: '14px',
+                fontWeight: 'bold',
+                marginRight: '3px',
+                whiteSpace: 'nowrap'
+              }}>
+                Font:
+              </label>
+              <select
+                className="form-select form-select-sm"
+                value={selectedShape.fontFamily || fontFamily}
+                onChange={(e) => updateSelectedTextProperty('fontFamily', e.target.value)}
+                style={{ width: '150px', height: '30px' }}
+              >
+                {availableFonts.map(font => (
+                  <option key={font} value={font}>{font}</option>
+                ))}
+              </select>
+            </>
           )}
 
+          {/* Кнопки форматирования текста (только для обычного текста) */}
           {selectedShape.type === 'text' && (
             <>
               <button
@@ -1806,25 +1989,27 @@ const App: React.FC = () => {
             </>
           )}
           
+          {/* Размер шрифта (для текста и формул) */}
           <label style={{ 
             fontSize: '14px', 
             fontWeight: 'bold', 
-            marginLeft: '5px',
+            marginLeft: selectedShape.type === 'text' ? '5px' : '0',
             whiteSpace: 'nowrap' 
           }}>
-            {selectedShape.type === 'text' ? 'Align:' : 'Text Align:'}
+            Size:
           </label>
-          <select
-            className="form-select form-select-sm"
-            value={selectedShape.textAlign || textAlign}
-            onChange={(e) => updateSelectedTextProperty('textAlign', e.target.value)}
-            style={{ width: '80px', height: '30px' }}
-          >
-            <option value="left">Left</option>
-            <option value="center">Center</option>
-            <option value="right">Right</option>
-          </select>
+          <input
+            type="number"
+            className="form-control form-control-sm"
+            value={selectedShape.fontSize || fontSize}
+            onChange={(e) => updateSelectedTextProperty('fontSize', parseInt(e.target.value) || 1)}
+            min="1"
+            max="200"
+            style={{ width: '70px', height: '30px', marginRight: '3px' }}
+          />
+          <span style={{ fontSize: '12px', color: '#666', marginRight: '5px' }}>px</span>
           
+          {/* Выбор цвета (для текста и формул) */}
           <label style={{ 
             fontSize: '14px', 
             fontWeight: 'bold', 
@@ -1845,6 +2030,31 @@ const App: React.FC = () => {
             }}
           />
           
+          {/* Выравнивание текста (только для обычного текста) */}
+          {selectedShape.type === 'text' && (
+            <>
+              <label style={{ 
+                fontSize: '14px', 
+                fontWeight: 'bold', 
+                marginLeft: '5px',
+                whiteSpace: 'nowrap' 
+              }}>
+                Align:
+              </label>
+              <select
+                className="form-select form-select-sm"
+                value={selectedShape.textAlign || textAlign}
+                onChange={(e) => updateSelectedTextProperty('textAlign', e.target.value)}
+                style={{ width: '80px', height: '30px', marginRight: '5px' }}
+              >
+                <option value="left">Left</option>
+                <option value="center">Center</option>
+                <option value="right">Right</option>
+              </select>
+            </>
+          )}
+          
+          {/* Кнопка редактирования */}
           <button
             type="button"
             className="btn btn-sm btn-outline-secondary"
@@ -1857,9 +2067,10 @@ const App: React.FC = () => {
               marginLeft: '5px'
             }}
           >
-            {selectedShape.type === 'latex' ? 'Edit LaTeX' : 'Edit Text'}
+            {selectedShape.type === 'latex' ? 'Edit Formula' : 'Edit Text'}
           </button>
           
+          {/* LaTeX символы (только для формул) */}
           {selectedShape.type === 'latex' && !editingTextId && (
             <div style={{ position: 'relative', display: 'inline-block' }}>
               <button
@@ -1973,8 +2184,6 @@ const App: React.FC = () => {
             </div>
           )}
         </div>
-        
-
       </div>
     );
   };
