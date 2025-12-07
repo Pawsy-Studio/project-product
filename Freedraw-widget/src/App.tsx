@@ -104,6 +104,7 @@ const App: React.FC = () => {
   const [selectedShapeStart, setSelectedShapeStart] = useState({ x: 0, y: 0 });
   const [originalPointsOnDragStart, setOriginalPointsOnDragStart] = useState<number[]>([]);
   const [erasedShapes, setErasedShapes] = useState<Set<string>>(new Set());
+  const [eraserHistoryStart, setEraserHistoryStart] = useState<Shape[] | null>(null);
 
   const [history, setHistory] = useState<Shape[][]>([[]]);
   const [historyIndex, setHistoryIndex] = useState(0);
@@ -671,6 +672,21 @@ const App: React.FC = () => {
     setShowLatexMenu(false);
   };
 
+  const changeFontSizeWithStep = (direction: 'up' | 'down', shiftPressed: boolean) => {
+    if (selectedId) {
+      const selectedShape = shapes.find(s => s.id === selectedId);
+      if (selectedShape && (selectedShape.type === 'text' || selectedShape.type === 'latex')) {
+        const currentSize = selectedShape.fontSize || fontSize;
+        const step = shiftPressed ? 2 : 1;
+        const newSize = direction === 'up' 
+          ? currentSize + step 
+          : Math.max(1, currentSize - step);
+        
+        updateSelectedTextProperty('fontSize', newSize);
+      }
+    }
+  };
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Shift') setShiftPressed(true);
@@ -685,6 +701,14 @@ const App: React.FC = () => {
       if (e.key === 'Enter' && editingTextId && e.ctrlKey) {
         finishTextEditing();
       }
+      
+      // Изменение размера шрифта стрелками
+      if (!editingTextId && (e.key === 'ArrowUp' || e.key === 'ArrowDown') && selectedId) {
+        e.preventDefault();
+        const direction = e.key === 'ArrowUp' ? 'up' : 'down';
+        changeFontSizeWithStep(direction, e.shiftKey);
+      }
+      
       if ((e.ctrlKey || e.metaKey) && selectedId) {
         const selectedShape = shapes.find(s => s.id === selectedId);
         if (selectedShape && selectedShape.type === 'text') {
@@ -717,7 +741,7 @@ const App: React.FC = () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [selectedId, editingTextId, tempText, shapes]);
+  }, [selectedId, editingTextId, tempText, shapes, fontSize]);
 
   useEffect(() => {
     if (tool !== 'select' || !selectedId) {
@@ -861,7 +885,26 @@ const App: React.FC = () => {
         }, 10);
       }
       else if (tool === 'eraser') {
-        // Для ластика создаем временную фигуру для стирания
+        // Сохраняем текущее состояние в историю при начале стирания
+        setEraserHistoryStart([...shapes]);
+        
+        // Собираем ID фигур, которые будут стерты сразу
+        const newErasedShapes = new Set<string>();
+        shapes.forEach(shape => {
+          if (isPointInShape(shape, pos)) {
+            newErasedShapes.add(shape.id);
+          }
+        });
+        
+        // Удаляем фигуры сразу
+        if (newErasedShapes.size > 0) {
+          const newShapes = shapes.filter(shape => !newErasedShapes.has(shape.id));
+          setShapes(newShapes);
+        }
+        
+        setErasedShapes(newErasedShapes);
+        
+        // Для ластика создаем временную фигуру для отображения
         setDrawingState({
           isDrawing: true,
           startX: pos.x,
@@ -879,15 +922,6 @@ const App: React.FC = () => {
             points: [pos.x, pos.y]
           }
         });
-        
-        // Собираем ID фигур, которые будут стерты
-        const newErasedShapes = new Set<string>();
-        shapes.forEach(shape => {
-          if (isPointInShape(shape, pos)) {
-            newErasedShapes.add(shape.id);
-          }
-        });
-        setErasedShapes(newErasedShapes);
       }
       else if (!['select', 'text', 'latex'].includes(tool)) {
         setDrawingState({
@@ -946,6 +980,25 @@ const App: React.FC = () => {
     
     if (!['select', 'text', 'latex'].includes(tool)) {
       if (tool === 'eraser') {
+        // Сохраняем текущее состояние в истории при начале стирания
+        setEraserHistoryStart([...shapes]);
+        
+        // Собираем ID фигур, которые будут стерты сразу
+        const newErasedShapes = new Set<string>();
+        shapes.forEach(shape => {
+          if (isPointInShape(shape, pos)) {
+            newErasedShapes.add(shape.id);
+          }
+        });
+        
+        // Удаляем фигуры сразу
+        if (newErasedShapes.size > 0) {
+          const newShapes = shapes.filter(shape => !newErasedShapes.has(shape.id));
+          setShapes(newShapes);
+        }
+        
+        setErasedShapes(newErasedShapes);
+        
         setDrawingState({
           isDrawing: true,
           startX: pos.x,
@@ -963,14 +1016,6 @@ const App: React.FC = () => {
             points: [pos.x, pos.y]
           }
         });
-        
-        const newErasedShapes = new Set<string>();
-        shapes.forEach(shape => {
-          if (isPointInShape(shape, pos)) {
-            newErasedShapes.add(shape.id);
-          }
-        });
-        setErasedShapes(newErasedShapes);
       } else {
         setDrawingState({
           isDrawing: true,
@@ -1008,13 +1053,20 @@ const App: React.FC = () => {
         setDrawingState(prev => ({ ...prev, currentShape: updatedShape }));
         
         if (tool === 'eraser') {
-          const newErasedShapes = new Set(erasedShapes);
-          shapes.forEach(shape => {
-            if (isPointInShape(shape, pos)) {
+          // Для ластика находим и немедленно удаляем фигуры при касании
+          const shapesToErase = shapes.filter(shape => isPointInShape(shape, pos));
+          
+          if (shapesToErase.length > 0) {
+            const newErasedShapes = new Set(erasedShapes);
+            shapesToErase.forEach(shape => {
               newErasedShapes.add(shape.id);
-            }
-          });
-          setErasedShapes(newErasedShapes);
+            });
+            
+            // Удаляем фигуры немедленно
+            const newShapes = shapes.filter(shape => !newErasedShapes.has(shape.id));
+            setShapes(newShapes);
+            setErasedShapes(newErasedShapes);
+          }
         }
       } 
       else if (tool === 'line') {
@@ -1200,13 +1252,18 @@ const App: React.FC = () => {
       let newShape = { ...drawingState.currentShape } as Shape;
       
       if (tool === 'eraser') {
-        // Удаляем фигуры, которые были затронуты ластиком
-        if (erasedShapes.size > 0) {
-          const newShapes = shapes.filter(shape => !erasedShapes.has(shape.id));
-          setShapes(newShapes);
-          saveToHistory(newShapes);
-          setErasedShapes(new Set());
+        // Сохраняем изменения в истории
+        if (erasedShapes.size > 0 && eraserHistoryStart) {
+          // Сохраняем переход от начального состояния к текущему
+          const newHistory = history.slice(0, historyIndex + 1);
+          newHistory.push([...eraserHistoryStart]); // Состояние до стирания
+          newHistory.push([...shapes]); // Состояние после стирания
+          setHistory(newHistory);
+          setHistoryIndex(newHistory.length - 1);
         }
+        
+        setErasedShapes(new Set());
+        setEraserHistoryStart(null);
         
         setDrawingState({
           isDrawing: false,
@@ -2005,6 +2062,7 @@ const App: React.FC = () => {
             onChange={(e) => updateSelectedTextProperty('fontSize', parseInt(e.target.value) || 1)}
             min="1"
             max="200"
+            step="1"
             style={{ width: '70px', height: '30px', marginRight: '3px' }}
           />
           <span style={{ fontSize: '12px', color: '#666', marginRight: '5px' }}>px</span>
