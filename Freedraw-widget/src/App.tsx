@@ -62,7 +62,8 @@ interface LatexSymbol {
   name: string;
   latex: string;
   description: string;
-  category: 'fraction' | 'root' | 'superscript' | 'subscript' | 'brackets' | 'operators';
+  category: 'fraction' | 'root' | 'superscript' | 'subscript' | 'brackets' | 'operators' | 'symbols';
+  placeholder?: string;
 }
 
 const App: React.FC = () => {
@@ -113,44 +114,58 @@ const App: React.FC = () => {
   const [isTextChanged, setIsTextChanged] = useState(false);
 
   const [latexSymbols, setLatexSymbols] = useState<LatexSymbol[]>([
-    { name: 'Простая дробь', latex: '\\frac{}{}', description: 'Дробь с числителем и знаменателем', category: 'fraction' },
-    { name: 'Смешанная дробь', latex: '\\frac{числитель}{знаменатель}', description: 'Дробь с заполнителями', category: 'fraction' },
-    { name: 'Квадратный корень', latex: '\\sqrt{}', description: 'Квадратный корень', category: 'root' },
-    { name: 'Корень n-ой степени', latex: '\\sqrt[]{}', description: 'Корень с показателем степени', category: 'root' },
-    { name: 'Верхний индекс', latex: '^{}', description: 'Надстрочный индекс', category: 'superscript' },
-    { name: 'Нижний индекс', latex: '_{}', description: 'Подстрочный индекс', category: 'subscript' },
-    { name: 'Комбинированный', latex: '_{}^{}', description: 'И верхний и нижний индекс', category: 'superscript' },
-    { name: 'Модуль', latex: '\\left| \\right|', description: 'Скобки модуля', category: 'brackets' },
-    { name: 'Круглые скобки', latex: '\\left( \\right)', description: 'Круглые скобки', category: 'brackets' },
-    { name: 'Квадратные скобки', latex: '\\left[ \\right]', description: 'Квадратные скобки', category: 'brackets' },
-    { name: 'Фигурные скобки', latex: '\\left\\{ \\right\\}', description: 'Фигурные скобки', category: 'brackets' },
-    { name: 'Сумма', latex: '\\sum_{}^{}', description: 'Сумма', category: 'operators' },
-    { name: 'Интеграл', latex: '\\int_{}^{}', description: 'Интеграл', category: 'operators' },
-    { name: 'Предел', latex: '\\lim_{}', description: 'Предел', category: 'operators' },
-    { name: 'Производная', latex: '\\frac{d}{dx}', description: 'Производная', category: 'operators' },
-    { name: 'Бесконечность', latex: '\\infty', description: 'Символ бесконечности', category: 'operators' },
-    { name: 'Приблизительно', latex: '\\approx', description: 'Приблизительное равенство', category: 'operators' },
-    { name: 'Не равно', latex: '\\neq', description: 'Не равно', category: 'operators' },
-    { name: 'Меньше или равно', latex: '\\leq', description: 'Меньше или равно', category: 'operators' },
-    { name: 'Больше или равно', latex: '\\geq', description: 'Больше или равно', category: 'operators' },
-    { name: 'Принадлежит', latex: '\\in', description: 'Принадлежность множеству', category: 'operators' },
-    { name: 'Для всех', latex: '\\forall', description: 'Для всех', category: 'operators' },
-    { name: 'Существует', latex: '\\exists', description: 'Существует', category: 'operators' },
-    { name: 'Следовательно', latex: '\\therefore', description: 'Следовательно', category: 'operators' },
+    { name: 'Простая дробь', latex: '\\frac{}{}', description: 'Дробь с числителем и знаменателем', category: 'fraction', placeholder: '\\frac{a}{b}' },
+    { name: 'Квадратный корень', latex: '\\sqrt{}', description: 'Квадратный корень', category: 'root', placeholder: '\\sqrt{x}' },
+    { name: 'Корень n-ой степени', latex: '\\sqrt[]{}', description: 'Корень с показателем степени', category: 'root', placeholder: '\\sqrt[n]{x}' },
+    { name: 'Верхний индекс', latex: '^{}', description: 'Надстрочный индекс', category: 'superscript', placeholder: 'x^{2}' },
+    { name: 'Нижний индекс', latex: '_{}', description: 'Подстрочный индекс', category: 'subscript', placeholder: 'x_{i}' },
+    { name: 'Сумма', latex: '\\sum_{}^{}', description: 'Сумма', category: 'operators', placeholder: '\\sum_{i=1}^{n}' },
+    { name: 'Интеграл', latex: '\\int_{}^{}', description: 'Интеграл', category: 'operators', placeholder: '\\int_{a}^{b}' },
+    { name: 'Предел', latex: '\\lim_{}', description: 'Предел', category: 'operators', placeholder: '\\lim_{x \\to 0}' },
+    { name: 'Производная', latex: '\\frac{d}{dx}', description: 'Производная', category: 'operators', placeholder: '\\frac{dy}{dx}' },
+    { name: 'Бесконечность', latex: '\\infty', description: 'Символ бесконечности', category: 'symbols' },
+    { name: 'Приблизительно', latex: '\\approx', description: 'Приблизительное равенство', category: 'symbols' },
+    { name: 'Не равно', latex: '\\neq', description: 'Не равно', category: 'symbols' },
+    { name: 'Меньше или равно', latex: '\\leq', description: 'Меньше или равно', category: 'symbols' },
+    { name: 'Больше или равно', latex: '\\geq', description: 'Больше или равно', category: 'symbols' },
+    { name: 'Принадлежит', latex: '\\in', description: 'Принадлежность множеству', category: 'symbols' },
+    { name: 'Для всех', latex: '\\forall', description: 'Для всех', category: 'symbols' },
+    { name: 'Существует', latex: '\\exists', description: 'Существует', category: 'symbols' },
+    { name: 'Следовательно', latex: '\\therefore', description: 'Следовательно', category: 'symbols' },
+    { name: 'Плюс', latex: '+', description: 'Плюс', category: 'symbols' },
+    { name: 'Минус', latex: '-', description: 'Минус', category: 'symbols' },
+    { name: 'Умножить', latex: '\\times', description: 'Умножение', category: 'symbols' },
+    { name: 'Делить', latex: '\\div', description: 'Деление', category: 'symbols' },
+    { name: 'Равно', latex: '=', description: 'Равно', category: 'symbols' },
+    { name: 'Круглые скобки', latex: '\\left( \\right)', description: 'Круглые скобки', category: 'brackets', placeholder: '\\left( x + y \\right)' },
+    { name: 'Квадратные скобки', latex: '\\left[ \\right]', description: 'Квадратные скобки', category: 'brackets', placeholder: '\\left[ a, b \\right]' },
+    { name: 'Фигурные скобки', latex: '\\left\\{ \\right\\}', description: 'Фигурные скобки', category: 'brackets', placeholder: '\\left\\{ x, y \\right\\}' },
+    { name: 'Модуль', latex: '\\left| \\right|', description: 'Модуль', category: 'brackets', placeholder: '\\left| x \\right|' },
+    { name: 'Альфа', latex: '\\alpha', description: 'Греческая буква альфа', category: 'symbols' },
+    { name: 'Бета', latex: '\\beta', description: 'Греческая буква бета', category: 'symbols' },
+    { name: 'Гамма', latex: '\\gamma', description: 'Греческая буква гамма', category: 'symbols' },
+    { name: 'Дельта', latex: '\\delta', description: 'Греческая буква дельта', category: 'symbols' },
+    { name: 'Пи', latex: '\\pi', description: 'Число Пи', category: 'symbols' },
+    { name: 'Сигма', latex: '\\sigma', description: 'Греческая буква сигма', category: 'symbols' },
+    { name: 'Тета', latex: '\\theta', description: 'Греческая буква тета', category: 'symbols' },
   ]);
   
   const [showLatexMenu, setShowLatexMenu] = useState(false);
-  const [latexCategories, setLatexCategories] = useState<Array<{id: string, name: string}>>([
-    { id: 'all', name: 'Все символы' },
-    { id: 'fraction', name: 'Дроби' },
-    { id: 'root', name: 'Корни' },
-    { id: 'superscript', name: 'Верхние/нижние индексы' },
-    { id: 'brackets', name: 'Скобки' },
-    { id: 'operators', name: 'Операторы' },
+  const [latexCategories, setLatexCategories] = useState<Array<{id: string, name: string, icon: string}>>([
+    { id: 'all', name: 'Все символы', icon: '📚' },
+    { id: 'fraction', name: 'Дроби', icon: '½' },
+    { id: 'root', name: 'Корни', icon: '√' },
+    { id: 'superscript', name: 'Степени', icon: 'x²' },
+    { id: 'subscript', name: 'Индексы', icon: 'x₁' },
+    { id: 'brackets', name: 'Скобки', icon: '[]' },
+    { id: 'operators', name: 'Операторы', icon: '∑' },
+    { id: 'symbols', name: 'Символы', icon: 'α' },
   ]);
   const [selectedLatexCategory, setSelectedLatexCategory] = useState('all');
   
   const [showTextFormatDropdown, setShowTextFormatDropdown] = useState(false);
+  const [latexPreview, setLatexPreview] = useState<string>('E = mc^2');
+  const [showLatexPreview, setShowLatexPreview] = useState(true);
 
   const availableFonts = [
     'Arial',
@@ -370,6 +385,7 @@ const App: React.FC = () => {
       setTempText(shape.text || shape.latex || '');
       setEditingTextId(shapeId);
       setIsTextChanged(false);
+      setLatexPreview(shape.latex || 'E = mc^2');
       
       setTimeout(() => {
         if (textAreaRef.current) {
@@ -384,7 +400,7 @@ const App: React.FC = () => {
     if (editingTextId) {
       const updatedShapes = shapes.map(s => {
         if (s.id === editingTextId) {
-          const finalText = tempText || 'Text';
+          const finalText = tempText || 'E = mc^2';
           
           if (s.type === 'latex') {
             const currentFontSize = s.fontSize || fontSize;
@@ -429,6 +445,7 @@ const App: React.FC = () => {
       setSelectedId(null);
       setTempText('');
       setIsTextChanged(false);
+      setShowLatexMenu(false);
     }
   };
 
@@ -480,6 +497,7 @@ const App: React.FC = () => {
     if (editingTextId) {
       setTempText(newText);
       setIsTextChanged(true);
+      setLatexPreview(newText);
       
       const updatedShapes = shapes.map(s => {
         if (s.id === editingTextId) {
@@ -603,47 +621,46 @@ const App: React.FC = () => {
       let insertPosition = start;
       let newText = latex;
       
-      if (latex.includes('\\left') && latex.includes('\\right')) {
-        const leftIndex = latex.indexOf('\\right');
-        if (leftIndex !== -1) {
-          insertPosition = start + leftIndex - 1;
-        }
-      }
-      else if (latex.includes('_{}^{}')) {
-        const firstBrace = latex.indexOf('_{}');
-        if (firstBrace !== -1) {
-          insertPosition = start + firstBrace + 2;
-        }
-      }
-      else if (latex.includes('^{}')) {
-        const braceIndex = latex.indexOf('^{}');
-        if (braceIndex !== -1) {
-          insertPosition = start + braceIndex + 2;
-        }
-      }
-      else if (latex.includes('_{}')) {
-        const braceIndex = latex.indexOf('_{}');
-        if (braceIndex !== -1) {
-          insertPosition = start + braceIndex + 2;
-        }
-      }
-      else if (latex.includes('\\frac{}{}')) {
-        const firstBrace = latex.indexOf('\\frac{') + 6;
-        if (firstBrace !== -1) {
-          insertPosition = start + firstBrace;
-        }
-      }
-      else if (latex.includes('\\sqrt[]{}')) {
-        const braceIndex = latex.indexOf('\\sqrt[]{}') + 7;
-        if (braceIndex !== -1) {
-          insertPosition = start + braceIndex;
-        }
-      }
-      else if (latex.includes('{}')) {
-        const braceIndex = latex.indexOf('{}');
-        if (braceIndex !== -1) {
-          insertPosition = start + braceIndex + 1;
-        }
+      if (latex.includes('\\frac{}{}')) {
+        const firstBrace = latex.indexOf('{') + 1;
+        insertPosition = start + firstBrace;
+      } else if (latex.includes('\\sqrt[]{}')) {
+        const braceIndex = latex.indexOf('{', latex.indexOf('[]') + 2) + 1;
+        insertPosition = start + braceIndex;
+      } else if (latex.includes('\\sqrt{}')) {
+        const braceIndex = latex.indexOf('{') + 1;
+        insertPosition = start + braceIndex;
+      } else if (latex.includes('^{}')) {
+        const braceIndex = latex.indexOf('^{}') + 2;
+        insertPosition = start + braceIndex;
+      } else if (latex.includes('_{}')) {
+        const braceIndex = latex.indexOf('_{}') + 2;
+        insertPosition = start + braceIndex;
+      } else if (latex.includes('\\sum_{}^{}')) {
+        const firstBrace = latex.indexOf('_{}') + 2;
+        insertPosition = start + firstBrace;
+      } else if (latex.includes('\\int_{}^{}')) {
+        const firstBrace = latex.indexOf('_{}') + 2;
+        insertPosition = start + firstBrace;
+      } else if (latex.includes('\\lim_{}')) {
+        const braceIndex = latex.indexOf('{') + 1;
+        insertPosition = start + braceIndex;
+      } else if (latex.includes('\\left( \\right)')) {
+        const innerPos = latex.indexOf('\\left(') + 6;
+        insertPosition = start + innerPos;
+        newText = '\\left( \\right)';
+      } else if (latex.includes('\\left[ \\right]')) {
+        const innerPos = latex.indexOf('\\left[') + 6;
+        insertPosition = start + innerPos;
+        newText = '\\left[ \\right]';
+      } else if (latex.includes('\\left\\{ \\right\\}')) {
+        const innerPos = latex.indexOf('\\left\\{') + 7;
+        insertPosition = start + innerPos;
+        newText = '\\left\\{ \\right\\}';
+      } else if (latex.includes('\\left| \\right|')) {
+        const innerPos = latex.indexOf('\\left|') + 6;
+        insertPosition = start + innerPos;
+        newText = '\\left| \\right|';
       }
       
       const currentText = textarea.value;
@@ -655,14 +672,16 @@ const App: React.FC = () => {
       
       setTimeout(() => {
         if (textAreaRef.current) {
+          const newCursorPos = start + insertPosition;
           textAreaRef.current.focus();
-          textAreaRef.current.setSelectionRange(
-            start + insertPosition,
-            start + insertPosition
-          );
+          textAreaRef.current.setSelectionRange(newCursorPos, newCursorPos);
         }
       }, 0);
     }
+  };
+
+  const handleLatexSymbolClick = (symbol: LatexSymbol) => {
+    insertLatexSymbol(symbol.latex);
     setShowLatexMenu(false);
   };
 
@@ -737,26 +756,35 @@ const App: React.FC = () => {
   }, [selectedId, editingTextId, tempText, shapes, fontSize]);
 
   useEffect(() => {
-    if (tool !== 'select' || !selectedId) {
-    }
-  }, [tool, selectedId]);
-
-  useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
+      
+      if (editingTextId) {
+        // Проверяем, является ли клик внутри редактора LaTeX или меню символов
+        const isInsideTextarea = target === textAreaRef.current || textAreaRef.current?.contains(target);
+        const isInsideLatexMenu = target.closest('.latex-symbols-menu') || target.closest('.latex-symbols-dropdown');
+        const isInsideLatexEditor = target.closest('.latex-editor-container');
+        
+        if (!isInsideTextarea && !isInsideLatexMenu && !isInsideLatexEditor) {
+          finishTextEditing();
+        }
+      }
+      
       if (!target.closest('.text-format-dropdown')) {
         setShowTextFormatDropdown(false);
       }
-      if (!target.closest('.latex-symbols-dropdown')) {
+      
+      // Закрываем меню LaTeX символов только если клик был вне его
+      if (!target.closest('.latex-symbols-menu') && !target.closest('.latex-symbols-dropdown')) {
         setShowLatexMenu(false);
       }
     };
 
-    document.addEventListener('click', handleClickOutside);
+    document.addEventListener('mousedown', handleClickOutside);
     return () => {
-      document.removeEventListener('click', handleClickOutside);
+      document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, []);
+  }, [editingTextId]);
 
   const handleMouseDown = (e: any) => {
     const stage = e.target.getStage();
@@ -1715,10 +1743,10 @@ const App: React.FC = () => {
         : latexSymbols.filter(sym => sym.category === selectedLatexCategory);
       
       return (
-        <div style={{
+        <div className="latex-editor-container" style={{
           position: 'fixed',
           left: `${x}px`,
-          top: `${y - 100}px`,
+          top: `${y - 120}px`,
           width: `${width + 200}px`,
           zIndex: 1001,
         }}>
@@ -1733,27 +1761,32 @@ const App: React.FC = () => {
             flexDirection: 'column',
             gap: '8px',
           }}>
-            <div 
-              dangerouslySetInnerHTML={{ __html: renderLatexToHtml(tempText || '', shape.fontSize || fontSize) }}
-              style={{
-                fontSize: `${shape.fontSize || fontSize}px`,
-                color: shape.stroke,
-                textAlign: 'center',
-                padding: '5px',
-                backgroundColor: '#f5f5f5',
-                borderRadius: '3px',
-                minHeight: '40px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            />
+            {showLatexPreview && (
+              <div 
+                dangerouslySetInnerHTML={{ __html: renderLatexToHtml(latexPreview || tempText || 'E = mc^2', shape.fontSize || fontSize) }}
+                style={{
+                  fontSize: `${shape.fontSize || fontSize}px`,
+                  color: shape.stroke,
+                  textAlign: 'center',
+                  padding: '5px',
+                  backgroundColor: '#f5f5f5',
+                  borderRadius: '3px',
+                  minHeight: '40px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              />
+            )}
             
             <div className="latex-symbols-dropdown" style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <button
                 type="button"
                 className="btn btn-sm btn-outline-success"
-                onClick={() => setShowLatexMenu(!showLatexMenu)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowLatexMenu(!showLatexMenu);
+                }}
                 style={{ 
                   height: '30px',
                   whiteSpace: 'nowrap',
@@ -1761,33 +1794,28 @@ const App: React.FC = () => {
                   fontSize: '14px',
                 }}
               >
-                LaTeX Symbols
+                Символы
               </button>
               
-              <div style={{ 
-                display: 'flex', 
-                gap: '5px', 
-                alignItems: 'center',
-                flexWrap: 'wrap' 
-              }}>
-                {latexCategories.map(cat => (
-                  <button
-                    key={cat.id}
-                    type="button"
-                    className={`btn btn-sm ${selectedLatexCategory === cat.id ? 'btn-primary' : 'btn-outline-secondary'}`}
-                    onClick={() => setSelectedLatexCategory(cat.id)}
-                    style={{ 
-                      padding: '2px 8px',
-                      fontSize: '12px',
-                    }}
-                  >
-                    {cat.name}
-                  </button>
-                ))}
-              </div>
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-secondary"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowLatexPreview(!showLatexPreview);
+                }}
+                style={{ 
+                  height: '30px',
+                  whiteSpace: 'nowrap',
+                  padding: '0 12px',
+                  fontSize: '14px',
+                }}
+              >
+                {showLatexPreview ? 'Скрыть' : 'Показать'} предпросмотр
+              </button>
               
               {showLatexMenu && (
-                <div style={{
+                <div className="latex-symbols-menu" style={{
                   position: 'absolute',
                   top: '100%',
                   left: 0,
@@ -1802,16 +1830,50 @@ const App: React.FC = () => {
                   boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
                 }}>
                   <div style={{ 
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: '4px',
+                    marginBottom: '10px',
+                    borderBottom: '1px solid #eee',
+                    paddingBottom: '8px',
+                  }}>
+                    {latexCategories.map(cat => (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        className={`btn btn-sm ${selectedLatexCategory === cat.id ? 'btn-primary' : 'btn-outline-secondary'}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedLatexCategory(cat.id);
+                        }}
+                        style={{ 
+                          padding: '4px 8px',
+                          fontSize: '12px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                        }}
+                      >
+                        <span>{cat.icon}</span>
+                        <span>{cat.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                  
+                  <div style={{ 
                     display: 'grid',
                     gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
-                    gap: '8px',
+                    gap: '6px',
                   }}>
                     {filteredSymbols.map(symbol => (
                       <button
                         key={symbol.name}
                         type="button"
                         className="btn btn-sm btn-outline-info"
-                        onClick={() => insertLatexSymbol(symbol.latex)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleLatexSymbolClick(symbol);
+                        }}
                         style={{ 
                           padding: '6px 8px',
                           fontSize: '12px',
@@ -1821,24 +1883,34 @@ const App: React.FC = () => {
                           alignItems: 'flex-start',
                           justifyContent: 'center',
                           height: 'auto',
-                          minHeight: '60px',
+                          minHeight: '50px',
                         }}
                         title={symbol.description}
                       >
                         <div style={{ 
-                          fontWeight: 'bold',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px',
                           marginBottom: '2px',
-                          fontSize: '11px',
                         }}>
-                          {symbol.name}
+                          <span style={{ 
+                            fontSize: '16px',
+                            fontWeight: 'bold',
+                          }}>
+                            {symbol.name}
+                          </span>
                         </div>
                         <div style={{ 
                           fontSize: '10px',
                           color: '#666',
                           fontFamily: 'monospace',
                           wordBreak: 'break-all',
+                          backgroundColor: '#f8f9fa',
+                          padding: '2px 4px',
+                          borderRadius: '2px',
+                          marginTop: '2px',
                         }}>
-                          {symbol.latex}
+                          {symbol.placeholder || symbol.latex}
                         </div>
                       </button>
                     ))}
@@ -1863,7 +1935,14 @@ const App: React.FC = () => {
             ref={textAreaRef}
             value={tempText}
             onChange={(e) => updateTextInRealTime(e.target.value)}
-            onBlur={() => finishTextEditing()}
+            onBlur={() => {
+              // Добавляем небольшую задержку перед сохранением
+              setTimeout(() => {
+                if (!showLatexMenu) {
+                  finishTextEditing();
+                }
+              }, 100);
+            }}
             style={textareaStyle}
             onKeyDown={(e) => {
               if (e.key === 'Escape') {
@@ -2020,7 +2099,10 @@ const App: React.FC = () => {
               <button
                 type="button"
                 className={`btn btn-sm ${showTextFormatDropdown ? 'btn-primary' : 'btn-outline-secondary'}`}
-                onClick={() => setShowTextFormatDropdown(!showTextFormatDropdown)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowTextFormatDropdown(!showTextFormatDropdown);
+                }}
                 style={{ 
                   height: '30px',
                   width: '30px',
@@ -2049,7 +2131,11 @@ const App: React.FC = () => {
                   <button
                     type="button"
                     className="dropdown-item"
-                    onClick={() => { toggleBold(); setShowTextFormatDropdown(false); }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleBold();
+                      setShowTextFormatDropdown(false);
+                    }}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -2067,7 +2153,11 @@ const App: React.FC = () => {
                   <button
                     type="button"
                     className="dropdown-item"
-                    onClick={() => { toggleItalic(); setShowTextFormatDropdown(false); }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleItalic();
+                      setShowTextFormatDropdown(false);
+                    }}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -2085,7 +2175,11 @@ const App: React.FC = () => {
                   <button
                     type="button"
                     className="dropdown-item"
-                    onClick={() => { toggleUnderline(); setShowTextFormatDropdown(false); }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleUnderline();
+                      setShowTextFormatDropdown(false);
+                    }}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -2103,7 +2197,11 @@ const App: React.FC = () => {
                   <button
                     type="button"
                     className="dropdown-item"
-                    onClick={() => { toggleStrikethrough(); setShowTextFormatDropdown(false); }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleStrikethrough();
+                      setShowTextFormatDropdown(false);
+                    }}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
