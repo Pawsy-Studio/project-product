@@ -1715,71 +1715,15 @@ const App: React.FC = () => {
         }}
       >
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-          <label style={{ 
-            fontSize: '14px', 
-            fontWeight: 'bold', 
+          <label style={{
+            fontSize: '14px',
+            fontWeight: 'bold',
             marginRight: '3px',
-            whiteSpace: 'nowrap' 
+            whiteSpace: 'nowrap'
           }}>
-            {selectedShape.type === 'latex' ? 'LaTeX Formula' : 'Font'}:
+            Font:
           </label>
-          
-          {selectedShape.type === 'text' ? (
-            <>
-              <select
-                className="form-select form-select-sm"
-                value={selectedShape.fontFamily || fontFamily}
-                onChange={(e) => updateSelectedTextProperty('fontFamily', e.target.value)}
-                style={{ width: '130px', height: '30px' }}
-              >
-                <option value="Arial">Arial</option>
-                <option value="Times New Roman">Times New Roman</option>
-                <option value="Courier New">Courier New</option>
-                <option value="Verdana">Verdana</option>
-                <option value="Georgia">Georgia</option>
-                <option value="Comic Sans MS">Comic Sans MS</option>
-              </select>
-              
-              <label style={{ 
-                fontSize: '14px', 
-                fontWeight: 'bold', 
-                marginLeft: '3px',
-                whiteSpace: 'nowrap' 
-              }}>
-                Size:
-              </label>
-              <input
-                type="range"
-                className="form-range"
-                min="8"
-                max="72"
-                step="1"
-                value={selectedShape.fontSize || fontSize}
-                onChange={(e) => updateSelectedTextProperty('fontSize', +e.target.value)}
-                style={{ width: '100px' }}
-              />
-              <span style={{ 
-                fontSize: '14px', 
-                minWidth: '40px', 
-                whiteSpace: 'nowrap',
-                marginRight: '3px'
-              }}>
-                {selectedShape.fontSize || fontSize}px
-              </span>
-            </>
-          ) : (
-            <span style={{ 
-              fontSize: '14px', 
-              color: '#4CAF50',
-              fontWeight: 'bold',
-              padding: '4px 8px',
-              backgroundColor: '#f0f9f0',
-              borderRadius: '4px',
-            }}>
-              LaTeX Formula Editor
-            </span>
-          )}
-          
+
           {selectedShape.type === 'text' && (
             <>
               <button
@@ -2028,29 +1972,7 @@ const App: React.FC = () => {
           )}
         </div>
         
-        {selectedShape.type === 'latex' && !editingTextId && (
-          <div style={{
-            marginTop: '5px',
-            padding: '8px',
-            backgroundColor: '#f8f9fa',
-            borderRadius: '4px',
-            border: '1px dashed #ccc',
-          }}>
-            <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#4CAF50', marginBottom: '5px' }}>
-              LaTeX Preview:
-            </div>
-            <div 
-              dangerouslySetInnerHTML={{ 
-                __html: selectedShape.latexRendered || renderLatexToHtml(selectedShape.latex || '') 
-              }}
-              style={{
-                fontSize: `${selectedShape.fontSize || fontSize}px`,
-                color: selectedShape.stroke,
-                textAlign: 'center',
-              }}
-            />
-          </div>
-        )}
+
       </div>
     );
   };
