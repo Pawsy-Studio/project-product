@@ -2099,54 +2099,55 @@ const DrawingApp: React.FC = () => {
       <h1 className="top-header">Paint</h1>
       
       <div className="drawing-toolbar">
-        <div className="drawing-toolbar-divider" />
         <div className="tools-container">
           <button
-          type="button"
-          className={`drawing-tool-btn drawing-tool-btn-small ${tool === 'pencil' ? 'drawing-tool-btn-primary' : 'drawing-tool-btn-outline-primary'}`}
-          onClick={() => {
-            if (editingTextId) {
-              finishTextEditing();
-            }
-            setTool('pencil');
-          }}
-        >
-          Pen
-        </button>
+            type="button"
+            className={`drawing-tool-btn ${tool === 'pencil' ? 'drawing-tool-btn-primary' : 'drawing-tool-btn-outline-primary'}`}
+            onClick={() => {
+              if (editingTextId) {
+                finishTextEditing();
+              }
+              setTool('pencil');
+            }}
+          >
+            <img src="../public/icon-pen-64-default.png" className="drawing-tool-icon" alt="pen"/>
+          </button>
         
-        <input
-          className="drawing-tool-checkbox"
-          type="checkbox"
-          id="highlighter"
-          disabled={tool === 'eraser'}
-          checked={isHighlighter}
-          onChange={(e) => setIsHighlighter(e.target.checked)}
-        />
-        <label className="drawing-tool-checkbox-label" htmlFor="highlighter">
-          Highlighter
-        </label>
+          <button
+            type="button"
+            className={`drawing-tool-btn ${isHighlighter ? 'drawing-tool-btn-primary' : 'drawing-tool-btn-outline-primary'}`}
+            onClick={() => {
+              if (tool !== 'eraser') {
+                setIsHighlighter(!isHighlighter);
+              }
+            }}
+            disabled={tool === 'eraser'}
+            title={isHighlighter ? 'Выключить маркер' : 'Включить маркер'}
+          >
+            <img src="../public/icon-highlighter-64-default.png" className="drawing-tool-icon" alt = "highlighter"/>
+          </button>
 
-        <button
-          type="button"
-          className={`drawing-tool-btn drawing-tool-btn-small ${tool === 'eraser' ? 'drawing-tool-btn-primary' : 'drawing-tool-btn-outline-primary'}`}
-          onClick={() => {
-            if (editingTextId) {
-              finishTextEditing();
-            }
-            setTool('eraser');
-          }}
-        >
-          Eraser
-        </button>
+          <button
+            type="button"
+            className={`drawing-tool-btn drawing-tool-btn-small ${tool === 'eraser' ? 'drawing-tool-btn-primary' : 'drawing-tool-btn-outline-primary'}`}
+            onClick={() => {
+              if (editingTextId) {
+                finishTextEditing();
+              }
+              setTool('eraser');
+            }}
+          >
+            <img src="../public/icon-eraser-64-default.png" className="drawing-tool-icon" alt="eraser"/>
+          </button>
 
-        <input
-          type="color"
-          id="color"
-          value={strokeColor}
-          onChange={(e) => setStrokeColor(e.target.value)}
-          disabled={tool === 'eraser'}
-          className="color-picker"
-        />
+          <input
+            type="color"
+            id="color"
+            value={strokeColor}
+            onChange={(e) => setStrokeColor(e.target.value)}
+            disabled={tool === 'eraser'}
+            className="drawing-tool-btn color-picker"
+          />
         </div>
 
         <label htmlFor="width" className="drawing-tool-label">
@@ -2164,7 +2165,7 @@ const DrawingApp: React.FC = () => {
           disabled={tool === 'text' || tool === 'latex'}
         />
 
-        <div className = "tools-container">
+        <div className="tools-container">
           <button
             type="button"
             className="drawing-tool-btn drawing-tool-btn-outline-primary drawing-tool-btn-small"
@@ -2186,96 +2187,96 @@ const DrawingApp: React.FC = () => {
           >
             Clear
           </button>
-                  <button
-          type="button"
-          className={`drawing-tool-btn drawing-tool-btn-small ${tool === 'rectangle' ? 'drawing-tool-btn-primary' : 'drawing-tool-btn-outline-primary'}`}
-          onClick={() => {
-            if (editingTextId) {
-              finishTextEditing();
-            }
-            setTool('rectangle');
-          }}
-        >
-          Rectangle
-        </button>
+          <button
+            type="button"
+            className={`drawing-tool-btn drawing-tool-btn-small ${tool === 'rectangle' ? 'drawing-tool-btn-primary' : 'drawing-tool-btn-outline-primary'}`}
+            onClick={() => {
+              if (editingTextId) {
+                finishTextEditing();
+              }
+              setTool('rectangle');
+            }}
+          >
+            Rectangle
+          </button>
         
-        <button
-          type="button"
-          className={`drawing-tool-btn drawing-tool-btn-small ${tool === 'ellipse' ? 'drawing-tool-btn-primary' : 'drawing-tool-btn-outline-primary'}`}
-          onClick={() => {
-            if (editingTextId) {
-              finishTextEditing();
-            }
-            setTool('ellipse');
-          }}
-        >
-          Circle
-        </button>
+          <button
+            type="button"
+            className={`drawing-tool-btn drawing-tool-btn-small ${tool === 'ellipse' ? 'drawing-tool-btn-primary' : 'drawing-tool-btn-outline-primary'}`}
+            onClick={() => {
+              if (editingTextId) {
+                finishTextEditing();
+              }
+              setTool('ellipse');
+            }}
+          >
+            Circle
+          </button>
         
-        <button
-          type="button"
-          className={`drawing-tool-btn drawing-tool-btn-small ${tool === 'line' ? 'drawing-tool-btn-primary' : 'drawing-tool-btn-outline-primary'}`}
-          onClick={() => {
-            if (editingTextId) {
-              finishTextEditing();
-            }
-            setTool('line');
-          }}
-        >
-          Line
-        </button>
-                <button
-          type="button"
-          className={`drawing-tool-btn drawing-tool-btn-small ${tool === 'text' ? 'drawing-tool-btn-primary' : 'drawing-tool-btn-outline-primary'}`}
-          onClick={() => {
-            if (editingTextId) {
-              finishTextEditing();
-            }
-            setTool('text');
-          }}
-        >
-          Text
-        </button>
+          <button
+            type="button"
+            className={`drawing-tool-btn drawing-tool-btn-small ${tool === 'line' ? 'drawing-tool-btn-primary' : 'drawing-tool-btn-outline-primary'}`}
+            onClick={() => {
+              if (editingTextId) {
+                finishTextEditing();
+              }
+              setTool('line');
+            }}
+          >
+            Line
+          </button>
+          <button
+            type="button"
+            className={`drawing-tool-btn drawing-tool-btn-small ${tool === 'text' ? 'drawing-tool-btn-primary' : 'drawing-tool-btn-outline-primary'}`}
+            onClick={() => {
+              if (editingTextId) {
+                finishTextEditing();
+              }
+              setTool('text');
+            }}
+          >
+            Text
+          </button>
         
-        <button
-          type="button"
-          className={`drawing-tool-btn drawing-tool-btn-small ${tool === 'latex' ? 'drawing-tool-btn-primary' : 'drawing-tool-btn-outline-success'}`}
-          onClick={() => {
-            if (editingTextId) {
-              finishTextEditing();
-            }
-            setTool('latex');
-          }}
-        >
-          Formula
-        </button>
+          <button
+            type="button"
+            className={`drawing-tool-btn drawing-tool-btn-small ${tool === 'latex' ? 'drawing-tool-btn-primary' : 'drawing-tool-btn-outline-success'}`}
+            onClick={() => {
+              if (editingTextId) {
+                finishTextEditing();
+              }
+              setTool('latex');
+            }}
+          >
+            Formula
+          </button>
         </div>
-        <div className = "tools-container">
-        <button
-          type="button"
-          className={`drawing-tool-btn drawing-tool-btn-small ${tool === 'select' ? 'drawing-tool-btn-primary' : 'drawing-tool-btn-outline-primary'}`}
-          onClick={() => {
-            if (editingTextId) {
-              finishTextEditing();
-            }
-            setTool('select');
-          }}
-        >
-          Select
-        </button>
-        <button
-          type="button"
-          className="drawing-tool-btn drawing-tool-btn-danger drawing-tool-btn-small"
-          onClick={() => {
-            if (selectedId) {
-              handleDeleteShape(selectedId);
-            }
-          }}
-          disabled={!selectedId || tool !== 'select'}
-          title="Удалить выделенную фигуру"
-        >
-          Delete
-        </button>
+        <div className="tools-container">
+          <button
+            type="button"
+            className={`drawing-tool-btn drawing-tool-btn-small ${tool === 'select' ? 'drawing-tool-btn-primary' : 'drawing-tool-btn-outline-primary'}`}
+            onClick={() => {
+              if (editingTextId) {
+                finishTextEditing();
+              }
+              setTool('select');
+            }}
+          >
+            Select
+          </button>
+          <button
+            type="button"
+            className="drawing-tool-btn drawing-tool-btn-danger drawing-tool-btn-small"
+            onClick={() => {
+              if (selectedId) {
+                handleDeleteShape(selectedId);
+              }
+            }}
+            disabled={!selectedId || tool !== 'select'}
+            title="Удалить выделенную фигуру"
+          >
+            Delete
+          </button>
         </div>
       </div>
       <h1>Canvas</h1>
