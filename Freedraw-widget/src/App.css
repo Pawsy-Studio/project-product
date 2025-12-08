@@ -24,6 +24,7 @@
 }
 
 .tools-container {
+  padding-top: 2px;
   border: #696969 solid 2px;
   border-radius: 9px;
 }
@@ -31,6 +32,39 @@
 .drawing-tool-icon {
   width: 32px;
   height: 32px;
+}
+
+/* Ползунок для ширины кисти */
+.drawing-tool-range {
+  width: 160px;
+  height: 1px;
+  cursor: pointer;
+  appearance: none;
+  background: #393939;
+  border-radius: 5px;
+  outline: none;
+}
+/* Шарик */
+.drawing-tool-range::-webkit-slider-thumb {
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  background: #393939;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.drawing-tool-range::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  background: #393939;
+  border-radius: 50%;
+  cursor: pointer;
+  border: none;
+}
+.drawing-tool-range:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* Стили для выбора цвета */
@@ -259,39 +293,6 @@
   border-color: #86b7fe;
   outline: 0;
   box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
-}
-
-.drawing-tool-range {
-  width: 100px;
-  height: 10px;
-  cursor: pointer;
-  appearance: none;
-  background: #dee2e6;
-  border-radius: 5px;
-  outline: none;
-}
-
-.drawing-tool-range::-webkit-slider-thumb {
-  appearance: none;
-  width: 20px;
-  height: 20px;
-  background: #007bff;
-  border-radius: 50%;
-  cursor: pointer;
-}
-
-.drawing-tool-range::-moz-range-thumb {
-  width: 20px;
-  height: 20px;
-  background: #007bff;
-  border-radius: 50%;
-  cursor: pointer;
-  border: none;
-}
-
-.drawing-tool-range:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 /* Стили для канваса */

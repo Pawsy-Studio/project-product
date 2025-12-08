@@ -2150,9 +2150,6 @@ const DrawingApp: React.FC = () => {
           />
         </div>
 
-        <label htmlFor="width" className="drawing-tool-label">
-          Width
-        </label>
         <input
           type="range"
           className="drawing-tool-range"
