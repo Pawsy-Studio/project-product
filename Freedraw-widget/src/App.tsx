@@ -2096,6 +2096,7 @@ const DrawingApp: React.FC = () => {
 
   return (
     <div className="drawing-app-container">
+    
       <h1 className="top-header">Paint</h1>
       
       <div className="drawing-toolbar">
@@ -2149,19 +2150,19 @@ const DrawingApp: React.FC = () => {
             className="drawing-tool-btn color-picker"
           />
         </div>
-
-        <input
-          type="range"
-          className="drawing-tool-range"
-          min="1"
-          max="20"
-          step="1"
-          id="width"
-          value={strokeWidth}
-          onChange={(e) => setStrokeWidth(+e.target.value)}
-          disabled={tool === 'text' || tool === 'latex'}
-        />
-
+        <div className='toolbar-range-container'>
+          <input
+            type="range"
+            className="drawing-tool-range"
+            min="1"
+            max="20"
+            step="1"
+            id="width"
+            value={strokeWidth}
+            onChange={(e) => setStrokeWidth(+e.target.value)}
+            disabled={tool === 'text' || tool === 'latex'}
+          />
+        </div>
         <div className="tools-container">
           <button
             type="button"
