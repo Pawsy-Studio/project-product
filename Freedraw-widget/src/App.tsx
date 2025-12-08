@@ -2098,7 +2098,7 @@ const DrawingApp: React.FC = () => {
     <div className="drawing-app-container">
     
       <h1 className="top-header">Paint</h1>
-      
+      <div className = "drawing-toolbar-container">
       <div className="drawing-toolbar">
         <div className="tools-container">
           <button
@@ -2311,6 +2311,7 @@ const DrawingApp: React.FC = () => {
             <img src="../public/icon-installing-64-default.png" className="drawing-tool-icon" alt="install"/>
           </button>
         </div>
+      </div>
       </div>
       <div className="canvas-container">
         <Stage
