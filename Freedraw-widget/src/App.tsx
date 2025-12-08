@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Stage, Layer, Rect, Ellipse, Line, Circle, Text } from 'react-konva';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
+import './App.css';
 
 type ShapeType = 'rectangle' | 'ellipse' | 'line' | 'path' | 'text' | 'latex';
 type ToolMode = 'select' | 'rectangle' | 'ellipse' | 'line' | 'pencil' | 'eraser' | 'text' | 'latex';
@@ -66,7 +67,7 @@ interface LatexSymbol {
   placeholder?: string;
 }
 
-const App: React.FC = () => {
+const DrawingApp: React.FC = () => {
   const [tool, setTool] = useState<ToolMode>('select');
   const [shapes, setShapes] = useState<Shape[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -1578,37 +1579,22 @@ const App: React.FC = () => {
         return (
           <div
             key={shape.id}
+            className="latex-shape-overlay"
             style={{
-              position: 'fixed',
               left: `${x}px`,
               top: `${y}px`,
               width: `${width}px`,
               height: `${height}px`,
-              pointerEvents: 'none',
-              zIndex: 999,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
             }}
           >
             <div
               dangerouslySetInnerHTML={{ 
                 __html: shape.latexRendered || renderLatexToHtml(shape.latex || '', shape.fontSize || fontSize)
               }}
+              className="latex-rendered-content"
               style={{
                 fontSize: `${shape.fontSize || fontSize}px`,
                 color: shape.stroke,
-                transform: 'scale(1)',
-                pointerEvents: 'none',
-                cursor: 'default',
-                textAlign: 'center',
-                lineHeight: 'normal',
-                width: '100%',
-                height: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                overflow: 'visible',
               }}
             />
           </div>
@@ -1748,48 +1734,25 @@ const App: React.FC = () => {
           width: `${width + 200}px`,
           zIndex: 1001,
         }}>
-          <div style={{
-            backgroundColor: 'white',
-            border: '1px solid #ccc',
-            borderRadius: '4px',
-            padding: '8px',
-            marginBottom: '5px',
-            boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '8px',
-          }}>
+          <div className="latex-editor-toolbar">
             {showLatexPreview && (
               <div 
+                className="latex-preview"
                 dangerouslySetInnerHTML={{ __html: renderLatexToHtml(latexPreview || tempText || 'E = mc^2', shape.fontSize || fontSize) }}
                 style={{
                   fontSize: `${shape.fontSize || fontSize}px`,
                   color: shape.stroke,
-                  textAlign: 'center',
-                  padding: '5px',
-                  backgroundColor: '#f5f5f5',
-                  borderRadius: '3px',
-                  minHeight: '40px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
                 }}
               />
             )}
             
-            <div className="latex-symbols-dropdown" style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div className="latex-symbols-dropdown">
               <button
                 type="button"
-                className="btn btn-sm btn-outline-success"
+                className="drawing-tool-btn drawing-tool-btn-outline-success drawing-tool-btn-small"
                 onClick={(e) => {
                   e.stopPropagation();
                   setShowLatexMenu(!showLatexMenu);
-                }}
-                style={{ 
-                  height: '30px',
-                  whiteSpace: 'nowrap',
-                  padding: '0 12px',
-                  fontSize: '14px',
                 }}
               >
                 Символы
@@ -1797,59 +1760,26 @@ const App: React.FC = () => {
               
               <button
                 type="button"
-                className="btn btn-sm btn-outline-secondary"
+                className="drawing-tool-btn drawing-tool-btn-outline-secondary drawing-tool-btn-small"
                 onClick={(e) => {
                   e.stopPropagation();
                   setShowLatexPreview(!showLatexPreview);
-                }}
-                style={{ 
-                  height: '30px',
-                  whiteSpace: 'nowrap',
-                  padding: '0 12px',
-                  fontSize: '14px',
                 }}
               >
                 {showLatexPreview ? 'Скрыть' : 'Показать'} предпросмотр
               </button>
               
               {showLatexMenu && (
-                <div className="latex-symbols-menu" style={{
-                  position: 'absolute',
-                  top: '100%',
-                  left: 0,
-                  backgroundColor: 'white',
-                  border: '1px solid #ccc',
-                  borderRadius: '4px',
-                  padding: '10px',
-                  zIndex: 1002,
-                  width: '400px',
-                  maxHeight: '400px',
-                  overflow: 'auto',
-                  boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
-                }}>
-                  <div style={{ 
-                    display: 'flex',
-                    flexWrap: 'wrap',
-                    gap: '4px',
-                    marginBottom: '10px',
-                    borderBottom: '1px solid #eee',
-                    paddingBottom: '8px',
-                  }}>
+                <div className="latex-symbols-menu">
+                  <div className="latex-categories-container">
                     {latexCategories.map(cat => (
                       <button
                         key={cat.id}
                         type="button"
-                        className={`btn btn-sm ${selectedLatexCategory === cat.id ? 'btn-primary' : 'btn-outline-secondary'}`}
+                        className={`drawing-tool-btn drawing-tool-btn-small ${selectedLatexCategory === cat.id ? 'drawing-tool-btn-primary' : 'drawing-tool-btn-outline-secondary'}`}
                         onClick={(e) => {
                           e.stopPropagation();
                           setSelectedLatexCategory(cat.id);
-                        }}
-                        style={{ 
-                          padding: '4px 8px',
-                          fontSize: '12px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px',
                         }}
                       >
                         <span>{cat.icon}</span>
@@ -1858,71 +1788,29 @@ const App: React.FC = () => {
                     ))}
                   </div>
                   
-                  <div style={{ 
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
-                    gap: '6px',
-                  }}>
+                  <div className="latex-symbols-grid">
                     {filteredSymbols.map(symbol => (
                       <button
                         key={symbol.name}
                         type="button"
-                        className="btn btn-sm btn-outline-info"
+                        className="drawing-tool-btn drawing-tool-btn-outline-info drawing-tool-btn-small latex-symbol-button"
                         onClick={(e) => {
                           e.stopPropagation();
                           handleLatexSymbolClick(symbol);
                         }}
-                        style={{ 
-                          padding: '6px 8px',
-                          fontSize: '12px',
-                          textAlign: 'left',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          alignItems: 'flex-start',
-                          justifyContent: 'center',
-                          height: 'auto',
-                          minHeight: '50px',
-                        }}
                         title={symbol.description}
                       >
-                        <div style={{ 
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          marginBottom: '2px',
-                        }}>
-                          <span style={{ 
-                            fontSize: '16px',
-                            fontWeight: 'bold',
-                          }}>
-                            {symbol.name}
-                          </span>
+                        <div className="latex-symbol-name">
+                          <span>{symbol.name}</span>
                         </div>
-                        <div style={{ 
-                          fontSize: '10px',
-                          color: '#666',
-                          fontFamily: 'monospace',
-                          wordBreak: 'break-all',
-                          backgroundColor: '#f8f9fa',
-                          padding: '2px 4px',
-                          borderRadius: '2px',
-                          marginTop: '2px',
-                        }}>
+                        <div className="latex-symbol-code">
                           {symbol.placeholder || symbol.latex}
                         </div>
                       </button>
                     ))}
                   </div>
                   
-                  <div style={{ 
-                    marginTop: '10px',
-                    padding: '8px',
-                    backgroundColor: '#f8f9fa',
-                    borderRadius: '4px',
-                    fontSize: '11px',
-                    color: '#666',
-                    borderTop: '1px solid #eee',
-                  }}>
+                  <div className="latex-symbols-tip">
                     <strong>Совет:</strong> Нажмите на символ, чтобы вставить его в формулу. Курсор автоматически поместится в нужное место.
                   </div>
                 </div>
@@ -2053,38 +1941,24 @@ const App: React.FC = () => {
     
     return (
       <div 
+        className="text-toolbar"
         style={{
-          position: 'fixed',
           left: `${left}px`,
           top: `${top}px`,
           width: `${panelWidth}px`,
-          backgroundColor: 'white',
-          border: '1px solid #ccc',
-          borderRadius: '4px',
-          padding: '5px 10px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '8px',
-          boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-          zIndex: 1001,
         }}
       >
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+        <div className="text-toolbar-content">
           {selectedShape.type === 'text' && (
             <>
-              <label style={{
-                fontSize: '14px',
-                fontWeight: 'bold',
-                marginRight: '3px',
-                whiteSpace: 'nowrap'
-              }}>
+              <label className="text-toolbar-label">
                 Font:
               </label>
               <select
-                className="form-select form-select-sm"
+                className="drawing-tool-select drawing-tool-select-small"
                 value={selectedShape.fontFamily || fontFamily}
                 onChange={(e) => updateSelectedTextProperty('fontFamily', e.target.value)}
-                style={{ width: '150px', height: '30px' }}
+                style={{ width: '150px' }}
               >
                 {availableFonts.map(font => (
                   <option key={font} value={font}>{font}</option>
@@ -2094,187 +1968,112 @@ const App: React.FC = () => {
           )}
 
           {selectedShape.type === 'text' && (
-            <div className="text-format-dropdown" style={{ display: 'inline-block', position: 'relative' }}>
+            <div className="text-format-dropdown">
               <button
                 type="button"
-                className={`btn btn-sm ${showTextFormatDropdown ? 'btn-primary' : 'btn-outline-secondary'}`}
+                className={`drawing-tool-btn drawing-tool-btn-small ${showTextFormatDropdown ? 'drawing-tool-btn-primary' : 'drawing-tool-btn-outline-secondary'}`}
                 onClick={(e) => {
                   e.stopPropagation();
                   setShowTextFormatDropdown(!showTextFormatDropdown);
-                }}
-                style={{ 
-                  height: '30px',
-                  width: '30px',
-                  padding: '0',
-                  fontWeight: 'bold',
-                  fontSize: '14px',
                 }}
                 title="Формат текста"
               >
                 A
               </button>
               {showTextFormatDropdown && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: '100%',
-                    left: 0,
-                    backgroundColor: 'white',
-                    border: '1px solid #ccc',
-                    borderRadius: '4px',
-                    zIndex: 1002,
-                    minWidth: '150px',
-                    boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
-                  }}
-                >
+                <div className="text-format-dropdown-menu">
                   <button
                     type="button"
-                    className="dropdown-item"
+                    className="drawing-tool-dropdown-item"
                     onClick={(e) => {
                       e.stopPropagation();
                       toggleBold();
                       setShowTextFormatDropdown(false);
                     }}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      padding: '5px 10px',
-                      width: '100%',
-                      border: 'none',
-                      backgroundColor: 'transparent',
-                      cursor: 'pointer',
-                      color: isBold ? '#007bff' : '#000',
-                    }}
+                    style={{ color: isBold ? '#007bff' : '#000' }}
                   >
-                    <span style={{ fontWeight: 'bold', width: '20px' }}>B</span>
-                    <span style={{ marginLeft: '5px' }}>Жирный</span>
+                    <span className="text-format-icon" style={{ fontWeight: 'bold' }}>B</span>
+                    <span className="text-format-label">Жирный</span>
                   </button>
                   <button
                     type="button"
-                    className="dropdown-item"
+                    className="drawing-tool-dropdown-item"
                     onClick={(e) => {
                       e.stopPropagation();
                       toggleItalic();
                       setShowTextFormatDropdown(false);
                     }}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      padding: '5px 10px',
-                      width: '100%',
-                      border: 'none',
-                      backgroundColor: 'transparent',
-                      cursor: 'pointer',
-                      color: isItalic ? '#007bff' : '#000',
-                    }}
+                    style={{ color: isItalic ? '#007bff' : '#000' }}
                   >
-                    <span style={{ fontStyle: 'italic', width: '20px' }}>I</span>
-                    <span style={{ marginLeft: '5px' }}>Курсив</span>
+                    <span className="text-format-icon" style={{ fontStyle: 'italic' }}>I</span>
+                    <span className="text-format-label">Курсив</span>
                   </button>
                   <button
                     type="button"
-                    className="dropdown-item"
+                    className="drawing-tool-dropdown-item"
                     onClick={(e) => {
                       e.stopPropagation();
                       toggleUnderline();
                       setShowTextFormatDropdown(false);
                     }}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      padding: '5px 10px',
-                      width: '100%',
-                      border: 'none',
-                      backgroundColor: 'transparent',
-                      cursor: 'pointer',
-                      color: isUnderline ? '#007bff' : '#000',
-                    }}
+                    style={{ color: isUnderline ? '#007bff' : '#000' }}
                   >
-                    <span style={{ textDecoration: 'underline', width: '20px' }}>U</span>
-                    <span style={{ marginLeft: '5px' }}>Подчеркнутый</span>
+                    <span className="text-format-icon" style={{ textDecoration: 'underline' }}>U</span>
+                    <span className="text-format-label">Подчеркнутый</span>
                   </button>
                   <button
                     type="button"
-                    className="dropdown-item"
+                    className="drawing-tool-dropdown-item"
                     onClick={(e) => {
                       e.stopPropagation();
                       toggleStrikethrough();
                       setShowTextFormatDropdown(false);
                     }}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      padding: '5px 10px',
-                      width: '100%',
-                      border: 'none',
-                      backgroundColor: 'transparent',
-                      cursor: 'pointer',
-                      color: isStrikethrough ? '#007bff' : '#000',
-                    }}
+                    style={{ color: isStrikethrough ? '#007bff' : '#000' }}
                   >
-                    <span style={{ textDecoration: 'line-through', width: '20px' }}>S</span>
-                    <span style={{ marginLeft: '5px' }}>Зачеркнутый</span>
+                    <span className="text-format-icon" style={{ textDecoration: 'line-through' }}>S</span>
+                    <span className="text-format-label">Зачеркнутый</span>
                   </button>
                 </div>
               )}
             </div>
           )}
           
-          <label style={{ 
-            fontSize: '14px', 
-            fontWeight: 'bold', 
-            marginLeft: selectedShape.type === 'text' ? '5px' : '0',
-            whiteSpace: 'nowrap' 
-          }}>
+          <label className="text-toolbar-label">
             Size:
           </label>
           <input
             type="number"
-            className="form-control form-control-sm"
+            className="drawing-tool-input drawing-tool-input-small"
             value={selectedShape.fontSize || fontSize}
             onChange={(e) => updateSelectedTextProperty('fontSize', parseInt(e.target.value) || 1)}
             min="1"
             max="200"
             step="1"
-            style={{ width: '70px', height: '30px', marginRight: '3px' }}
+            style={{ width: '70px' }}
           />
-          <span style={{ fontSize: '12px', color: '#666', marginRight: '5px' }}>px</span>
+          <span className="text-toolbar-unit">px</span>
           
-          <label style={{ 
-            fontSize: '14px', 
-            fontWeight: 'bold', 
-            marginLeft: '5px',
-            whiteSpace: 'nowrap' 
-          }}>
+          <label className="text-toolbar-label">
             Color:
           </label>
           <input
             type="color"
             value={selectedShape.stroke || strokeColor}
             onChange={(e) => updateSelectedTextProperty('stroke', e.target.value)}
-            style={{ 
-              width: '30px', 
-              height: '30px', 
-              cursor: 'pointer',
-              marginRight: '3px'
-            }}
+            className="text-color-picker"
           />
           
           {selectedShape.type === 'text' && (
             <>
-              <label style={{ 
-                fontSize: '14px', 
-                fontWeight: 'bold', 
-                marginLeft: '5px',
-                whiteSpace: 'nowrap' 
-              }}>
+              <label className="text-toolbar-label">
                 Align:
               </label>
               <select
-                className="form-select form-select-sm"
+                className="drawing-tool-select drawing-tool-select-small"
                 value={selectedShape.textAlign || textAlign}
                 onChange={(e) => updateSelectedTextProperty('textAlign', e.target.value)}
-                style={{ width: '80px', height: '30px', marginRight: '5px' }}
+                style={{ width: '80px' }}
               >
                 <option value="left">Left</option>
                 <option value="center">Center</option>
@@ -2285,15 +2084,8 @@ const App: React.FC = () => {
           
           <button
             type="button"
-            className="btn btn-sm btn-outline-secondary"
+            className="drawing-tool-btn drawing-tool-btn-outline-secondary drawing-tool-btn-small"
             onClick={() => startTextEditing(selectedId)}
-            style={{ 
-              height: '30px',
-              whiteSpace: 'nowrap',
-              padding: '0 12px',
-              fontSize: '14px',
-              marginLeft: '5px'
-            }}
           >
             {selectedShape.type === 'latex' ? 'Edit Formula' : 'Edit Text'}
           </button>
@@ -2303,83 +2095,100 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="d-flex flex-column gap-2 p-2">
-      <h1>Tools</h1>
+    <div className="drawing-app-container">
+      <h1 className="top-header">Paint</h1>
       
-      <div className="d-flex gap-2 align-items-center flex-wrap">
-        <div className="vr" />
-        <button
+      <div className="drawing-toolbar">
+        <div className="drawing-toolbar-divider" />
+        <div className="tools-container">
+          <button
           type="button"
-          className="btn btn-sm btn-outline-primary"
-          onClick={handleUndo}
-        >
-          Undo
-        </button>
-        <button
-          type="button"
-          className="btn btn-sm btn-outline-primary"
-          onClick={handleRedo}
-        >
-          Redo
-        </button>
-        <button
-          type="button"
-          className="btn btn-sm btn-outline-primary"
-          onClick={handleClearCanvas}
-        >
-          Clear
-        </button>
-        
-        <button
-          type="button"
-          className="btn btn-sm btn-danger"
+          className={`drawing-tool-btn drawing-tool-btn-small ${tool === 'pencil' ? 'drawing-tool-btn-primary' : 'drawing-tool-btn-outline-primary'}`}
           onClick={() => {
-            if (selectedId) {
-              handleDeleteShape(selectedId);
+            if (editingTextId) {
+              finishTextEditing();
             }
+            setTool('pencil');
           }}
-          disabled={!selectedId || tool !== 'select'}
-          title="Удалить выделенную фигуру"
         >
-          Delete
+          Pen
         </button>
         
-        <label htmlFor="color">Stroke color</label>
         <input
-          type="color"
-          value={strokeColor}
-          onChange={(e) => setStrokeColor(e.target.value)}
-          disabled={tool === 'eraser'}
-        />
-        
-        <input
-          className="form-check-input"
+          className="drawing-tool-checkbox"
           type="checkbox"
           id="highlighter"
           disabled={tool === 'eraser'}
           checked={isHighlighter}
           onChange={(e) => setIsHighlighter(e.target.checked)}
         />
-        <label className="form-check-label" htmlFor="highlighter">
+        <label className="drawing-tool-checkbox-label" htmlFor="highlighter">
           Highlighter
         </label>
-        
+
         <button
           type="button"
-          className={`btn btn-sm ${tool === 'select' ? 'btn-primary' : 'btn-outline-primary'}`}
+          className={`drawing-tool-btn drawing-tool-btn-small ${tool === 'eraser' ? 'drawing-tool-btn-primary' : 'drawing-tool-btn-outline-primary'}`}
           onClick={() => {
             if (editingTextId) {
               finishTextEditing();
             }
-            setTool('select');
+            setTool('eraser');
           }}
         >
-          Select
+          Eraser
         </button>
-        
-        <button
+
+        <input
+          type="color"
+          id="color"
+          value={strokeColor}
+          onChange={(e) => setStrokeColor(e.target.value)}
+          disabled={tool === 'eraser'}
+          className="color-picker"
+        />
+        </div>
+
+        <label htmlFor="width" className="drawing-tool-label">
+          Width
+        </label>
+        <input
+          type="range"
+          className="drawing-tool-range"
+          min="1"
+          max="20"
+          step="1"
+          id="width"
+          value={strokeWidth}
+          onChange={(e) => setStrokeWidth(+e.target.value)}
+          disabled={tool === 'text' || tool === 'latex'}
+        />
+
+        <div className = "tools-container">
+          <button
+            type="button"
+            className="drawing-tool-btn drawing-tool-btn-outline-primary drawing-tool-btn-small"
+            onClick={handleUndo}
+          >
+            Undo
+          </button>
+          <button
+            type="button"
+            className="drawing-tool-btn drawing-tool-btn-outline-primary drawing-tool-btn-small"
+            onClick={handleRedo}
+          >
+            Redo
+          </button>
+          <button
+            type="button"
+            className="drawing-tool-btn drawing-tool-btn-outline-primary drawing-tool-btn-small"
+            onClick={handleClearCanvas}
+          >
+            Clear
+          </button>
+                  <button
           type="button"
-          className={`btn btn-sm ${tool === 'rectangle' ? 'btn-primary' : 'btn-outline-primary'}`}
+          className={`drawing-tool-btn drawing-tool-btn-small ${tool === 'rectangle' ? 'drawing-tool-btn-primary' : 'drawing-tool-btn-outline-primary'}`}
           onClick={() => {
             if (editingTextId) {
               finishTextEditing();
@@ -2392,7 +2201,7 @@ const App: React.FC = () => {
         
         <button
           type="button"
-          className={`btn btn-sm ${tool === 'ellipse' ? 'btn-primary' : 'btn-outline-primary'}`}
+          className={`drawing-tool-btn drawing-tool-btn-small ${tool === 'ellipse' ? 'drawing-tool-btn-primary' : 'drawing-tool-btn-outline-primary'}`}
           onClick={() => {
             if (editingTextId) {
               finishTextEditing();
@@ -2405,7 +2214,7 @@ const App: React.FC = () => {
         
         <button
           type="button"
-          className={`btn btn-sm ${tool === 'line' ? 'btn-primary' : 'btn-outline-primary'}`}
+          className={`drawing-tool-btn drawing-tool-btn-small ${tool === 'line' ? 'drawing-tool-btn-primary' : 'drawing-tool-btn-outline-primary'}`}
           onClick={() => {
             if (editingTextId) {
               finishTextEditing();
@@ -2415,36 +2224,9 @@ const App: React.FC = () => {
         >
           Line
         </button>
-        
-        <button
+                <button
           type="button"
-          className={`btn btn-sm ${tool === 'pencil' ? 'btn-primary' : 'btn-outline-primary'}`}
-          onClick={() => {
-            if (editingTextId) {
-              finishTextEditing();
-            }
-            setTool('pencil');
-          }}
-        >
-          Pen
-        </button>
-        
-        <button
-          type="button"
-          className={`btn btn-sm ${tool === 'eraser' ? 'btn-primary' : 'btn-outline-primary'}`}
-          onClick={() => {
-            if (editingTextId) {
-              finishTextEditing();
-            }
-            setTool('eraser');
-          }}
-        >
-          Eraser
-        </button>
-        
-        <button
-          type="button"
-          className={`btn btn-sm ${tool === 'text' ? 'btn-primary' : 'btn-outline-primary'}`}
+          className={`drawing-tool-btn drawing-tool-btn-small ${tool === 'text' ? 'drawing-tool-btn-primary' : 'drawing-tool-btn-outline-primary'}`}
           onClick={() => {
             if (editingTextId) {
               finishTextEditing();
@@ -2457,7 +2239,7 @@ const App: React.FC = () => {
         
         <button
           type="button"
-          className={`btn btn-sm ${tool === 'latex' ? 'btn-primary' : 'btn-outline-success'}`}
+          className={`drawing-tool-btn drawing-tool-btn-small ${tool === 'latex' ? 'drawing-tool-btn-primary' : 'drawing-tool-btn-outline-success'}`}
           onClick={() => {
             if (editingTextId) {
               finishTextEditing();
@@ -2467,24 +2249,37 @@ const App: React.FC = () => {
         >
           Formula
         </button>
-        
-        <label htmlFor="width" className="form-label">
-          Width
-        </label>
-        <input
-          type="range"
-          className="form-range"
-          min="1"
-          max="20"
-          step="1"
-          id="width"
-          value={strokeWidth}
-          onChange={(e) => setStrokeWidth(+e.target.value)}
-          disabled={tool === 'text' || tool === 'latex'}
-        />
+        </div>
+        <div className = "tools-container">
+        <button
+          type="button"
+          className={`drawing-tool-btn drawing-tool-btn-small ${tool === 'select' ? 'drawing-tool-btn-primary' : 'drawing-tool-btn-outline-primary'}`}
+          onClick={() => {
+            if (editingTextId) {
+              finishTextEditing();
+            }
+            setTool('select');
+          }}
+        >
+          Select
+        </button>
+        <button
+          type="button"
+          className="drawing-tool-btn drawing-tool-btn-danger drawing-tool-btn-small"
+          onClick={() => {
+            if (selectedId) {
+              handleDeleteShape(selectedId);
+            }
+          }}
+          disabled={!selectedId || tool !== 'select'}
+          title="Удалить выделенную фигуру"
+        >
+          Delete
+        </button>
+        </div>
       </div>
       <h1>Canvas</h1>
-      <div style={{ border: '2px solid #000', width: '100%', height: '387px', backgroundColor: 'white', position: 'relative' }}>
+      <div className="canvas-container">
         <Stage
           ref={stageRef}
           width={window.innerWidth - 40}
@@ -2509,4 +2304,4 @@ const App: React.FC = () => {
   );
 };
 
-export default App;
+export default DrawingApp;
