@@ -2168,21 +2168,21 @@ const DrawingApp: React.FC = () => {
             className="drawing-tool-btn drawing-tool-btn-outline-primary drawing-tool-btn-small"
             onClick={handleUndo}
           >
-            Undo
+            <img src="../public/icon-return-64-default.png" className="drawing-tool-icon" alt="undo"/>
           </button>
           <button
             type="button"
             className="drawing-tool-btn drawing-tool-btn-outline-primary drawing-tool-btn-small"
             onClick={handleRedo}
           >
-            Redo
+            <img src="../public/icon-redo-64-default.png" className="drawing-tool-icon" alt="redo"/>
           </button>
           <button
             type="button"
             className="drawing-tool-btn drawing-tool-btn-outline-primary drawing-tool-btn-small"
             onClick={handleClearCanvas}
           >
-            Clear
+            <img src="../public/icon-broom-64-default.png" className="drawing-tool-icon" alt="clear"/>
           </button>
           <button
             type="button"
@@ -2194,7 +2194,7 @@ const DrawingApp: React.FC = () => {
               setTool('rectangle');
             }}
           >
-            Rectangle
+            <img src="../public/icon-square-64-default.png" className="drawing-tool-icon" alt="rectangle"/>
           </button>
         
           <button
@@ -2207,7 +2207,7 @@ const DrawingApp: React.FC = () => {
               setTool('ellipse');
             }}
           >
-            Circle
+            <img src="../public/icon-circle-64-default.png" className="drawing-tool-icon" alt="circle"/>
           </button>
         
           <button
@@ -2220,7 +2220,7 @@ const DrawingApp: React.FC = () => {
               setTool('line');
             }}
           >
-            Line
+            <img src="../public/icon-line-64-default.png" className="drawing-tool-icon" alt="line"/>
           </button>
           <button
             type="button"
@@ -2232,7 +2232,7 @@ const DrawingApp: React.FC = () => {
               setTool('text');
             }}
           >
-            Text
+            <img src="../public/icon-text-64-default.png" className="drawing-tool-icon" alt="text"/>
           </button>
         
           <button
@@ -2245,7 +2245,7 @@ const DrawingApp: React.FC = () => {
               setTool('latex');
             }}
           >
-            Formula
+            <img src="../public/icon-formula-fx-64-default.png" className="drawing-tool-icon" alt="formula"/>
           </button>
         </div>
         <div className="tools-container">
@@ -2259,7 +2259,7 @@ const DrawingApp: React.FC = () => {
               setTool('select');
             }}
           >
-            Select
+            <img src="../public/icon-cursor-64-default.png" className="drawing-tool-icon" alt="select"/>
           </button>
           <button
             type="button"
@@ -2272,11 +2272,45 @@ const DrawingApp: React.FC = () => {
             disabled={!selectedId || tool !== 'select'}
             title="Удалить выделенную фигуру"
           >
-            Delete
+            <img src="../public/icon-delete-trash-64-default.png" className="drawing-tool-icon" alt="delete"/>
+          </button>
+        </div>
+        <div className='tools-container'>
+          <button
+            type="button"
+            className="drawing-tool-btn drawing-tool-btn-danger drawing-tool-btn-small"
+            onClick={() => {
+              console.log("ЭТО ЗАГЛУШКА ДЛЯ OCR")
+            }}
+            disabled={!selectedId || tool !== 'select'}
+            title="Удалить выделенную фигуру"
+          >
+            <img src="../public/icon-select-default.png" className="drawing-tool-icon" alt="OCR-select"/>
+          </button>          
+          <button
+            type="button"
+            className="drawing-tool-btn drawing-tool-btn-danger drawing-tool-btn-small"
+            onClick={() => {
+              console.log("ЭТО ЗАГЛУШКА ДЛЯ OCR")
+            }}
+            disabled={!selectedId || tool !== 'select'}
+            title="Удалить выделенную фигуру"
+          >
+            <img src="../public/icon-change-64-default.png" className="drawing-tool-icon" alt="change"/>
+          </button>
+          <button
+            type="button"
+            className="drawing-tool-btn drawing-tool-btn-danger drawing-tool-btn-small"
+            onClick={() => {
+              console.log("ЭТО ЗАГЛУШКА ДЛЯ OCR")
+            }}
+            disabled={!selectedId || tool !== 'select'}
+            title="Удалить выделенную фигуру"
+          >
+            <img src="../public/icon-installing-64-default.png" className="drawing-tool-icon" alt="install"/>
           </button>
         </div>
       </div>
-      <h1>Canvas</h1>
       <div className="canvas-container">
         <Stage
           ref={stageRef}
