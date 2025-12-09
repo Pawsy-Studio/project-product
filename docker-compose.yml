@@ -37,6 +37,24 @@ services:
         python manage.py runserver 0.0.0.0:8000
       "
 
+  frontend:
+    build:
+      context: ./Freedraw-widget  # Указываем путь к фронтенду
+      dockerfile: Dockerfile
+    container_name: freedraw_frontend
+    ports:
+      - "3000:3000"  # Для разработки
+      # или для продакшена: - "80:80"
+    environment:
+      - NODE_ENV=development
+      - VITE_API_URL=http://localhost:8000
+    volumes:
+      - ./Freedraw-widget:/app  # Для hot reload в разработке
+      - /app/node_modules  # Изолируем node_modules
+    command: npm run dev -- --host 0.0.0.0
+    networks:
+      - freedraw_network
+
 networks:
   freedraw_network:
     driver: bridge
