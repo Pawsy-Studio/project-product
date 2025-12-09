@@ -55,11 +55,209 @@ body {
   height: 48px;
   border: #696969 solid 2px;
   border-radius: 9px;
+  padding: 0 4px;
+  display: flex;
+  align-items: center;
 }
 
-.drawing-tool-icon {
+.tool-icon {
   width: 32px;
   height: 32px;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 32px 32px;
+  border: none;
+  transition: background-image 0.2s ease-in-out;
+  margin: 0 2px;
+}
+
+/* Карандаш */
+.tool-pencil {
+  background-image: url('../public/icon-pen-64-default.png');
+}
+
+.tool-pencil:hover {
+  background-image: url('../public/icon-pen-64-hover.png');
+}
+
+.drawing-tool-btn-primary.tool-pencil,
+.tool-pencil.active {
+  background-image: url('../public/icon-pen-64-active.png');
+}
+
+/* Маркер */
+.tool-highlighter {
+  background-image: url('../public/icon-highlighter-64-default.png');
+}
+
+.tool-highlighter:hover {
+  background-image: url('../public/icon-highlighter-64-hover.png');
+}
+
+.drawing-tool-btn-primary.tool-highlighter,
+.tool-highlighter.active {
+  background-image: url('../public/icon-highlighter-64-active.png');
+}
+
+/* Ластик */
+.tool-eraser {
+  background-image: url('../public/icon-eraser-64-default.png');
+}
+
+.tool-eraser:hover {
+  background-image: url('../public/icon-eraser-64-hover.png');
+}
+
+.drawing-tool-btn-primary.tool-eraser,
+.tool-eraser.active {
+  background-image: url('../public/icon-eraser-64-active.png');
+}
+
+/* Отмена */
+.tool-undo {
+  background-image: url('../public/icon-return-64-default.png');
+}
+
+.tool-undo:hover {
+  background-image: url('../public/icon-return-64-hover.png');
+}
+
+/* Повтор */
+.tool-redo {
+  background-image: url('../public/icon-redo-64-default.png');
+}
+
+.tool-redo:hover {
+  background-image: url('../public/icon-redo-64-hover.png');
+}
+
+/* Очистка */
+.tool-clear {
+  background-image: url('../public/icon-broom-64-default.png');
+}
+
+.tool-clear:hover {
+  background-image: url('../public/icon-broom-64-hover.png');
+}
+
+/* Прямоугольник */
+.tool-rectangle {
+  background-image: url('../public/icon-square-64-default.png');
+}
+
+.tool-rectangle:hover {
+  background-image: url('../public/icon-square-64-hover.png');
+}
+
+.drawing-tool-btn-primary.tool-rectangle,
+.tool-rectangle.active {
+  background-image: url('../public/icon-square-64-active.png');
+}
+
+/* Эллипс */
+.tool-ellipse {
+  background-image: url('../public/icon-circle-64-default.png');
+}
+
+.tool-ellipse:hover {
+  background-image: url('../public/icon-circle-64-hover.png');
+}
+
+.drawing-tool-btn-primary.tool-ellipse,
+.tool-ellipse.active {
+  background-image: url('../public/icon-circle-64-active.png');
+}
+
+/* Линия */
+.tool-line {
+  background-image: url('../public/icon-line-64-default.png');
+}
+
+.tool-line:hover {
+  background-image: url('../public/icon-line-64-hover.png');
+}
+
+.drawing-tool-btn-primary.tool-line,
+.tool-line.active {
+  background-image: url('../public/icon-line-64-active.png');
+}
+
+/* Текст */
+.tool-text {
+  background-image: url('../public/icon-text-64-default.png');
+}
+
+.tool-text:hover {
+  background-image: url('../public/icon-text-64-hover.png');
+}
+
+.drawing-tool-btn-primary.tool-text,
+.tool-text.active {
+  background-image: url('../public/icon-text-64-active.png');
+}
+
+/* Формула */
+.tool-latex {
+  background-image: url('../public/icon-formula-fx-64-default.png');
+}
+
+.tool-latex:hover {
+  background-image: url('../public/icon-formula-fx-64-hover.png');
+}
+
+.drawing-tool-btn-primary.tool-latex,
+.tool-latex.active {
+  background-image: url('../public/icon-formula-fx-64-active.png');
+}
+
+/* Выделение */
+.tool-select {
+  background-image: url('../public/icon-cursor-64-default.png');
+}
+
+.tool-select:hover {
+  background-image: url('../public/icon-cursor-64-hover.png');
+}
+
+.drawing-tool-btn-primary.tool-select,
+.tool-select.active {
+  background-image: url('../public/icon-cursor-64-active.png');
+}
+
+/* Удалить */
+.tool-delete {
+  background-image: url('../public/icon-delete-trash-64-default.png');
+}
+
+.tool-delete:hover {
+  background-image: url('../public/icon-delete-trash-64-hover.png');
+}
+
+/* OCR-выделение */
+.tool-ocr {
+  background-image: url('../public/icon-select-default.png');
+}
+
+.tool-ocr:hover {
+  background-image: url('../public/icon-select-hover.png');
+}
+
+/* Изменить */
+.tool-change {
+  background-image: url('../public/icon-change-64-default.png');
+}
+
+.tool-change:hover {
+  background-image: url('../public/icon-change-64-hover.png');
+}
+
+/* Установка */
+.tool-install {
+  background-image: url('../public/icon-installing-64-default.png');
+}
+
+.tool-install:hover {
+  background-image: url('../public/icon-installing-64-hover.png');
 }
 
 /* Ползунок для ширины кисти */
@@ -71,6 +269,7 @@ body {
   background: #393939;
   border-radius: 5px;
   outline: none;
+  margin: 0 10px;
 }
 .drawing-tool-range::-webkit-slider-thumb {
   appearance: none;
@@ -97,12 +296,14 @@ body {
 .toolbar-range-container {
   position: relative;
   bottom: 5px;
+  display: flex;
+  align-items: center;
 }
 
 /* Стили для пикера цвета */
 .color-picker,
 .text-color-picker {
-  margin-right: 8px;
+  margin: 0 2px;
   margin-bottom: 5px;
   width: 32px;
   height: 32px;
@@ -138,8 +339,6 @@ body {
 
 /* Стили для кнопок */
 .drawing-tool-btn {
-  position: relative;
-  top: 5px;
   display: inline-block;
   text-align: center;
   vertical-align: middle;
@@ -150,6 +349,10 @@ body {
   font-size: 1rem;
   line-height: 1.5;
   border-radius: 0.25rem;
+  padding: 0;
+  min-width: 36px;
+  min-height: 36px;
+  position: relative;
 }
 
 /* Стили для выпадающих элементов */
@@ -457,4 +660,3 @@ body {
     grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   }
 }
-
