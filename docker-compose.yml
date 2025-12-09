@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: freedraw_postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-freedraw_db}
+      POSTGRES_USER: ${POSTGRES_USER:-freedraw_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme123}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - freedraw_network
+
+  backend:
+    build: ./backend
+    container_name: freedraw_backend
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-freedraw_user}:${POSTGRES_PASSWORD:-changeme123}@postgres:5432/${POSTGRES_DB:-freedraw_db}
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-dev-secret-key}
+      DJANGO_DEBUG: true
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1
+    volumes:
+      - ./backend:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+    networks:
+      - freedraw_network
+    command: >
+      sh -c "
+        python manage.py migrate &&
+        python manage.py runserver 0.0.0.0:8000
+      "
+
+networks:
+  freedraw_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
