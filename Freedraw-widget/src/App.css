@@ -262,6 +262,8 @@ body {
 
 /* Ползунок для ширины кисти */
 .drawing-tool-range {
+  position: relative;
+  top: 6px;
   width: 160px;
   height: 1px;
   cursor: pointer;
