@@ -71,6 +71,7 @@ body {
   margin: 0 2px;
 }
 
+/* Ховеры и активы для иконок */
 /* Карандаш */
 .tool-pencil {
   background-image: url('../public/icon-pen-64-default.png');
@@ -122,6 +123,11 @@ body {
   background-image: url('../public/icon-return-64-hover.png');
 }
 
+.tool-undo:active {
+  transition: none;
+  background-image: url('../public/icon-return-64-active.png');
+}
+
 /* Повтор */
 .tool-redo {
   background-image: url('../public/icon-redo-64-default.png');
@@ -131,6 +137,11 @@ body {
   background-image: url('../public/icon-redo-64-hover.png');
 }
 
+.tool-redo:active {
+  transition: none;
+  background-image: url('../public/icon-redo-64-active.png');
+}
+
 /* Очистка */
 .tool-clear {
   background-image: url('../public/icon-broom-64-default.png');
@@ -138,6 +149,11 @@ body {
 
 .tool-clear:hover {
   background-image: url('../public/icon-broom-64-hover.png');
+}
+
+.tool-clear:active {
+  transition: none;
+  background-image: url('../public/icon-broom-64-active.png');
 }
 
 /* Прямоугольник */
@@ -231,6 +247,11 @@ body {
 
 .tool-delete:hover {
   background-image: url('../public/icon-delete-trash-64-hover.png');
+}
+
+.tool-delete:active {
+  transition: none;
+  background-image: url('../public/icon-delete-trash-64-active.png');
 }
 
 /* OCR-выделение */
