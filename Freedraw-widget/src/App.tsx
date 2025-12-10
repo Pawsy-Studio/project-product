@@ -2024,7 +2024,7 @@ const DrawingApp: React.FC = () => {
                 }}
                 title="Формат текста"
               >
-                A
+                <img className="text-format-dropdown-icon" src="../public/icon-font-style-64-default.png"></img>
               </button>
               {showTextFormatDropdown && (
                 <div className="text-format-dropdown-menu">

@@ -394,6 +394,14 @@ body {
   background-color: #f8f9fa;
 }
 
+.text-format-dropdown-icon {
+  height: 32px;
+  width: 32px;
+  position: relative;
+  top: 3px;
+  gap: 1px;
+}
+
 /* Стили для форм и инпутов */
 .drawing-tool-label {
   font-size: 14px;
