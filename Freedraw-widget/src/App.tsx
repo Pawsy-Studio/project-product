@@ -4,8 +4,8 @@ import katex from 'katex';
 import 'katex/dist/katex.min.css';
 import './App.css';
 
-type ShapeType = 'rectangle' | 'ellipse' | 'line' | 'path' | 'text' | 'latex';
-type ToolMode = 'select' | 'rectangle' | 'ellipse' | 'line' | 'pencil' | 'eraser' | 'text' | 'latex';
+type ShapeType = 'rectangle' | 'ellipse' | 'line' | 'path' | 'text' | 'latex' | 'highlighter';
+type ToolMode = 'select' | 'rectangle' | 'ellipse' | 'line' | 'pencil' | 'eraser' | 'text' | 'latex' | 'highlighter';
 type AnchorType = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | null;
 type TextAlign = 'left' | 'center' | 'right';
 
@@ -73,7 +73,6 @@ const DrawingApp: React.FC = () => {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [strokeColor, setStrokeColor] = useState('#000000');
   const [strokeWidth, setStrokeWidth] = useState(5);
-  const [isHighlighter, setIsHighlighter] = useState(false);
   const [fontSize, setFontSize] = useState(20);
   const [fontFamily, setFontFamily] = useState('Arial');
   const [textAlign, setTextAlign] = useState<TextAlign>('left');
@@ -247,7 +246,7 @@ const DrawingApp: React.FC = () => {
   };
 
   const isPointInShape = (shape: Shape, point: { x: number, y: number }): boolean => {
-    if (shape.type === 'path') {
+    if (shape.type === 'path' || shape.type === 'highlighter') {
       if (!shape.points || shape.points.length < 4) return false;
       
       for (let i = 0; i < shape.points.length - 2; i += 2) {
@@ -789,6 +788,11 @@ const DrawingApp: React.FC = () => {
     const stage = e.target.getStage();
     const pos = stage.getPointerPosition();
     
+    // Проверяем, находится ли клик внутри холста (1000x387)
+    if (pos.x < 0 || pos.x > 1000 || pos.y < 0 || pos.y > 387) {
+      return;
+    }
+    
     if (editingTextId && e.target === stage) {
       finishTextEditing();
       return;
@@ -803,7 +807,7 @@ const DrawingApp: React.FC = () => {
         let originalPoints = shape.points;
         let originalBbox = { x: shape.x, y: shape.y, width: shape.width, height: shape.height };
         
-        if ((shape.type === 'path' || shape.type === 'line') && shape.points) {
+        if ((shape.type === 'path' || shape.type === 'line' || shape.type === 'highlighter') && shape.points) {
           originalPoints = [...shape.points];
           const bbox = calculateBoundingBox(shape.points);
           originalBbox = bbox;
@@ -949,21 +953,23 @@ const DrawingApp: React.FC = () => {
         });
       }
       else if (!['select', 'text', 'latex'].includes(tool)) {
+        const shapeType = tool === 'pencil' ? 'path' : tool === 'highlighter' ? 'highlighter' : tool;
+        
         setDrawingState({
           isDrawing: true,
           startX: pos.x,
           startY: pos.y,
           currentShape: {
             id: `${tool}_${Date.now()}`,
-            type: tool === 'pencil' ? 'path' : tool as ShapeType,
+            type: shapeType,
             x: pos.x,
             y: pos.y,
             width: 0,
             height: 0,
             stroke: strokeColor,
             strokeWidth: strokeWidth,
-            opacity: isHighlighter ? 0.5 : 1,
-            points: tool === 'pencil' ? [pos.x, pos.y] : undefined
+            opacity: tool === 'highlighter' ? 0.5 : 1,
+            points: (tool === 'pencil' || tool === 'highlighter') ? [pos.x, pos.y] : undefined
           }
         });
       }
@@ -990,7 +996,7 @@ const DrawingApp: React.FC = () => {
         setDragStart({ x: pos.x, y: pos.y });
         setSelectedShapeStart({ x: shape.x, y: shape.y });
         
-        if ((shape.type === 'path' || shape.type === 'line') && shape.points) {
+        if ((shape.type === 'path' || shape.type === 'line' || shape.type === 'highlighter') && shape.points) {
           setOriginalPointsOnDragStart([...shape.points]);
         }
         
@@ -1039,21 +1045,23 @@ const DrawingApp: React.FC = () => {
           }
         });
       } else {
+        const shapeType = tool === 'pencil' ? 'path' : tool === 'highlighter' ? 'highlighter' : tool;
+        
         setDrawingState({
           isDrawing: true,
           startX: pos.x,
           startY: pos.y,
           currentShape: {
             id: `${tool}_${Date.now()}`,
-            type: tool === 'pencil' ? 'path' : tool as ShapeType,
+            type: shapeType,
             x: pos.x,
             y: pos.y,
             width: 0,
             height: 0,
             stroke: strokeColor,
             strokeWidth: strokeWidth,
-            opacity: isHighlighter ? 0.5 : 1,
-            points: tool === 'pencil' ? [pos.x, pos.y] : undefined
+            opacity: tool === 'highlighter' ? 0.5 : 1,
+            points: (tool === 'pencil' || tool === 'highlighter') ? [pos.x, pos.y] : undefined
           }
         });
       }
@@ -1064,18 +1072,23 @@ const DrawingApp: React.FC = () => {
     const stage = e.target.getStage();
     const pos = stage.getPointerPosition();
     
+    // Ограничиваем движение мыши пределами холста
+    const clampedX = Math.max(0, Math.min(pos.x, 1000));
+    const clampedY = Math.max(0, Math.min(pos.y, 387));
+    const clampedPos = { x: clampedX, y: clampedY };
+    
     if (drawingState.isDrawing && drawingState.currentShape) {
       const { startX, startY, currentShape } = drawingState;
       
-      if (tool === 'pencil' || tool === 'eraser') {
+      if (tool === 'pencil' || tool === 'eraser' || tool === 'highlighter') {
         const updatedShape = {
           ...currentShape,
-          points: [...(currentShape.points || []), pos.x, pos.y]
+          points: [...(currentShape.points || []), clampedPos.x, clampedPos.y]
         };
         setDrawingState(prev => ({ ...prev, currentShape: updatedShape }));
         
         if (tool === 'eraser') {
-          const shapesToErase = shapes.filter(shape => isPointInShape(shape, pos));
+          const shapesToErase = shapes.filter(shape => isPointInShape(shape, clampedPos));
           
           if (shapesToErase.length > 0) {
             const newErasedShapes = new Set(erasedShapes);
@@ -1092,13 +1105,13 @@ const DrawingApp: React.FC = () => {
       else if (tool === 'line') {
         const updatedShape = {
           ...currentShape,
-          points: [startX, startY, pos.x, pos.y]
+          points: [startX, startY, clampedPos.x, clampedPos.y]
         };
         setDrawingState(prev => ({ ...prev, currentShape: updatedShape }));
       }
       else if (tool === 'rectangle' || tool === 'ellipse') {
-        let width = pos.x - startX;
-        let height = pos.y - startY;
+        let width = clampedPos.x - startX;
+        let height = clampedPos.y - startY;
         
         if (shiftPressed) {
           const size = Math.max(Math.abs(width), Math.abs(height));
@@ -1122,8 +1135,8 @@ const DrawingApp: React.FC = () => {
       
       if (!anchor) return;
       
-      const deltaX = pos.x - startMouseX;
-      const deltaY = pos.y - startMouseY;
+      const deltaX = clampedPos.x - startMouseX;
+      const deltaY = clampedPos.y - startMouseY;
       
       let newWidth = startWidth;
       let newHeight = startHeight;
@@ -1201,7 +1214,7 @@ const DrawingApp: React.FC = () => {
       
       const updatedShapes = shapes.map(s => {
         if (s.id === transformState.shapeId) {
-          if ((s.type === 'path' || s.type === 'line') && originalPoints && originalBbox) {
+          if ((s.type === 'path' || s.type === 'line' || s.type === 'highlighter') && originalPoints && originalBbox) {
             const newBbox = { x: newX, y: newY, width: newWidth, height: newHeight };
             const transformedPoints = transformPoints(originalPoints, originalBbox, newBbox);
             
@@ -1227,18 +1240,22 @@ const DrawingApp: React.FC = () => {
     else if (isDragging && selectedId) {
       const shape = shapes.find(s => s.id === selectedId);
       
-      const deltaX = pos.x - dragStart.x;
-      const deltaY = pos.y - dragStart.y;
+      const deltaX = clampedPos.x - dragStart.x;
+      const deltaY = clampedPos.y - dragStart.y;
       
       const updatedShapes = shapes.map(s => {
         if (s.id === selectedId) {
           const newX = selectedShapeStart.x + deltaX;
           const newY = selectedShapeStart.y + deltaY;
           
-          if ((s.type === 'path' || s.type === 'line') && s.points && originalPointsOnDragStart.length > 0) {
+          // Ограничиваем перемещение в пределах холста
+          const constrainedX = Math.max(0, Math.min(newX, 1000 - (s.width > 0 ? s.width : -s.width)));
+          const constrainedY = Math.max(0, Math.min(newY, 387 - (s.height > 0 ? s.height : -s.height)));
+          
+          if ((s.type === 'path' || s.type === 'line' || s.type === 'highlighter') && s.points && originalPointsOnDragStart.length > 0) {
             const deltaFromOriginal = {
-              x: newX - selectedShapeStart.x,
-              y: newY - selectedShapeStart.y
+              x: constrainedX - selectedShapeStart.x,
+              y: constrainedY - selectedShapeStart.y
             };
             
             const newPoints = originalPointsOnDragStart.map((point, index) => 
@@ -1247,15 +1264,15 @@ const DrawingApp: React.FC = () => {
             
             return { 
               ...s, 
-              x: newX, 
-              y: newY,
+              x: constrainedX, 
+              y: constrainedY,
               points: newPoints
             };
           } else {
             return { 
               ...s, 
-              x: newX, 
-              y: newY 
+              x: constrainedX, 
+              y: constrainedY 
             };
           }
         }
@@ -1291,7 +1308,7 @@ const DrawingApp: React.FC = () => {
         return;
       }
       
-      if (tool === 'pencil' && newShape.points && newShape.points.length >= 4) {
+      if ((tool === 'pencil' || tool === 'highlighter') && newShape.points && newShape.points.length >= 4) {
         const bbox = calculateBoundingBox(newShape.points);
         newShape.x = bbox.x;
         newShape.y = bbox.y;
@@ -1331,8 +1348,12 @@ const DrawingApp: React.FC = () => {
         const width = newShape.width || 0;
         const height = newShape.height || 0;
         
-        newShape.x = startX;
-        newShape.y = startY;
+        // Ограничиваем фигуру в пределах холста
+        const finalX = Math.max(0, Math.min(startX, 1000 - Math.abs(width)));
+        const finalY = Math.max(0, Math.min(startY, 387 - Math.abs(height)));
+        
+        newShape.x = finalX;
+        newShape.y = finalY;
         newShape.width = width;
         newShape.height = height;
         
@@ -1420,7 +1441,7 @@ const DrawingApp: React.FC = () => {
         };
 
         allShapes.push(normalizedShape as Shape);
-      } else if (shape.type === 'path' && shape.points && shape.points.length > 0) {
+      } else if ((shape.type === 'path' || shape.type === 'highlighter') && shape.points && shape.points.length > 0) {
         allShapes.push(shape as Shape);
       } else if (shape.type === 'line' && shape.points) {
         allShapes.push(shape as Shape);
@@ -1486,6 +1507,18 @@ const DrawingApp: React.FC = () => {
               tension={0}
               lineCap="round"
               lineJoin="round"
+            />
+          );
+        
+        case 'highlighter':
+          return (
+            <Line
+              {...commonProps}
+              points={shape.points || []}
+              tension={0}
+              lineCap="round"
+              lineJoin="round"
+              opacity={0.5}
             />
           );
         
@@ -1608,11 +1641,11 @@ const DrawingApp: React.FC = () => {
     const shape = shapes.find(s => s.id === selectedId);
     if (!shape) return null;
     
-    if (shape.type === 'path' && (!shape.points || shape.points.length === 0)) return null;
+    if ((shape.type === 'path' || shape.type === 'highlighter') && (!shape.points || shape.points.length === 0)) return null;
     
     let displayShape = { ...shape };
     
-    if ((shape.type === 'path' || shape.type === 'line') && shape.points && shape.points.length > 0) {
+    if ((shape.type === 'path' || shape.type === 'line' || shape.type === 'highlighter') && shape.points && shape.points.length > 0) {
       const bbox = calculateBoundingBox(shape.points);
       displayShape = { ...shape, x: bbox.x, y: bbox.y, width: bbox.width, height: bbox.height };
     }
@@ -2116,14 +2149,14 @@ const DrawingApp: React.FC = () => {
         
           <button
             type="button"
-            className={`drawing-tool-btn tool-icon tool-highlighter ${isHighlighter ? 'drawing-tool-btn-primary' : 'drawing-tool-btn-outline-primary'}`}
+            className={`drawing-tool-btn tool-icon tool-highlighter ${tool === 'highlighter' ? 'drawing-tool-btn-primary' : 'drawing-tool-btn-outline-primary'}`}
             onClick={() => {
-              if (tool !== 'eraser') {
-                setIsHighlighter(!isHighlighter);
+              if (editingTextId) {
+                finishTextEditing();
               }
+              setTool('highlighter');
             }}
-            disabled={tool === 'eraser'}
-            title={isHighlighter ? 'Выключить маркер' : 'Включить маркер'}
+            title="Маркер"
           >
           </button>
 
@@ -2308,7 +2341,7 @@ const DrawingApp: React.FC = () => {
       <div className="canvas-container">
         <Stage
           ref={stageRef}
-          width={window.innerWidth - 40}
+          width={1000}
           height={387}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
