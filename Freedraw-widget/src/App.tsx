@@ -1945,12 +1945,13 @@ const DrawingApp: React.FC = () => {
     
     const realY = Math.min(selectedShape.y, selectedShape.y + selectedShape.height);
     const realHeight = Math.abs(selectedShape.height);
+    const realWidth = Math.abs(selectedShape.width);
     
     const x = textX * scaleX + containerRect.left;
     const y = realY * scaleY + containerRect.top;
     
     const panelHeight = 40;
-    const panelWidth = 1000;
+    const panelWidth = 500;
     
     const offset = 20;
     
@@ -1959,12 +1960,16 @@ const DrawingApp: React.FC = () => {
       top = y + realHeight * scaleY + offset;
     }
     
-    let left = x;
-    if (left + panelWidth > containerRect.right) {
-      left = containerRect.right - panelWidth;
-    }
+    // Center the toolbar over the selected text
+    const textCenterX = x + (realWidth * scaleX) / 2;
+    let left = textCenterX - panelWidth / 2;
+
+    // Ensure toolbar stays within container bounds
     if (left < containerRect.left) {
       left = containerRect.left;
+    }
+    if (left + panelWidth > containerRect.right) {
+      left = containerRect.right - panelWidth;
     }
     
     const isBold = selectedShape.fontWeight === 'bold';

@@ -624,6 +624,7 @@ body {
   gap: 8px;
   align-items: center;
   flex-wrap: wrap;
+  max-width: 480px;
 }
 
 .text-toolbar-label {
