@@ -1984,14 +1984,11 @@ const DrawingApp: React.FC = () => {
         <div className="text-toolbar-content">
           {selectedShape.type === 'text' && (
             <>
-              <label className="text-toolbar-label">
-                Font:
-              </label>
               <select
                 className="drawing-tool-select drawing-tool-select-small"
                 value={selectedShape.fontFamily || fontFamily}
                 onChange={(e) => updateSelectedTextProperty('fontFamily', e.target.value)}
-                style={{ width: '150px' }}
+                style={{ width: '160px' }}
               >
                 {availableFonts.map(font => (
                   <option key={font} value={font}>{font}</option>
@@ -1999,6 +1996,17 @@ const DrawingApp: React.FC = () => {
               </select>
             </>
           )}
+
+          <input
+            type="number"
+            className="drawing-tool-input drawing-tool-input-small"
+            value={selectedShape.fontSize || fontSize}
+            onChange={(e) => updateSelectedTextProperty('fontSize', parseInt(e.target.value) || 1)}
+            min="1"
+            max="200"
+            step="1"
+            style={{ width: '40px'}}
+          />
 
           {selectedShape.type === 'text' && (
             <div className="text-format-dropdown">
@@ -2072,36 +2080,8 @@ const DrawingApp: React.FC = () => {
             </div>
           )}
           
-          <label className="text-toolbar-label">
-            Size:
-          </label>
-          <input
-            type="number"
-            className="drawing-tool-input drawing-tool-input-small"
-            value={selectedShape.fontSize || fontSize}
-            onChange={(e) => updateSelectedTextProperty('fontSize', parseInt(e.target.value) || 1)}
-            min="1"
-            max="200"
-            step="1"
-            style={{ width: '70px' }}
-          />
-          <span className="text-toolbar-unit">px</span>
-          
-          <label className="text-toolbar-label">
-            Color:
-          </label>
-          <input
-            type="color"
-            value={selectedShape.stroke || strokeColor}
-            onChange={(e) => updateSelectedTextProperty('stroke', e.target.value)}
-            className="text-color-picker"
-          />
-          
           {selectedShape.type === 'text' && (
             <>
-              <label className="text-toolbar-label">
-                Align:
-              </label>
               <select
                 className="drawing-tool-select drawing-tool-select-small"
                 value={selectedShape.textAlign || textAlign}
@@ -2115,6 +2095,13 @@ const DrawingApp: React.FC = () => {
             </>
           )}
           
+          <input
+            type="color"
+            value={selectedShape.stroke || strokeColor}
+            onChange={(e) => updateSelectedTextProperty('stroke', e.target.value)}
+            className="text-color-picker"
+          />
+
           <button
             type="button"
             className="drawing-tool-btn drawing-tool-btn-outline-secondary drawing-tool-btn-small"
