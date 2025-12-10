@@ -2103,20 +2103,20 @@ const DrawingApp: React.FC = () => {
         <div className="tools-container">
           <button
             type="button"
-            className={`drawing-tool-btn ${tool === 'pencil' ? 'drawing-tool-btn-primary' : 'drawing-tool-btn-outline-primary'}`}
+            className={`drawing-tool-btn tool-icon tool-pencil ${tool === 'pencil' ? 'drawing-tool-btn-primary' : 'drawing-tool-btn-outline-primary'}`}
             onClick={() => {
               if (editingTextId) {
                 finishTextEditing();
               }
               setTool('pencil');
             }}
+            title="Карандаш"
           >
-            <img src="../public/icon-pen-64-default.png" className="drawing-tool-icon" alt="pen"/>
           </button>
         
           <button
             type="button"
-            className={`drawing-tool-btn ${isHighlighter ? 'drawing-tool-btn-primary' : 'drawing-tool-btn-outline-primary'}`}
+            className={`drawing-tool-btn tool-icon tool-highlighter ${isHighlighter ? 'drawing-tool-btn-primary' : 'drawing-tool-btn-outline-primary'}`}
             onClick={() => {
               if (tool !== 'eraser') {
                 setIsHighlighter(!isHighlighter);
@@ -2125,20 +2125,19 @@ const DrawingApp: React.FC = () => {
             disabled={tool === 'eraser'}
             title={isHighlighter ? 'Выключить маркер' : 'Включить маркер'}
           >
-            <img src="../public/icon-highlighter-64-default.png" className="drawing-tool-icon" alt = "highlighter"/>
           </button>
 
           <button
             type="button"
-            className={`drawing-tool-btn drawing-tool-btn-small ${tool === 'eraser' ? 'drawing-tool-btn-primary' : 'drawing-tool-btn-outline-primary'}`}
+            className={`drawing-tool-btn tool-icon tool-eraser ${tool === 'eraser' ? 'drawing-tool-btn-primary' : 'drawing-tool-btn-outline-primary'}`}
             onClick={() => {
               if (editingTextId) {
                 finishTextEditing();
               }
               setTool('eraser');
             }}
+            title="Ластик"
           >
-            <img src="../public/icon-eraser-64-default.png" className="drawing-tool-icon" alt="eraser"/>
           </button>
 
           <input
@@ -2166,105 +2165,105 @@ const DrawingApp: React.FC = () => {
         <div className="tools-container">
           <button
             type="button"
-            className="drawing-tool-btn drawing-tool-btn-outline-primary drawing-tool-btn-small"
+            className="drawing-tool-btn tool-icon tool-undo drawing-tool-btn-outline-primary drawing-tool-btn-small"
             onClick={handleUndo}
+            title="Отменить"
           >
-            <img src="../public/icon-return-64-default.png" className="drawing-tool-icon" alt="undo"/>
           </button>
           <button
             type="button"
-            className="drawing-tool-btn drawing-tool-btn-outline-primary drawing-tool-btn-small"
+            className="drawing-tool-btn tool-icon tool-redo drawing-tool-btn-outline-primary drawing-tool-btn-small"
             onClick={handleRedo}
+            title="Повторить"
           >
-            <img src="../public/icon-redo-64-default.png" className="drawing-tool-icon" alt="redo"/>
           </button>
           <button
             type="button"
-            className="drawing-tool-btn drawing-tool-btn-outline-primary drawing-tool-btn-small"
+            className="drawing-tool-btn tool-icon tool-clear drawing-tool-btn-outline-primary drawing-tool-btn-small"
             onClick={handleClearCanvas}
+            title="Очистить холст"
           >
-            <img src="../public/icon-broom-64-default.png" className="drawing-tool-icon" alt="clear"/>
           </button>
           <button
             type="button"
-            className={`drawing-tool-btn drawing-tool-btn-small ${tool === 'rectangle' ? 'drawing-tool-btn-primary' : 'drawing-tool-btn-outline-primary'}`}
+            className={`drawing-tool-btn tool-icon tool-rectangle drawing-tool-btn-small ${tool === 'rectangle' ? 'drawing-tool-btn-primary' : 'drawing-tool-btn-outline-primary'}`}
             onClick={() => {
               if (editingTextId) {
                 finishTextEditing();
               }
               setTool('rectangle');
             }}
+            title="Прямоугольник"
           >
-            <img src="../public/icon-square-64-default.png" className="drawing-tool-icon" alt="rectangle"/>
           </button>
         
           <button
             type="button"
-            className={`drawing-tool-btn drawing-tool-btn-small ${tool === 'ellipse' ? 'drawing-tool-btn-primary' : 'drawing-tool-btn-outline-primary'}`}
+            className={`drawing-tool-btn tool-icon tool-ellipse drawing-tool-btn-small ${tool === 'ellipse' ? 'drawing-tool-btn-primary' : 'drawing-tool-btn-outline-primary'}`}
             onClick={() => {
               if (editingTextId) {
                 finishTextEditing();
               }
               setTool('ellipse');
             }}
+            title="Эллипс"
           >
-            <img src="../public/icon-circle-64-default.png" className="drawing-tool-icon" alt="circle"/>
           </button>
         
           <button
             type="button"
-            className={`drawing-tool-btn drawing-tool-btn-small ${tool === 'line' ? 'drawing-tool-btn-primary' : 'drawing-tool-btn-outline-primary'}`}
+            className={`drawing-tool-btn tool-icon tool-line drawing-tool-btn-small ${tool === 'line' ? 'drawing-tool-btn-primary' : 'drawing-tool-btn-outline-primary'}`}
             onClick={() => {
               if (editingTextId) {
                 finishTextEditing();
               }
               setTool('line');
             }}
+            title="Линия"
           >
-            <img src="../public/icon-line-64-default.png" className="drawing-tool-icon" alt="line"/>
           </button>
           <button
             type="button"
-            className={`drawing-tool-btn drawing-tool-btn-small ${tool === 'text' ? 'drawing-tool-btn-primary' : 'drawing-tool-btn-outline-primary'}`}
+            className={`drawing-tool-btn tool-icon tool-text drawing-tool-btn-small ${tool === 'text' ? 'drawing-tool-btn-primary' : 'drawing-tool-btn-outline-primary'}`}
             onClick={() => {
               if (editingTextId) {
                 finishTextEditing();
               }
               setTool('text');
             }}
+            title="Текст"
           >
-            <img src="../public/icon-text-64-default.png" className="drawing-tool-icon" alt="text"/>
           </button>
         
           <button
             type="button"
-            className={`drawing-tool-btn drawing-tool-btn-small ${tool === 'latex' ? 'drawing-tool-btn-primary' : 'drawing-tool-btn-outline-success'}`}
+            className={`drawing-tool-btn tool-icon tool-latex drawing-tool-btn-small ${tool === 'latex' ? 'drawing-tool-btn-primary' : 'drawing-tool-btn-outline-success'}`}
             onClick={() => {
               if (editingTextId) {
                 finishTextEditing();
               }
               setTool('latex');
             }}
+            title="Формула"
           >
-            <img src="../public/icon-formula-fx-64-default.png" className="drawing-tool-icon" alt="formula"/>
           </button>
         </div>
         <div className="tools-container">
           <button
             type="button"
-            className={`drawing-tool-btn drawing-tool-btn-small ${tool === 'select' ? 'drawing-tool-btn-primary' : 'drawing-tool-btn-outline-primary'}`}
+            className={`drawing-tool-btn tool-icon tool-select drawing-tool-btn-small ${tool === 'select' ? 'drawing-tool-btn-primary' : 'drawing-tool-btn-outline-primary'}`}
             onClick={() => {
               if (editingTextId) {
                 finishTextEditing();
               }
               setTool('select');
             }}
+            title="Выделение"
           >
-            <img src="../public/icon-cursor-64-default.png" className="drawing-tool-icon" alt="select"/>
           </button>
           <button
             type="button"
-            className="drawing-tool-btn drawing-tool-btn-danger drawing-tool-btn-small"
+            className="drawing-tool-btn tool-icon tool-delete drawing-tool-btn-danger drawing-tool-btn-small"
             onClick={() => {
               if (selectedId) {
                 handleDeleteShape(selectedId);
@@ -2273,42 +2272,35 @@ const DrawingApp: React.FC = () => {
             disabled={!selectedId || tool !== 'select'}
             title="Удалить выделенную фигуру"
           >
-            <img src="../public/icon-delete-trash-64-default.png" className="drawing-tool-icon" alt="delete"/>
           </button>
         </div>
         <div className='tools-container'>
           <button
             type="button"
-            className="drawing-tool-btn drawing-tool-btn-danger drawing-tool-btn-small"
+            className="drawing-tool-btn tool-icon tool-ocr drawing-tool-btn-danger drawing-tool-btn-small"
             onClick={() => {
               console.log("ЭТО ЗАГЛУШКА ДЛЯ OCR")
             }}
-            disabled={!selectedId || tool !== 'select'}
-            title="Удалить выделенную фигуру"
+            title="OCR-выделение"
           >
-            <img src="../public/icon-select-default.png" className="drawing-tool-icon" alt="OCR-select"/>
           </button>          
           <button
             type="button"
-            className="drawing-tool-btn drawing-tool-btn-danger drawing-tool-btn-small"
+            className="drawing-tool-btn tool-icon tool-change drawing-tool-btn-danger drawing-tool-btn-small"
             onClick={() => {
               console.log("ЭТО ЗАГЛУШКА ДЛЯ OCR")
             }}
-            disabled={!selectedId || tool !== 'select'}
-            title="Удалить выделенную фигуру"
+            title="Изменить"
           >
-            <img src="../public/icon-change-64-default.png" className="drawing-tool-icon" alt="change"/>
           </button>
           <button
             type="button"
-            className="drawing-tool-btn drawing-tool-btn-danger drawing-tool-btn-small"
+            className="drawing-tool-btn tool-icon tool-install drawing-tool-btn-danger drawing-tool-btn-small"
             onClick={() => {
               console.log("ЭТО ЗАГЛУШКА ДЛЯ OCR")
             }}
-            disabled={!selectedId || tool !== 'select'}
-            title="Удалить выделенную фигуру"
+            title="Установка"
           >
-            <img src="../public/icon-installing-64-default.png" className="drawing-tool-icon" alt="install"/>
           </button>
         </div>
       </div>
