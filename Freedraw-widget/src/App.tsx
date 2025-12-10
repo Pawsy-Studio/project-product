@@ -788,6 +788,11 @@ const DrawingApp: React.FC = () => {
     const stage = e.target.getStage();
     const pos = stage.getPointerPosition();
     
+    // Проверяем, находится ли клик внутри холста (1000x387)
+    if (pos.x < 0 || pos.x > 1000 || pos.y < 0 || pos.y > 387) {
+      return;
+    }
+    
     if (editingTextId && e.target === stage) {
       finishTextEditing();
       return;
@@ -1067,18 +1072,23 @@ const DrawingApp: React.FC = () => {
     const stage = e.target.getStage();
     const pos = stage.getPointerPosition();
     
+    // Ограничиваем движение мыши пределами холста
+    const clampedX = Math.max(0, Math.min(pos.x, 1000));
+    const clampedY = Math.max(0, Math.min(pos.y, 387));
+    const clampedPos = { x: clampedX, y: clampedY };
+    
     if (drawingState.isDrawing && drawingState.currentShape) {
       const { startX, startY, currentShape } = drawingState;
       
       if (tool === 'pencil' || tool === 'eraser' || tool === 'highlighter') {
         const updatedShape = {
           ...currentShape,
-          points: [...(currentShape.points || []), pos.x, pos.y]
+          points: [...(currentShape.points || []), clampedPos.x, clampedPos.y]
         };
         setDrawingState(prev => ({ ...prev, currentShape: updatedShape }));
         
         if (tool === 'eraser') {
-          const shapesToErase = shapes.filter(shape => isPointInShape(shape, pos));
+          const shapesToErase = shapes.filter(shape => isPointInShape(shape, clampedPos));
           
           if (shapesToErase.length > 0) {
             const newErasedShapes = new Set(erasedShapes);
@@ -1095,13 +1105,13 @@ const DrawingApp: React.FC = () => {
       else if (tool === 'line') {
         const updatedShape = {
           ...currentShape,
-          points: [startX, startY, pos.x, pos.y]
+          points: [startX, startY, clampedPos.x, clampedPos.y]
         };
         setDrawingState(prev => ({ ...prev, currentShape: updatedShape }));
       }
       else if (tool === 'rectangle' || tool === 'ellipse') {
-        let width = pos.x - startX;
-        let height = pos.y - startY;
+        let width = clampedPos.x - startX;
+        let height = clampedPos.y - startY;
         
         if (shiftPressed) {
           const size = Math.max(Math.abs(width), Math.abs(height));
@@ -1125,8 +1135,8 @@ const DrawingApp: React.FC = () => {
       
       if (!anchor) return;
       
-      const deltaX = pos.x - startMouseX;
-      const deltaY = pos.y - startMouseY;
+      const deltaX = clampedPos.x - startMouseX;
+      const deltaY = clampedPos.y - startMouseY;
       
       let newWidth = startWidth;
       let newHeight = startHeight;
@@ -1230,18 +1240,22 @@ const DrawingApp: React.FC = () => {
     else if (isDragging && selectedId) {
       const shape = shapes.find(s => s.id === selectedId);
       
-      const deltaX = pos.x - dragStart.x;
-      const deltaY = pos.y - dragStart.y;
+      const deltaX = clampedPos.x - dragStart.x;
+      const deltaY = clampedPos.y - dragStart.y;
       
       const updatedShapes = shapes.map(s => {
         if (s.id === selectedId) {
           const newX = selectedShapeStart.x + deltaX;
           const newY = selectedShapeStart.y + deltaY;
           
+          // Ограничиваем перемещение в пределах холста
+          const constrainedX = Math.max(0, Math.min(newX, 1000 - (s.width > 0 ? s.width : -s.width)));
+          const constrainedY = Math.max(0, Math.min(newY, 387 - (s.height > 0 ? s.height : -s.height)));
+          
           if ((s.type === 'path' || s.type === 'line' || s.type === 'highlighter') && s.points && originalPointsOnDragStart.length > 0) {
             const deltaFromOriginal = {
-              x: newX - selectedShapeStart.x,
-              y: newY - selectedShapeStart.y
+              x: constrainedX - selectedShapeStart.x,
+              y: constrainedY - selectedShapeStart.y
             };
             
             const newPoints = originalPointsOnDragStart.map((point, index) => 
@@ -1250,15 +1264,15 @@ const DrawingApp: React.FC = () => {
             
             return { 
               ...s, 
-              x: newX, 
-              y: newY,
+              x: constrainedX, 
+              y: constrainedY,
               points: newPoints
             };
           } else {
             return { 
               ...s, 
-              x: newX, 
-              y: newY 
+              x: constrainedX, 
+              y: constrainedY 
             };
           }
         }
@@ -1334,8 +1348,12 @@ const DrawingApp: React.FC = () => {
         const width = newShape.width || 0;
         const height = newShape.height || 0;
         
-        newShape.x = startX;
-        newShape.y = startY;
+        // Ограничиваем фигуру в пределах холста
+        const finalX = Math.max(0, Math.min(startX, 1000 - Math.abs(width)));
+        const finalY = Math.max(0, Math.min(startY, 387 - Math.abs(height)));
+        
+        newShape.x = finalX;
+        newShape.y = finalY;
         newShape.width = width;
         newShape.height = height;
         
@@ -2323,7 +2341,7 @@ const DrawingApp: React.FC = () => {
       <div className="canvas-container">
         <Stage
           ref={stageRef}
-          width={window.innerWidth - 40}
+          width={1000}
           height={387}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
