@@ -1,4 +1,3 @@
-import React, { useState } from 'react';
 import './App.css';
 
 type ToolMode = 'select' | 'rectangle' | 'ellipse' | 'line' | 'pencil' | 'eraser' | 'text' | 'latex' | 'highlighter';
