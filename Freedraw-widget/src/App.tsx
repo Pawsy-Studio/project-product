@@ -759,7 +759,6 @@ const DrawingApp: React.FC = () => {
       const target = event.target as HTMLElement;
       
       if (editingTextId) {
-        // Проверяем, является ли клик внутри редактора LaTeX или меню символов
         const isInsideTextarea = target === textAreaRef.current || textAreaRef.current?.contains(target);
         const isInsideLatexMenu = target.closest('.latex-symbols-menu') || target.closest('.latex-symbols-dropdown');
         const isInsideLatexEditor = target.closest('.latex-editor-container');
@@ -777,7 +776,6 @@ const DrawingApp: React.FC = () => {
         setShowTextAlignDropdown(false);
       }
       
-      // Закрываем меню LaTeX символов только если клик был вне его
       if (!target.closest('.latex-symbols-menu') && !target.closest('.latex-symbols-dropdown')) {
         setShowLatexMenu(false);
       }
@@ -793,7 +791,6 @@ const DrawingApp: React.FC = () => {
     const stage = e.target.getStage();
     const pos = stage.getPointerPosition();
     
-    // Проверяем, находится ли клик внутри холста (1000x387)
     if (pos.x < 0 || pos.x > 1000 || pos.y < 0 || pos.y > 387) {
       return;
     }
@@ -1001,7 +998,7 @@ const DrawingApp: React.FC = () => {
         setDragStart({ x: pos.x, y: pos.y });
         setSelectedShapeStart({ x: shape.x, y: shape.y });
         
-        if ((shape.type === 'path' || shape.type === 'line' || shape.type === 'highlighter') && shape.points) {
+        if ((shape.type === 'path' || shape.type === 'highlighter') && shape.points) {
           setOriginalPointsOnDragStart([...shape.points]);
         }
         
@@ -1077,7 +1074,6 @@ const DrawingApp: React.FC = () => {
     const stage = e.target.getStage();
     const pos = stage.getPointerPosition();
     
-    // Ограничиваем движение мыши пределами холста
     const clampedX = Math.max(0, Math.min(pos.x, 1000));
     const clampedY = Math.max(0, Math.min(pos.y, 387));
     const clampedPos = { x: clampedX, y: clampedY };
@@ -1253,7 +1249,6 @@ const DrawingApp: React.FC = () => {
           const newX = selectedShapeStart.x + deltaX;
           const newY = selectedShapeStart.y + deltaY;
           
-          // Ограничиваем перемещение в пределах холста
           const constrainedX = Math.max(0, Math.min(newX, 1000 - (s.width > 0 ? s.width : -s.width)));
           const constrainedY = Math.max(0, Math.min(newY, 387 - (s.height > 0 ? s.height : -s.height)));
           
@@ -1353,7 +1348,6 @@ const DrawingApp: React.FC = () => {
         const width = newShape.width || 0;
         const height = newShape.height || 0;
         
-        // Ограничиваем фигуру в пределах холста
         const finalX = Math.max(0, Math.min(startX, 1000 - Math.abs(width)));
         const finalY = Math.max(0, Math.min(startY, 387 - Math.abs(height)));
         
@@ -1860,7 +1854,6 @@ const DrawingApp: React.FC = () => {
             value={tempText}
             onChange={(e) => updateTextInRealTime(e.target.value)}
             onBlur={() => {
-              // Добавляем небольшую задержку перед сохранением
               setTimeout(() => {
                 const activeElement = document.activeElement;
                 if (!activeElement || (!activeElement.closest('.latex-editor-container') && !activeElement.closest('.latex-symbols-menu'))) {
@@ -1965,11 +1958,9 @@ const DrawingApp: React.FC = () => {
       top = y + realHeight * scaleY + offset;
     }
     
-    // Center the toolbar over the selected text
     const textCenterX = x + (realWidth * scaleX) / 2;
     let left = textCenterX - panelWidth / 2;
 
-    // Ensure toolbar stays within container bounds
     if (left < containerRect.left) {
       left = containerRect.left;
     }
@@ -2023,68 +2014,59 @@ const DrawingApp: React.FC = () => {
             <div className="text-format-dropdown">
               <button
                 type="button"
-                className={`drawing-tool-btn drawing-tool-btn-small ${showTextFormatDropdown ? 'drawing-tool-btn-primary' : 'drawing-tool-btn-outline-secondary'}`}
+                className={`drawing-tool-btn tool-icon tool-text-format drawing-tool-btn-small ${showTextFormatDropdown ? 'drawing-tool-btn-primary' : 'drawing-tool-btn-outline-secondary'} ${showTextFormatDropdown ? 'active' : ''}`}
                 onClick={(e) => {
                   e.stopPropagation();
                   setShowTextFormatDropdown(!showTextFormatDropdown);
                 }}
                 title="Формат текста"
               >
-                <img className="text-format-dropdown-icon" src="../public/icon-font-style-64-default.png"></img>
               </button>
               {showTextFormatDropdown && (
                 <div className="text-format-dropdown-menu" style={{ display: 'flex', flexDirection: 'row', gap: '5px' }}>
                   <button
                     type="button"
-                    className="drawing-tool-dropdown-item"
+                    className={`drawing-tool-btn tool-icon tool-bold drawing-tool-btn-small ${isBold ? 'active' : ''}`}
                     onClick={(e) => {
                       e.stopPropagation();
                       toggleBold();
                       setShowTextFormatDropdown(false);
                     }}
-                    style={{ color: isBold ? '#007bff' : '#000' }}
                     title="Жирный"
                   >
-                    <img className="text-align-dropdown-icon" src="../public/icon-bold-64-default 1.png"></img>
                   </button>
                   <button
                     type="button"
-                    className="drawing-tool-dropdown-item"
+                    className={`drawing-tool-btn tool-icon tool-italic drawing-tool-btn-small ${isItalic ? 'active' : ''}`}
                     onClick={(e) => {
                       e.stopPropagation();
                       toggleItalic();
                       setShowTextFormatDropdown(false);
                     }}
-                    style={{ color: isItalic ? '#007bff' : '#000' }}
                     title="Курсив"
                   >
-                    <img className="text-align-dropdown-icon" src="../public/icon-italic-64-default 1.png"></img>
                   </button>
                   <button
                     type="button"
-                    className="drawing-tool-dropdown-item"
+                    className={`drawing-tool-btn tool-icon tool-underline drawing-tool-btn-small ${isUnderline ? 'active' : ''}`}
                     onClick={(e) => {
                       e.stopPropagation();
                       toggleUnderline();
                       setShowTextFormatDropdown(false);
                     }}
-                    style={{ color: isUnderline ? '#007bff' : '#000' }}
                     title="Подчеркнутый"
                   >
-                    <img className="text-align-dropdown-icon" src="../public/icon-under-64-default 1.png"></img>
                   </button>
                   <button
                     type="button"
-                    className="drawing-tool-dropdown-item"
+                    className={`drawing-tool-btn tool-icon tool-strikethrough drawing-tool-btn-small ${isStrikethrough ? 'active' : ''}`}
                     onClick={(e) => {
                       e.stopPropagation();
                       toggleStrikethrough();
                       setShowTextFormatDropdown(false);
                     }}
-                    style={{ color: isStrikethrough ? '#007bff' : '#000' }}
                     title="Зачеркнутый"
                   >
-                    <img className="text-align-dropdown-icon" src="../public/icon-strikethrough-64-default 1.png"></img>
                   </button>
                 </div>
               )}
@@ -2095,55 +2077,48 @@ const DrawingApp: React.FC = () => {
             <div className="text-align-dropdown">
               <button
                 type="button"
-                className={`drawing-tool-btn drawing-tool-btn-small ${showTextAlignDropdown ? 'drawing-tool-btn-primary' : 'drawing-tool-btn-outline-secondary'}`}
+                className={`drawing-tool-btn tool-icon tool-text-align drawing-tool-btn-small ${showTextAlignDropdown ? 'drawing-tool-btn-primary' : 'drawing-tool-btn-outline-secondary'} ${showTextAlignDropdown ? 'active' : ''}`}
                 onClick={(e) => {
                   e.stopPropagation();
                   setShowTextAlignDropdown(!showTextAlignDropdown);
                 }}
                 title="Выравнивание текста"
               >
-                <img className="text-align-dropdown-icon" src="../public/icon-align-64-default.png"></img>
               </button>
               {showTextAlignDropdown && (
                 <div className="text-align-dropdown-menu" style={{ display: 'flex', flexDirection: 'row', gap: '5px' }}>
                   <button
                     type="button"
-                    className="drawing-tool-dropdown-item"
+                    className={`drawing-tool-btn tool-icon tool-align-left drawing-tool-btn-small ${currentAlign === 'left' ? 'active' : ''}`}
                     onClick={(e) => {
                       e.stopPropagation();
                       updateSelectedTextProperty('textAlign', 'left');
                       setShowTextAlignDropdown(false);
                     }}
-                    style={{ color: currentAlign === 'left' ? '#007bff' : '#000' }}
                     title="По левому краю"
                   >
-                    <img className="text-align-icon" src="../public/icon-align-left-64-default 1.png"></img>
                   </button>
                   <button
                     type="button"
-                    className="drawing-tool-dropdown-item"
+                    className={`drawing-tool-btn tool-icon tool-align-center drawing-tool-btn-small ${currentAlign === 'center' ? 'active' : ''}`}
                     onClick={(e) => {
                       e.stopPropagation();
                       updateSelectedTextProperty('textAlign', 'center');
                       setShowTextAlignDropdown(false);
                     }}
-                    style={{ color: currentAlign === 'center' ? '#007bff' : '#000' }}
                     title="По центру"
                   >
-                    <img className="text-align-icon" src="../public/icon-align-justify-64-default 1.png"></img>
                   </button>
                   <button
                     type="button"
-                    className="drawing-tool-dropdown-item"
+                    className={`drawing-tool-btn tool-icon tool-align-right drawing-tool-btn-small ${currentAlign === 'right' ? 'active' : ''}`}
                     onClick={(e) => {
                       e.stopPropagation();
                       updateSelectedTextProperty('textAlign', 'right');
                       setShowTextAlignDropdown(false);
                     }}
-                    style={{ color: currentAlign === 'right' ? '#007bff' : '#000' }}
                     title="По правому краю"
                   >
-                    <img className="text-align-icon" src="../public/icon-align-64-default.png"></img>
                   </button>
                 </div>
               )}
@@ -2159,10 +2134,10 @@ const DrawingApp: React.FC = () => {
 
           <button
             type="button"
-            className="drawing-tool-btn drawing-tool-btn-outline-secondary drawing-tool-btn-small"
+            className="drawing-tool-btn tool-icon tool-edit-text drawing-tool-btn-outline-secondary drawing-tool-btn-small"
             onClick={() => startTextEditing(selectedId)}
+            title={selectedShape.type === 'latex' ? 'Edit Formula' : 'Edit Text'}
           >
-            {selectedShape.type === 'latex' ? 'Edit Formula' : <img className="text-align-icon" src = "../public/icon-edit-text-file-64-default 1.png"></img>}
           </button>
         </div>
       </div>
