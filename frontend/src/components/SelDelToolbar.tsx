@@ -1,4 +1,4 @@
-import './App.css'
+import '../App.css'
 
 type ToolMode = 'select' | 'rectangle' | 'ellipse' | 'line' | 'pencil' | 'eraser' | 'text' | 'latex' | 'highlighter';
 

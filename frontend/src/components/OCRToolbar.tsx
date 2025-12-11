@@ -1,4 +1,4 @@
-import './App.css'
+import '../App.css'
 
 const OCRToolbar: React.FC = ({}) => {
     return(

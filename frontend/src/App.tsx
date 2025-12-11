@@ -5,14 +5,14 @@ import 'katex/dist/katex.min.css';
 import './App.css';
 
 // Components
-import BrushToolbar from './BrushToolbar.tsx';
-import RangeToolbar from './RangeToolbar.tsx';
-import ToolsToolbar from './ToolsToolbar.tsx';
-import SelDelToolbar from './SelDelToolbar.tsx';
-import OCRToolbar from './OCRToolbar.tsx';
-import TextToolbar from './TextToolbar.tsx';
-import LatexEditor from './LatexEditor.tsx';
-import TextEditor from './TextEditor.tsx';
+import BrushToolbar from './components/BrushToolbar.tsx';
+import RangeToolbar from './components/RangeToolbar.tsx';
+import ToolsToolbar from './components/ToolsToolbar.tsx';
+import SelDelToolbar from './components/SelDelToolbar.tsx';
+import OCRToolbar from './components/OCRToolbar.tsx';
+import TextToolbar from './components/TextToolbar.tsx';
+import LatexEditor from './components/LatexEditor.tsx';
+import TextEditor from './components/TextEditor.tsx';
 
 // Types and constants
 import type { 
