@@ -2102,7 +2102,7 @@ const DrawingApp: React.FC = () => {
                 }}
                 title="Выравнивание текста"
               >
-                <img className="text-align-dropdown-icon" src="../public/icon-align-left-64-default.png"></img>
+                <img className="text-align-dropdown-icon" src="../public/icon-align-64-default.png"></img>
               </button>
               {showTextAlignDropdown && (
                 <div className="text-align-dropdown-menu" style={{ display: 'flex', flexDirection: 'row', gap: '5px' }}>
@@ -2117,7 +2117,7 @@ const DrawingApp: React.FC = () => {
                     style={{ color: currentAlign === 'left' ? '#007bff' : '#000' }}
                     title="По левому краю"
                   >
-                    <img className="text-align-icon" src="../public/icon-align-left-64-default.png"></img>
+                    <img className="text-align-icon" src="../public/icon-align-left-64-default 1.png"></img>
                   </button>
                   <button
                     type="button"
@@ -2130,7 +2130,7 @@ const DrawingApp: React.FC = () => {
                     style={{ color: currentAlign === 'center' ? '#007bff' : '#000' }}
                     title="По центру"
                   >
-                    <img className="text-align-icon" src="../public/icon-align-center-64-default.png"></img>
+                    <img className="text-align-icon" src="../public/icon-align-justify-64-default 1.png"></img>
                   </button>
                   <button
                     type="button"
@@ -2143,7 +2143,7 @@ const DrawingApp: React.FC = () => {
                     style={{ color: currentAlign === 'right' ? '#007bff' : '#000' }}
                     title="По правому краю"
                   >
-                    <img className="text-align-icon" src="../public/icon-align-right-64-default.png"></img>
+                    <img className="text-align-icon" src="../public/icon-align-64-default.png"></img>
                   </button>
                 </div>
               )}
@@ -2162,7 +2162,7 @@ const DrawingApp: React.FC = () => {
             className="drawing-tool-btn drawing-tool-btn-outline-secondary drawing-tool-btn-small"
             onClick={() => startTextEditing(selectedId)}
           >
-            {selectedShape.type === 'latex' ? 'Edit Formula' : 'Edit Text'}
+            {selectedShape.type === 'latex' ? 'Edit Formula' : <img className="text-align-icon" src = "../public/icon-edit-text-file-64-default 1.png"></img>}
           </button>
         </div>
       </div>
