@@ -3,6 +3,7 @@ import { Stage, Layer, Rect, Ellipse, Line, Text } from 'react-konva';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
 import './App.css';
+import BrushToolbar from './brushToolbar.tsx';
 
 type ShapeType = 'rectangle' | 'ellipse' | 'line' | 'path' | 'text' | 'latex' | 'highlighter';
 type ToolMode = 'select' | 'rectangle' | 'ellipse' | 'line' | 'pencil' | 'eraser' | 'text' | 'latex' | 'highlighter';
@@ -2150,55 +2151,14 @@ const DrawingApp: React.FC = () => {
       <h1 className="top-header">Paint</h1>
       <div className = "drawing-toolbar-container">
       <div className="drawing-toolbar">
-        <div className="tools-container">
-          <button
-            type="button"
-            className={`drawing-tool-btn tool-icon tool-pencil ${tool === 'pencil' ? 'drawing-tool-btn-primary' : 'drawing-tool-btn-outline-primary'}`}
-            onClick={() => {
-              if (editingTextId) {
-                finishTextEditing();
-              }
-              setTool('pencil');
-            }}
-            title="Карандаш"
-          >
-          </button>
-        
-          <button
-            type="button"
-            className={`drawing-tool-btn tool-icon tool-highlighter ${tool === 'highlighter' ? 'drawing-tool-btn-primary' : 'drawing-tool-btn-outline-primary'}`}
-            onClick={() => {
-              if (editingTextId) {
-                finishTextEditing();
-              }
-              setTool('highlighter');
-            }}
-            title="Маркер"
-          >
-          </button>
-
-          <button
-            type="button"
-            className={`drawing-tool-btn tool-icon tool-eraser ${tool === 'eraser' ? 'drawing-tool-btn-primary' : 'drawing-tool-btn-outline-primary'}`}
-            onClick={() => {
-              if (editingTextId) {
-                finishTextEditing();
-              }
-              setTool('eraser');
-            }}
-            title="Ластик"
-          >
-          </button>
-
-          <input
-            type="color"
-            id="color"
-            value={strokeColor}
-            onChange={(e) => setStrokeColor(e.target.value)}
-            disabled={tool === 'eraser'}
-            className="drawing-tool-btn color-picker"
-          />
-        </div>
+        <BrushToolbar
+          finishTextEditing={() => finishTextEditing(true)}
+          tool={tool}
+          setTool={setTool}
+          strokeColor={strokeColor}
+          setStrokeColor={setStrokeColor}
+          editingTextId={editingTextId}
+        />
         <div className='toolbar-range-container'>
           <input
             type="range"
