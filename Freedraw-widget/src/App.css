@@ -491,39 +491,6 @@ body {
   position: relative;
 }
 
-.drawing-tool-dropdown-item {
-  display: flex;
-  align-items: center;
-  padding: 5px 10px;
-  width: 100%;
-  border: none;
-  background-color: transparent;
-  cursor: pointer;
-  color: #000;
-}
-
-.drawing-tool-dropdown-item:hover {
-  background-color: #f8f9fa;
-}
-
-.drawing-tool-label {
-  font-size: 14px;
-  font-weight: bold;
-  margin-right: 3px;
-  white-space: nowrap;
-}
-
-.drawing-tool-checkbox {
-  margin: 0 4px 0 0;
-  cursor: pointer;
-}
-
-.drawing-tool-checkbox-label {
-  font-size: 14px;
-  margin-right: 8px;
-  cursor: pointer;
-}
-
 .drawing-tool-select {
   display: block;
   width: 100%;
@@ -724,18 +691,6 @@ body {
   flex-wrap: wrap;
 }
 
-.text-toolbar-label {
-  font-size: 14px;
-  font-weight: bold;
-  white-space: nowrap;
-}
-
-.text-toolbar-unit {
-  font-size: 12px;
-  color: #666;
-  margin-right: 5px;
-}
-
 .text-format-dropdown {
   display: inline-block;
   position: relative;
@@ -768,14 +723,6 @@ body {
   z-index: 1002;
   min-width: 130px;
   box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-}
-
-.text-format-icon {
-  width: 20px;
-}
-
-.text-format-label {
-  margin-left: 5px;
 }
 
 @media (max-width: 768px) {

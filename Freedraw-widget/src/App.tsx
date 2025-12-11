@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Stage, Layer, Rect, Ellipse, Line, Circle, Text } from 'react-konva';
+import { Stage, Layer, Rect, Ellipse, Line, Text } from 'react-konva';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
 import './App.css';
