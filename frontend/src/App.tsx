@@ -65,6 +65,21 @@ const DrawingApp: React.FC = () => {
     handleUndo,
     handleRedo
   } = useHistory(shapes);
+
+  const onUndo = () => {
+    const newShapes = handleUndo();
+    if (newShapes) {
+      setShapes(newShapes);
+    }
+  };
+
+  const onRedo = () => {
+    const newShapes = handleRedo();
+    if (newShapes) {
+      setShapes(newShapes);
+    }
+  };
+
   
   // Text editing
   const {
@@ -731,8 +746,8 @@ const DrawingApp: React.FC = () => {
             setStrokeWidth={setStrokeWidth}
           /> 
           <ToolsToolbar
-            handleUndo={handleUndo}
-            handleRedo={handleRedo}
+            handleUndo={onUndo}
+            handleRedo={onRedo}
             handleClearCanvas={handleClearCanvas}
             finishTextEditing={finishTextEditing}
             setTool={setTool}
