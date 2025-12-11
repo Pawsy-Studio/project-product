@@ -7,6 +7,7 @@ import BrushToolbar from './brushToolbar.tsx';
 import RangeToolbar from './RangeToolbar.tsx';
 import ToolsToolbar from './ToolsToolbar.tsx';
 import SelDelToolbar from './SelDelToolbar.tsx';
+import OCRToolbar from './OCRToolbar.tsx';
 
 type ShapeType = 'rectangle' | 'ellipse' | 'line' | 'path' | 'text' | 'latex' | 'highlighter';
 type ToolMode = 'select' | 'rectangle' | 'ellipse' | 'line' | 'pencil' | 'eraser' | 'text' | 'latex' | 'highlighter';
@@ -2184,35 +2185,7 @@ const DrawingApp: React.FC = () => {
           handleDeleteShape={handleDeleteShape}
           selectedId={selectedId}
         />
-        <div className='tools-container'>
-          <button
-            type="button"
-            className="drawing-tool-btn tool-icon tool-ocr drawing-tool-btn-danger drawing-tool-btn-small"
-            onClick={() => {
-              console.log("ЭТО ЗАГЛУШКА ДЛЯ OCR")
-            }}
-            title="OCR-выделение"
-          >
-          </button>          
-          <button
-            type="button"
-            className="drawing-tool-btn tool-icon tool-change drawing-tool-btn-danger drawing-tool-btn-small"
-            onClick={() => {
-              console.log("ЭТО ЗАГЛУШКА ДЛЯ OCR")
-            }}
-            title="Изменить"
-          >
-          </button>
-          <button
-            type="button"
-            className="drawing-tool-btn tool-icon tool-install drawing-tool-btn-danger drawing-tool-btn-small"
-            onClick={() => {
-              console.log("ЭТО ЗАГЛУШКА ДЛЯ OCR")
-            }}
-            title="Установка"
-          >
-          </button>
-        </div>
+        <OCRToolbar />
       </div>
       </div>
       <div className="canvas-container">
