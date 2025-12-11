@@ -9,6 +9,8 @@ import ToolsToolbar from './ToolsToolbar.tsx';
 import SelDelToolbar from './SelDelToolbar.tsx';
 import OCRToolbar from './OCRToolbar.tsx';
 import TextToolbar from './TextToolbar.tsx';
+import LatexEditor from './LatexEditor.tsx'
+import TextEditor from './TextEditor.tsx';
 
 type ShapeType = 'rectangle' | 'ellipse' | 'line' | 'path' | 'text' | 'latex' | 'highlighter';
 type ToolMode = 'select' | 'rectangle' | 'ellipse' | 'line' | 'pencil' | 'eraser' | 'text' | 'latex' | 'highlighter';
@@ -1765,165 +1767,41 @@ const DrawingApp: React.FC = () => {
         : latexSymbols.filter(sym => sym.category === selectedLatexCategory);
       
       return (
-        <div className="latex-editor-container" style={{
-          position: 'fixed',
-          left: `${x}px`,
-          top: `${y - 120}px`,
-          width: `${width + 200}px`,
-          zIndex: 1001,
-        }}>
-          <div className="latex-editor-toolbar">
-            {showLatexPreview && (
-              <div 
-                className="latex-preview"
-                dangerouslySetInnerHTML={{ __html: renderLatexToHtml(latexPreview || tempText || 'E = mc^2', shape.fontSize || fontSize) }}
-                style={{
-                  fontSize: `${shape.fontSize || fontSize}px`,
-                  color: shape.stroke,
-                }}
-              />
-            )}
-            
-            <div className="latex-symbols-dropdown">
-              <button
-                type="button"
-                className="drawing-tool-btn drawing-tool-btn-outline-success drawing-tool-btn-small"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowLatexMenu(!showLatexMenu);
-                }}
-              >
-                Символы
-              </button>
-              
-              <button
-                type="button"
-                className="drawing-tool-btn drawing-tool-btn-outline-secondary drawing-tool-btn-small"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowLatexPreview(!showLatexPreview);
-                }}
-              >
-                {showLatexPreview ? 'Скрыть' : 'Показать'} предпросмотр
-              </button>
-              
-              {showLatexMenu && (
-                <div className="latex-symbols-menu">
-                  <div className="latex-categories-container">
-                    {latexCategories.map(cat => (
-                      <button
-                        key={cat.id}
-                        type="button"
-                        className={`drawing-tool-btn drawing-tool-btn-small ${selectedLatexCategory === cat.id ? 'drawing-tool-btn-primary' : 'drawing-tool-btn-outline-secondary'}`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedLatexCategory(cat.id);
-                        }}
-                      >
-                        <span>{cat.icon}</span>
-                        <span>{cat.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                  
-                  <div className="latex-symbols-grid">
-                    {filteredSymbols.map(symbol => (
-                      <button
-                        key={symbol.name}
-                        type="button"
-                        className="drawing-tool-btn drawing-tool-btn-outline-info drawing-tool-btn-small latex-symbol-button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleLatexSymbolClick(symbol);
-                        }}
-                        title={symbol.description}
-                      >
-                        <div className="latex-symbol-name">
-                          <span>{symbol.name}</span>
-                        </div>
-                        <div className="latex-symbol-code">
-                          {symbol.placeholder || symbol.latex}
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                  
-                  <div className="latex-symbols-tip">
-                    <strong>Совет:</strong> Нажмите на символ, чтобы вставить его в формулу. Курсор автоматически поместится в нужное место.
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-          <textarea
-            ref={textAreaRef}
-            value={tempText}
-            onChange={(e) => updateTextInRealTime(e.target.value)}
-            onBlur={() => {
-              setTimeout(() => {
-                const activeElement = document.activeElement;
-                if (!activeElement || (!activeElement.closest('.latex-editor-container') && !activeElement.closest('.latex-symbols-menu'))) {
-                  finishTextEditing();
-                }
-              }, 100);
-            }}
-            style={textareaStyle}
-            onKeyDown={(e) => {
-              if (e.key === 'Escape') {
-                finishTextEditing();
-              }
-              if (e.key === 'Enter' && e.ctrlKey) {
-                finishTextEditing();
-              }
-              if (e.key === 'Tab') {
-                e.preventDefault();
-                const textarea = e.target as HTMLTextAreaElement;
-                const start = textarea.selectionStart;
-                const end = textarea.selectionEnd;
-                const text = textarea.value;
-
-                const pairs: { [key: string]: string } = {
-                  '(': ')',
-                  '[': ']',
-                  '{': '}',
-                  '|': '|',
-                  '\\': '\\',
-                };
-
-                const charBefore = text.substring(start - 1, start);
-                if (pairs[charBefore]) {
-                  const newText = text.substring(0, start) + pairs[charBefore] + text.substring(end);
-                  updateTextInRealTime(newText);
-                  setTimeout(() => {
-                    textarea.setSelectionRange(start, start);
-                  }, 0);
-                }
-              }
-            }}
-            autoFocus
-            placeholder="Введите LaTeX формулу (например: \frac{a}{b} или \sqrt{x^2 + y^2})"
-          />
-        </div>
+       <LatexEditor
+        shape={shape}
+        tempText={tempText}
+        textAreaRef={textAreaRef}
+        updateTextInRealTime={updateTextInRealTime}
+        finishTextEditing={finishTextEditing}
+        x={x}
+        y={y}
+        width={width}
+        textareaStyle={textareaStyle}
+        latexSymbols={latexSymbols}
+        latexCategories={latexCategories}
+        handleLatexSymbolClick={handleLatexSymbolClick}
+        renderLatexToHtml={renderLatexToHtml}
+        showLatexPreview={showLatexPreview}
+        showLatexMenu={showLatexMenu}
+        selectedLatexCategory={selectedLatexCategory}
+        latexPreview={latexPreview}
+        fontSize={fontSize}
+        strokeColor={strokeColor}
+        setShowLatexMenu={setShowLatexMenu}
+        setShowLatexPreview={setShowLatexPreview}
+        setSelectedLatexCategory={setSelectedLatexCategory}
+      />
       );
     }
     
     return (
-      <textarea
-        ref={textAreaRef}
-        value={tempText}
-        onChange={(e) => updateTextInRealTime(e.target.value)}
-        onBlur={() => finishTextEditing()}
-        style={textareaStyle}
-        onKeyDown={(e) => {
-          if (e.key === 'Escape') {
-            finishTextEditing();
-          }
-          if (e.key === 'Enter' && e.ctrlKey) {
-            finishTextEditing();
-          }
-        }}
-        autoFocus
-      />
+     <TextEditor 
+        textAreaRef={textAreaRef}
+        tempText={tempText}
+        updateTextInRealTime={updateTextInRealTime}
+        finishTextEditing={finishTextEditing}
+        textareaStyle={textareaStyle}
+     />
     );
   };
 
@@ -1982,26 +1860,22 @@ const DrawingApp: React.FC = () => {
     
     return (
       <TextToolbar
-        // Основные данные
+
         selectedShape={selectedShape}
         selectedId={selectedId}
-        
-        // Флаги форматирования
+
         isBold={selectedShape?.fontWeight === 'bold'}
         isItalic={selectedShape?.fontStyle === 'italic'}
         isUnderline={selectedShape?.textDecoration?.includes('underline') || false}
         isStrikethrough={selectedShape?.textDecoration?.includes('line-through') || false}
         currentAlign={selectedShape?.textAlign || textAlign}
         
-        // UI состояния
         showTextFormatDropdown={showTextFormatDropdown}
         showTextAlignDropdown={showTextAlignDropdown}
-        
-        // Сеттеры
+
         setShowTextFormatDropdown={setShowTextFormatDropdown}
         setShowTextAlignDropdown={setShowTextAlignDropdown}
         
-        // Функции
         updateSelectedTextProperty={updateSelectedTextProperty}
         startTextEditing={startTextEditing}
         toggleBold={toggleBold}
@@ -2009,19 +1883,16 @@ const DrawingApp: React.FC = () => {
         toggleUnderline={toggleUnderline}
         toggleStrikethrough={toggleStrikethrough}
         
-        // Настройки
         fontFamily={fontFamily}
         fontSize={fontSize}
         textAlign={textAlign}
         strokeColor={strokeColor}
         availableFonts={availableFonts}
         
-        // Позиционирование
         left={left}
         top={top}
         panelWidth={panelWidth}
         
-        // Дополнительные
         tool={tool}
         editingTextId={editingTextId}
       />
