@@ -6,6 +6,7 @@ import './App.css';
 import BrushToolbar from './brushToolbar.tsx';
 import RangeToolbar from './RangeToolbar.tsx';
 import ToolsToolbar from './ToolsToolbar.tsx';
+import SelDelToolbar from './SelDelToolbar.tsx';
 
 type ShapeType = 'rectangle' | 'ellipse' | 'line' | 'path' | 'text' | 'latex' | 'highlighter';
 type ToolMode = 'select' | 'rectangle' | 'ellipse' | 'line' | 'pencil' | 'eraser' | 'text' | 'latex' | 'highlighter';
@@ -2175,32 +2176,14 @@ const DrawingApp: React.FC = () => {
           editingTextId={editingTextId}
           tool={tool}
         />
-        <div className="tools-container">
-          <button
-            type="button"
-            className={`drawing-tool-btn tool-icon tool-select drawing-tool-btn-small ${tool === 'select' ? 'drawing-tool-btn-primary' : 'drawing-tool-btn-outline-primary'}`}
-            onClick={() => {
-              if (editingTextId) {
-                finishTextEditing();
-              }
-              setTool('select');
-            }}
-            title="Выделение"
-          >
-          </button>
-          <button
-            type="button"
-            className="drawing-tool-btn tool-icon tool-delete drawing-tool-btn-danger drawing-tool-btn-small"
-            onClick={() => {
-              if (selectedId) {
-                handleDeleteShape(selectedId);
-              }
-            }}
-            disabled={!selectedId || tool !== 'select'}
-            title="Удалить выделенную фигуру"
-          >
-          </button>
-        </div>
+        <SelDelToolbar 
+          finishTextEditing={finishTextEditing}
+          setTool={setTool}
+          tool={tool}
+          editingTextId={editingTextId}
+          handleDeleteShape={handleDeleteShape}
+          selectedId={selectedId}
+        />
         <div className='tools-container'>
           <button
             type="button"
