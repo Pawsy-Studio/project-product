@@ -1949,7 +1949,7 @@ const DrawingApp: React.FC = () => {
     const y = realY * scaleY + containerRect.top;
     
     const panelHeight = 40;
-    const panelWidth = 500;
+    const panelWidth = 416;
     
     const offset = 20;
     

@@ -714,6 +714,7 @@ body {
   gap: 8px;
   box-shadow: 0 2px 10px rgba(0,0,0,0.1);
   z-index: 1001;
+  width: 416px;
 }
 
 .text-toolbar-content {
@@ -765,7 +766,7 @@ body {
   border: 2px solid #696969;
   border-radius: 9px;
   z-index: 1002;
-  min-width: 150px;
+  min-width: 130px;
   box-shadow: 0 4px 8px rgba(0,0,0,0.1);
 }
 
