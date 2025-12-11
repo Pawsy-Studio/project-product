@@ -164,6 +164,7 @@ const DrawingApp: React.FC = () => {
   const [selectedLatexCategory, setSelectedLatexCategory] = useState('all');
   
   const [showTextFormatDropdown, setShowTextFormatDropdown] = useState(false);
+  const [showTextAlignDropdown, setShowTextAlignDropdown] = useState(false);
   const [latexPreview, setLatexPreview] = useState<string>('E = mc^2');
   const [showLatexPreview, setShowLatexPreview] = useState(true);
 
@@ -770,6 +771,10 @@ const DrawingApp: React.FC = () => {
       
       if (!target.closest('.text-format-dropdown')) {
         setShowTextFormatDropdown(false);
+      }
+      
+      if (!target.closest('.text-align-dropdown')) {
+        setShowTextAlignDropdown(false);
       }
       
       // Закрываем меню LaTeX символов только если клик был вне его
@@ -1976,6 +1981,7 @@ const DrawingApp: React.FC = () => {
     const isItalic = selectedShape.fontStyle === 'italic';
     const isUnderline = selectedShape.textDecoration?.includes('underline') || false;
     const isStrikethrough = selectedShape.textDecoration?.includes('line-through') || false;
+    const currentAlign = selectedShape.textAlign || textAlign;
     
     return (
       <div 
@@ -2027,7 +2033,7 @@ const DrawingApp: React.FC = () => {
                 <img className="text-format-dropdown-icon" src="../public/icon-font-style-64-default.png"></img>
               </button>
               {showTextFormatDropdown && (
-                <div className="text-format-dropdown-menu">
+                <div className="text-format-dropdown-menu" style={{ display: 'flex', flexDirection: 'row', gap: '5px' }}>
                   <button
                     type="button"
                     className="drawing-tool-dropdown-item"
@@ -2037,9 +2043,9 @@ const DrawingApp: React.FC = () => {
                       setShowTextFormatDropdown(false);
                     }}
                     style={{ color: isBold ? '#007bff' : '#000' }}
+                    title="Жирный"
                   >
                     <span className="text-format-icon" style={{ fontWeight: 'bold' }}>B</span>
-                    <span className="text-format-label">Жирный</span>
                   </button>
                   <button
                     type="button"
@@ -2050,9 +2056,9 @@ const DrawingApp: React.FC = () => {
                       setShowTextFormatDropdown(false);
                     }}
                     style={{ color: isItalic ? '#007bff' : '#000' }}
+                    title="Курсив"
                   >
                     <span className="text-format-icon" style={{ fontStyle: 'italic' }}>I</span>
-                    <span className="text-format-label">Курсив</span>
                   </button>
                   <button
                     type="button"
@@ -2063,9 +2069,9 @@ const DrawingApp: React.FC = () => {
                       setShowTextFormatDropdown(false);
                     }}
                     style={{ color: isUnderline ? '#007bff' : '#000' }}
+                    title="Подчеркнутый"
                   >
                     <span className="text-format-icon" style={{ textDecoration: 'underline' }}>U</span>
-                    <span className="text-format-label">Подчеркнутый</span>
                   </button>
                   <button
                     type="button"
@@ -2076,9 +2082,9 @@ const DrawingApp: React.FC = () => {
                       setShowTextFormatDropdown(false);
                     }}
                     style={{ color: isStrikethrough ? '#007bff' : '#000' }}
+                    title="Зачеркнутый"
                   >
                     <span className="text-format-icon" style={{ textDecoration: 'line-through' }}>S</span>
-                    <span className="text-format-label">Зачеркнутый</span>
                   </button>
                 </div>
               )}
@@ -2086,18 +2092,62 @@ const DrawingApp: React.FC = () => {
           )}
           
           {selectedShape.type === 'text' && (
-            <>
-              <select
-                className="drawing-tool-select drawing-tool-select-small"
-                value={selectedShape.textAlign || textAlign}
-                onChange={(e) => updateSelectedTextProperty('textAlign', e.target.value)}
-                style={{ width: '80px' }}
+            <div className="text-align-dropdown">
+              <button
+                type="button"
+                className={`drawing-tool-btn drawing-tool-btn-small ${showTextAlignDropdown ? 'drawing-tool-btn-primary' : 'drawing-tool-btn-outline-secondary'}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowTextAlignDropdown(!showTextAlignDropdown);
+                }}
+                title="Выравнивание текста"
               >
-                <option value="left">Left</option>
-                <option value="center">Center</option>
-                <option value="right">Right</option>
-              </select>
-            </>
+                <img className="text-align-dropdown-icon" src="../public/icon-align-left-64-default.png"></img>
+              </button>
+              {showTextAlignDropdown && (
+                <div className="text-align-dropdown-menu" style={{ display: 'flex', flexDirection: 'row', gap: '5px' }}>
+                  <button
+                    type="button"
+                    className="drawing-tool-dropdown-item"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      updateSelectedTextProperty('textAlign', 'left');
+                      setShowTextAlignDropdown(false);
+                    }}
+                    style={{ color: currentAlign === 'left' ? '#007bff' : '#000' }}
+                    title="По левому краю"
+                  >
+                    <img className="text-align-icon" src="../public/icon-align-left-64-default.png"></img>
+                  </button>
+                  <button
+                    type="button"
+                    className="drawing-tool-dropdown-item"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      updateSelectedTextProperty('textAlign', 'center');
+                      setShowTextAlignDropdown(false);
+                    }}
+                    style={{ color: currentAlign === 'center' ? '#007bff' : '#000' }}
+                    title="По центру"
+                  >
+                    <img className="text-align-icon" src="../public/icon-align-center-64-default.png"></img>
+                  </button>
+                  <button
+                    type="button"
+                    className="drawing-tool-dropdown-item"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      updateSelectedTextProperty('textAlign', 'right');
+                      setShowTextAlignDropdown(false);
+                    }}
+                    style={{ color: currentAlign === 'right' ? '#007bff' : '#000' }}
+                    title="По правому краю"
+                  >
+                    <img className="text-align-icon" src="../public/icon-align-right-64-default.png"></img>
+                  </button>
+                </div>
+              )}
+            </div>
           )}
           
           <input
