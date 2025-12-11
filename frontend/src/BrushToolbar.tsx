@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import './App.css';
 
-type ToolMode = 'select' | 'pencil' | 'eraser' | 'highlighter';
+type ToolMode = 'select' | 'rectangle' | 'ellipse' | 'line' | 'pencil' | 'eraser' | 'text' | 'latex' | 'highlighter';
 
 interface BrushToolbarProps {
   finishTextEditing: () => void;

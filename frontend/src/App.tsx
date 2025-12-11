@@ -4,6 +4,7 @@ import katex from 'katex';
 import 'katex/dist/katex.min.css';
 import './App.css';
 import BrushToolbar from './brushToolbar.tsx';
+import RangeToolbar from './RangeToolbar.tsx';
 
 type ShapeType = 'rectangle' | 'ellipse' | 'line' | 'path' | 'text' | 'latex' | 'highlighter';
 type ToolMode = 'select' | 'rectangle' | 'ellipse' | 'line' | 'pencil' | 'eraser' | 'text' | 'latex' | 'highlighter';
@@ -2159,19 +2160,11 @@ const DrawingApp: React.FC = () => {
           setStrokeColor={setStrokeColor}
           editingTextId={editingTextId}
         />
-        <div className='toolbar-range-container'>
-          <input
-            type="range"
-            className="drawing-tool-range"
-            min="1"
-            max="20"
-            step="1"
-            id="width"
-            value={strokeWidth}
-            onChange={(e) => setStrokeWidth(+e.target.value)}
-            disabled={tool === 'text' || tool === 'latex'}
-          />
-        </div>
+        <RangeToolbar 
+          tool = {tool}
+          strokeWidth={strokeWidth}
+          setStrokeWidth={setStrokeWidth}
+        /> 
         <div className="tools-container">
           <button
             type="button"
