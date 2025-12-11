@@ -615,10 +615,6 @@ body {
   z-index: 1001;
 }
 
-.text-toolbar-content::i {
-
-}
-
 .text-toolbar-content {
   display: flex;
   gap: 8px;
