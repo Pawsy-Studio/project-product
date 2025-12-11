@@ -2045,7 +2045,7 @@ const DrawingApp: React.FC = () => {
                     style={{ color: isBold ? '#007bff' : '#000' }}
                     title="Жирный"
                   >
-                    <span className="text-format-icon" style={{ fontWeight: 'bold' }}>B</span>
+                    <img className="text-align-dropdown-icon" src="../public/icon-bold-64-default 1.png"></img>
                   </button>
                   <button
                     type="button"
@@ -2058,7 +2058,7 @@ const DrawingApp: React.FC = () => {
                     style={{ color: isItalic ? '#007bff' : '#000' }}
                     title="Курсив"
                   >
-                    <span className="text-format-icon" style={{ fontStyle: 'italic' }}>I</span>
+                    <img className="text-align-dropdown-icon" src="../public/icon-italic-64-default 1.png"></img>
                   </button>
                   <button
                     type="button"
@@ -2071,7 +2071,7 @@ const DrawingApp: React.FC = () => {
                     style={{ color: isUnderline ? '#007bff' : '#000' }}
                     title="Подчеркнутый"
                   >
-                    <span className="text-format-icon" style={{ textDecoration: 'underline' }}>U</span>
+                    <img className="text-align-dropdown-icon" src="../public/icon-under-64-default 1.png"></img>
                   </button>
                   <button
                     type="button"
@@ -2084,7 +2084,7 @@ const DrawingApp: React.FC = () => {
                     style={{ color: isStrikethrough ? '#007bff' : '#000' }}
                     title="Зачеркнутый"
                   >
-                    <span className="text-format-icon" style={{ textDecoration: 'line-through' }}>S</span>
+                    <img className="text-align-dropdown-icon" src="../public/icon-strikethrough-64-default 1.png"></img>
                   </button>
                 </div>
               )}
