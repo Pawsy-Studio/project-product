@@ -1,10 +1,9 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Stage, Layer, Rect, Ellipse, Line, Text } from 'react-konva';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
 import './App.css';
 
-// Components
 import BrushToolbar from './components/BrushToolbar.tsx';
 import RangeToolbar from './components/RangeToolbar.tsx';
 import ToolsToolbar from './components/ToolsToolbar.tsx';
@@ -14,7 +13,6 @@ import TextToolbar from './components/TextToolbar.tsx';
 import LatexEditor from './components/LatexEditor.tsx';
 import TextEditor from './components/TextEditor.tsx';
 
-// Types and constants
 import type { 
   Shape, ToolMode, TextAlign, AnchorType,
   DrawingState, TransformState 
@@ -23,7 +21,6 @@ import { latexSymbols } from './constants/latexSymbols';
 import { latexCategories } from './constants/latexCategories';
 import { availableFonts } from './constants/fonts';
 
-// Hooks
 import { useHistory } from './hooks/useHistory';
 import { useTextEditing } from './hooks/useTextEditing';
 import { useTextFormatting } from './hooks/useTextFormatting';
@@ -32,13 +29,11 @@ import { useDrawingHandlers } from './hooks/useDrawingHandlers';
 import { useDrawingState } from './hooks/useDrawingState';
 import { useKeyboard } from './hooks/useKeyboard';
 
-// Utils
 import { hexToRgba } from './utils/colorUtils';
 import { calculateBoundingBox } from './utils/shapeUtils';
 import { renderLatexToHtml, measureLatexSize } from './utils/latexUtils';
 
 const DrawingApp: React.FC = () => {
-  // State
   const [tool, setTool] = useState<ToolMode>('select');
   const [shapes, setShapes] = useState<Shape[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -49,7 +44,6 @@ const DrawingApp: React.FC = () => {
   const [textAlign, setTextAlign] = useState<TextAlign>('left');
   const [shiftPressed, setShiftPressed] = useState(false);
   
-  // Drawing state
   const {
     drawingState,
     setDrawingState,
@@ -59,7 +53,6 @@ const DrawingApp: React.FC = () => {
     resetTransformState
   } = useDrawingState();
   
-  // History
   const {
     saveToHistory,
     handleUndo,
@@ -80,8 +73,6 @@ const DrawingApp: React.FC = () => {
     }
   };
 
-  
-  // Text editing
   const {
     editingTextId,
     tempText,
@@ -95,14 +86,12 @@ const DrawingApp: React.FC = () => {
     setIsTextChanged
   } = useTextEditing(shapes, setShapes, saveToHistory, fontSize, strokeColor);
   
-  // Text formatting
   const {
     updateSelectedTextProperty,
     toggleTextStyle,
     changeFontSizeWithStep
   } = useTextFormatting(shapes, setShapes, saveToHistory, fontSize);
   
-  // Latex symbols
   const textAreaRef = useRef<HTMLTextAreaElement>(null);
   const { insertLatexSymbol } = useLatexSymbols(
     textAreaRef,
@@ -110,7 +99,6 @@ const DrawingApp: React.FC = () => {
     updateTextInRealTime
   );
   
-  // Drawing handlers
   const drawingHandlers = useDrawingHandlers(
     shapes,
     setShapes,
@@ -128,17 +116,12 @@ const DrawingApp: React.FC = () => {
     startTextEditing
   );
   
-  // UI state
   const [showLatexMenu, setShowLatexMenu] = useState(false);
   const [selectedLatexCategory, setSelectedLatexCategory] = useState('all');
   const [showTextFormatDropdown, setShowTextFormatDropdown] = useState(false);
   const [showTextAlignDropdown, setShowTextAlignDropdown] = useState(false);
   const [showLatexPreview, setShowLatexPreview] = useState(true);
   
-  // Keyboard handling
-  
-
-  // Helper functions
   const handleDeleteShape = (id: string) => {
     const newShapes = shapes.filter(shape => shape.id !== id);
     setShapes(newShapes);
@@ -176,7 +159,57 @@ const DrawingApp: React.FC = () => {
     setShowLatexMenu(false);
   };
 
-  // Render functions (keep in component)
+  const handleUpdateTextProperty = (property: keyof Shape, value: any) => {
+    if (!selectedId) return;
+    
+    const updatedShapes = shapes.map(s => {
+      if (s.id === selectedId && (s.type === 'text' || s.type === 'latex')) {
+        const updatedShape = { ...s, [property]: value };
+        
+        if (property === 'stroke') {
+          updatedShape.stroke = value;
+
+          if (s.type === 'latex' && s.latex) {
+            const currentFontSize = s.fontSize || fontSize;
+            updatedShape.latexRendered = renderLatexToHtml(s.latex, currentFontSize, value);
+          }
+        }
+        
+        if (property === 'fontFamily' && s.type === 'text') {
+          updatedShape.fontFamily = value;
+        }
+        
+        if (property === 'textAlign') {
+          updatedShape.textAlign = value;
+        }
+        
+        if (property === 'fontSize') {
+          const newFontSize = parseInt(value) || 20;
+          updatedShape.fontSize = newFontSize;
+          
+          if (s.type === 'text') {
+            const lineHeight = newFontSize;
+            const lines = (s.text || '').split('\n').length || 1;
+            const newHeight = Math.max(lines * lineHeight * 1.2, 50);
+            updatedShape.height = newHeight;
+          } else if (s.type === 'latex' && s.latex) {
+            const size = measureLatexSize(s.latex, newFontSize);
+            updatedShape.width = size.width;
+            updatedShape.height = size.height;
+            const color = s.stroke || strokeColor;
+            updatedShape.latexRendered = renderLatexToHtml(s.latex, newFontSize, color);
+          }
+        }
+        
+        return updatedShape;
+      }
+      return s;
+    });
+    
+    setShapes(updatedShapes);
+    saveToHistory(updatedShapes);
+  };
+
   const renderAllShapes = () => {
     const allShapes = [...shapes];
 
@@ -371,20 +404,26 @@ const DrawingApp: React.FC = () => {
             key={shape.id}
             className="latex-shape-overlay"
             style={{
+              position: 'fixed',
               left: `${x}px`,
               top: `${y}px`,
               width: `${width}px`,
               height: `${height}px`,
+              pointerEvents: 'none',
             }}
           >
             <div
               dangerouslySetInnerHTML={{ 
-                __html: shape.latexRendered || renderLatexToHtml(shape.latex || '', shape.fontSize || fontSize)
+                __html: shape.latexRendered || renderLatexToHtml(
+                  shape.latex || '', 
+                  shape.fontSize || fontSize,
+                  shape.stroke || strokeColor
+                )
               }}
               className="latex-rendered-content"
               style={{
                 fontSize: `${shape.fontSize || fontSize}px`,
-                color: shape.stroke,
+                color: shape.stroke || strokeColor,
               }}
             />
           </div>
@@ -393,72 +432,92 @@ const DrawingApp: React.FC = () => {
   };
 
   const renderSelection = () => {
-    if (!selectedId || tool !== 'select' || drawingState.isDrawing) return null;
-    
-    const shape = shapes.find(s => s.id === selectedId);
-    if (!shape) return null;
-    
-    if ((shape.type === 'path' || shape.type === 'highlighter') && (!shape.points || shape.points.length === 0)) return null;
-    
-    let displayShape = { ...shape };
-    
-    if ((shape.type === 'path' || shape.type === 'line' || shape.type === 'highlighter') && shape.points && shape.points.length > 0) {
-      const bbox = calculateBoundingBox(shape.points);
-      displayShape = { ...shape, x: bbox.x, y: bbox.y, width: bbox.width, height: bbox.height };
+  if (!selectedId || tool !== 'select' || drawingState.isDrawing) return null;
+  
+  const shape = shapes.find(s => s.id === selectedId);
+  if (!shape) return null;
+  
+  if ((shape.type === 'path' || shape.type === 'highlighter') && (!shape.points || shape.points.length === 0)) return null;
+  
+  let displayShape = { ...shape };
+  
+  // Для фигур с точками рассчитываем реальные границы
+  if ((shape.type === 'path' || shape.type === 'line' || shape.type === 'highlighter') && shape.points && shape.points.length > 0) {
+    const bbox = calculateBoundingBox(shape.points);
+    displayShape = { ...shape, x: bbox.x, y: bbox.y, width: bbox.width, height: bbox.height };
+  }
+  
+  // Рассчитываем реальные координаты якорей с учетом знака размеров
+  const realX = Math.min(displayShape.x, displayShape.x + displayShape.width);
+  const realY = Math.min(displayShape.y, displayShape.y + displayShape.height);
+  const realWidth = Math.abs(displayShape.width);
+  const realHeight = Math.abs(displayShape.height);
+  
+  const selectionPadding = 5;
+  const anchorSize = 10;
+  const halfAnchor = anchorSize / 2;
+  
+  const x = realX - selectionPadding;
+  const y = realY - selectionPadding;
+  const width = realWidth + selectionPadding * 2;
+  const height = realHeight + selectionPadding * 2;
+  
+  // Правильно рассчитываем позиции якорей
+  const anchors = [
+    { 
+      name: 'anchor-top-left', 
+      x: realX, 
+      y: realY 
+    },
+    { 
+      name: 'anchor-top-right', 
+      x: realX + realWidth, 
+      y: realY 
+    },
+    { 
+      name: 'anchor-bottom-left', 
+      x: realX, 
+      y: realY + realHeight 
+    },
+    { 
+      name: 'anchor-bottom-right', 
+      x: realX + realWidth, 
+      y: realY + realHeight 
     }
-    
-    const selectionPadding = 5;
-    const anchorSize = 10;
-    const halfAnchor = anchorSize / 2;
-    
-    const realX = Math.min(displayShape.x, displayShape.x + displayShape.width);
-    const realY = Math.min(displayShape.y, displayShape.y + displayShape.height);
-    const realWidth = Math.abs(displayShape.width);
-    const realHeight = Math.abs(displayShape.height);
-    
-    const x = realX - selectionPadding;
-    const y = realY - selectionPadding;
-    const width = realWidth + selectionPadding * 2;
-    const height = realHeight + selectionPadding * 2;
-    
-    const anchors = [
-      { name: 'anchor-top-left', x: displayShape.x, y: displayShape.y },
-      { name: 'anchor-top-right', x: displayShape.x + displayShape.width, y: displayShape.y },
-      { name: 'anchor-bottom-left', x: displayShape.x, y: displayShape.y + displayShape.height },
-      { name: 'anchor-bottom-right', x: displayShape.x + displayShape.width, y: displayShape.y + displayShape.height }
-    ];
-    
-    return (
-      <>
+  ];
+  
+  return (
+    <>
+      <Rect
+        name="selection-rect"
+        x={x}
+        y={y}
+        width={width}
+        height={height}
+        stroke="#007bff"
+        strokeWidth={1}
+        dash={[5, 5]}
+        listening={false}
+      />
+      
+      {anchors.map(anchor => (
         <Rect
-          name="selection-rect"
-          x={x}
-          y={y}
-          width={width}
-          height={height}
+          key={anchor.name}
+          name={anchor.name}
+          shapeId={displayShape.id}
+          x={anchor.x - halfAnchor}
+          y={anchor.y - halfAnchor}
+          width={anchorSize}
+          height={anchorSize}
+          fill="#ffffff"
           stroke="#007bff"
-          strokeWidth={1}
-          dash={[5, 5]}
-          listening={false}
+          strokeWidth={2}
         />
-        
-        {anchors.map(anchor => (
-          <Rect
-            key={anchor.name}
-            name={anchor.name}
-            shapeId={displayShape.id}
-            x={anchor.x - halfAnchor}
-            y={anchor.y - halfAnchor}
-            width={anchorSize}
-            height={anchorSize}
-            fill="#ffffff"
-            stroke="#007bff"
-            strokeWidth={2}
-          />
-        ))}
-      </>
-    );
-  };
+      ))}
+    </>
+  );
+};
+
 
   const renderTextInput = () => {
     if (!editingTextId) return null;
@@ -494,7 +553,7 @@ const DrawingApp: React.FC = () => {
       fontSize: `${shape.fontSize || fontSize}px`,
       fontFamily: shape.type === 'latex' ? 'KaTeX_Main, Times New Roman, serif' : (shape.fontFamily || fontFamily),
       textAlign: shape.textAlign || textAlign,
-      color: shape.stroke,
+      color: shape.stroke || strokeColor,
       backgroundColor: 'rgba(255, 255, 255, 0.9)',
       border: shape.type === 'latex' ? '2px solid #4CAF50' : '1px dashed #007bff',
       outline: 'none',
@@ -611,16 +670,16 @@ const DrawingApp: React.FC = () => {
         showTextAlignDropdown={showTextAlignDropdown}
         setShowTextFormatDropdown={setShowTextFormatDropdown}
         setShowTextAlignDropdown={setShowTextAlignDropdown}
-        updateSelectedTextProperty={updateSelectedTextProperty}
+        updateSelectedTextProperty={handleUpdateTextProperty}
         startTextEditing={startTextEditing}
         toggleBold={() => toggleTextStyle(selectedId, 'bold')}
         toggleItalic={() => toggleTextStyle(selectedId, 'italic')}
         toggleUnderline={() => toggleTextStyle(selectedId, 'underline')}
         toggleStrikethrough={() => toggleTextStyle(selectedId, 'strikethrough')}
-        fontFamily={fontFamily}
-        fontSize={fontSize}
-        textAlign={textAlign}
-        strokeColor={strokeColor}
+        fontFamily={selectedShape.fontFamily || fontFamily}
+        fontSize={selectedShape.fontSize || fontSize}
+        textAlign={selectedShape.textAlign || textAlign}
+        strokeColor={selectedShape.stroke || strokeColor}
         availableFonts={availableFonts}
         left={left}
         top={top}
@@ -631,10 +690,8 @@ const DrawingApp: React.FC = () => {
     );
   };
 
-  // Refs
   const stageRef = useRef<any>(null);
 
-  // Mouse handlers
   const handleMouseDown = (e: any) => {
     drawingHandlers.handleMouseDown(e);
   };
