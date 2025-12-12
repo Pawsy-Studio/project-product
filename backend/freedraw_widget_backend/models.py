@@ -8,9 +8,8 @@ class Board(models.Model):
         null=True,
         verbose_name='Название доски'
     )
-    parentId = models.ForeignKey(
+    parentId = models.IntegerField(
         'self',
-        on_delete=models.CASCADE,
         null=True,
         blank=True,
         verbose_name='Родительская доска',
@@ -33,7 +32,7 @@ class Widget(models.Model):
         null=True,
     )
     
-    user = models.ForeignKey(
+    userId = models.IntegerField(
         on_delete=models.CASCADE,
         verbose_name='Пользователь',
         related_name='widgets',
@@ -57,8 +56,7 @@ class Widget(models.Model):
         help_text='JSON конфигурация виджета'
     )
     
-    board = models.ForeignKey(
-        on_delete=models.CASCADE,
+    board = models.JSONField(
         verbose_name='Доска',
         null=True,
         related_name='widgets'

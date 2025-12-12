@@ -37,7 +37,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    
+    "freedraw_widget_backend",
     "corsheaders",
     "rest_framework",
 ]
@@ -81,6 +81,11 @@ WSGI_APPLICATION = "freedraw_widget_backend.wsgi.application"
 
 import os
 
+import os
+from pathlib import Path
+import dj_database_url  # Добавьте этот импорт
+
+# Удалите старый DATABASES и добавьте:
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
@@ -91,6 +96,7 @@ DATABASES = {
         'PORT': os.environ.get('POSTGRES_PORT', '5432'),
     }
 }
+
 
 CORS_ALLOWED_ORIGINS = os.environ.get('CORS_ALLOWED_ORIGINS', 'http://localhost:3000').split(',')
 
