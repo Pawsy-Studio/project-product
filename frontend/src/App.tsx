@@ -162,49 +162,32 @@ const DrawingApp: React.FC = () => {
   const handleUpdateTextProperty = (property: keyof Shape, value: any) => {
     if (!selectedId) return;
     
-    const updatedShapes = shapes.map(s => {
-      if (s.id === selectedId && (s.type === 'text' || s.type === 'latex')) {
-        const updatedShape = { ...s, [property]: value };
-        
-        if (property === 'stroke') {
-          updatedShape.stroke = value;
-
-          if (s.type === 'latex' && s.latex) {
-            const currentFontSize = s.fontSize || fontSize;
-            updatedShape.latexRendered = renderLatexToHtml(s.latex, currentFontSize, value);
-          }
-        }
-        
-        if (property === 'fontFamily' && s.type === 'text') {
-          updatedShape.fontFamily = value;
-        }
-        
-        if (property === 'textAlign') {
-          updatedShape.textAlign = value;
-        }
-        
-        if (property === 'fontSize') {
-          const newFontSize = parseInt(value) || 20;
-          updatedShape.fontSize = newFontSize;
-          
-          if (s.type === 'text') {
-            const lineHeight = newFontSize;
-            const lines = (s.text || '').split('\n').length || 1;
-            const newHeight = Math.max(lines * lineHeight * 1.2, 50);
-            updatedShape.height = newHeight;
-          } else if (s.type === 'latex' && s.latex) {
-            const size = measureLatexSize(s.latex, newFontSize);
-            updatedShape.width = size.width;
-            updatedShape.height = size.height;
-            const color = s.stroke || strokeColor;
-            updatedShape.latexRendered = renderLatexToHtml(s.latex, newFontSize, color);
-          }
-        }
-        
-        return updatedShape;
-      }
-      return s;
-    });
+  const updatedShapes = shapes.map(s => {
+  if (s.id === transformState.shapeId) {
+    if ((s.type === 'path' || s.type === 'line' || s.type === 'highlighter') && originalPoints && originalBbox) {
+      const newBbox = { x: newX, y: newY, width: newWidth, height: newHeight };
+      const transformedPoints = transformPoints(originalPoints, originalBbox, newBbox);
+      
+      return { 
+        ...s, 
+        width: newWidth, 
+        height: newHeight, 
+        x: newX, 
+        y: newY,
+        points: transformedPoints
+      };
+    } else {
+      return { 
+        ...s, 
+        width: newWidth, 
+        height: newHeight, 
+        x: newX, 
+        y: newY 
+      };
+    }
+  }
+  return s;
+});
     
     setShapes(updatedShapes);
     saveToHistory(updatedShapes);
@@ -441,13 +424,11 @@ const DrawingApp: React.FC = () => {
   
   let displayShape = { ...shape };
   
-  // Для фигур с точками рассчитываем реальные границы
   if ((shape.type === 'path' || shape.type === 'line' || shape.type === 'highlighter') && shape.points && shape.points.length > 0) {
     const bbox = calculateBoundingBox(shape.points);
     displayShape = { ...shape, x: bbox.x, y: bbox.y, width: bbox.width, height: bbox.height };
   }
   
-  // Рассчитываем реальные координаты якорей с учетом знака размеров
   const realX = Math.min(displayShape.x, displayShape.x + displayShape.width);
   const realY = Math.min(displayShape.y, displayShape.y + displayShape.height);
   const realWidth = Math.abs(displayShape.width);
@@ -462,7 +443,6 @@ const DrawingApp: React.FC = () => {
   const width = realWidth + selectionPadding * 2;
   const height = realHeight + selectionPadding * 2;
   
-  // Правильно рассчитываем позиции якорей
   const anchors = [
     { 
       name: 'anchor-top-left', 
