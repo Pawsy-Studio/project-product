@@ -299,7 +299,7 @@ export const useDrawingHandlers = (
     e: any,
     drawingState: DrawingState,
     transformState: TransformState,
-
+    shiftPressed: boolean
   ) => {
     const stage = e.target.getStage();
     const pos = stage.getPointerPosition();
@@ -362,82 +362,117 @@ export const useDrawingHandlers = (
       }
     }
     else if (transformState.isTransforming && transformState.shapeId) {
-  const { startWidth, startHeight, startX, startY, startMouseX, startMouseY, anchor, originalPoints, originalBbox, startFontSize } = transformState;
-  
-  if (!anchor) return;
-  
-  const deltaX = clampedPos.x - startMouseX;
-  const deltaY = clampedPos.y - startMouseY;
-  
-  let newWidth = startWidth;
-  let newHeight = startHeight;
-  let newX = startX;
-  let newY = startY;
-  
-  switch (anchor) {
+      const { startWidth, startHeight, startX, startY, startMouseX, startMouseY, anchor, originalPoints, originalBbox, startFontSize } = transformState;
+      
+      if (!anchor) return;
+      
+      const deltaX = clampedPos.x - startMouseX;
+      const deltaY = clampedPos.y - startMouseY;
+      
+      let newWidth = startWidth;
+      let newHeight = startHeight;
+      let newX = startX;
+      let newY = startY;
+
+      const signX = Math.sign(startWidth);
+      const signY = Math.sign(startHeight);
+
+      
+      switch (anchor) {
     case 'top-left':
-      newWidth = startWidth - deltaX;
-      newHeight = startHeight - deltaY;
-      newX = startX + deltaX;
-      newY = startY + deltaY;
+      newWidth = startWidth - deltaX * signX;
+      newHeight = startHeight - deltaY * signY;
+      newX = startX + deltaX * signX;
+      newY = startY + deltaY * signY;
       break;
     case 'top-right':
-      newWidth = startWidth + deltaX;
-      newHeight = startHeight - deltaY;
-      newX = startX;
-      newY = startY + deltaY;
+      newWidth = startWidth + deltaX * signX;
+      newHeight = startHeight - deltaY * signY;
+      newY = startY + deltaY * signY;
       break;
     case 'bottom-left':
-      newWidth = startWidth - deltaX;
-      newHeight = startHeight + deltaY;
-      newX = startX + deltaX;
-      newY = startY;
+      newWidth = startWidth - deltaX * signX;
+      newHeight = startHeight + deltaY * signY;
+      newX = startX + deltaX * signX;
       break;
     case 'bottom-right':
-      newWidth = startWidth + deltaX;
-      newHeight = startHeight + deltaY;
-      newX = startX;
-      newY = startY;
+      newWidth = startWidth + deltaX * signX;
+      newHeight = startHeight + deltaY * signY;
       break;
   }
   
-  // Убрать условие минимального размера или исправить его:
-  if (Math.abs(newWidth) < 5) {
-    newWidth = newWidth >= 0 ? 5 : -5;
+  if (shiftPressed) {
+    const ratio = Math.abs(startWidth) / Math.abs(startHeight);
+    
+    switch (anchor) {
+      case 'top-left':
+        if (Math.abs(deltaX) > Math.abs(deltaY)) {
+          newHeight = Math.abs(newWidth) / ratio * Math.sign(startHeight);
+          newY = startY + (startHeight - newHeight);
+        } else {
+          newWidth = Math.abs(newHeight) * ratio * Math.sign(startWidth);
+          newX = startX + (startWidth - newWidth);
+        }
+        break;
+      case 'top-right':
+        if (Math.abs(deltaX) > Math.abs(deltaY)) {
+          newHeight = Math.abs(newWidth) / ratio * Math.sign(startHeight);
+          newY = startY + (startHeight - newHeight);
+        } else {
+          newWidth = Math.abs(newHeight) * ratio * Math.sign(startWidth);
+        }
+        break;
+      case 'bottom-left':
+        if (Math.abs(deltaX) > Math.abs(deltaY)) {
+          newHeight = Math.abs(newWidth) / ratio * Math.sign(startHeight);
+        } else {
+          newWidth = Math.abs(newHeight) * ratio * Math.sign(startWidth);
+          newX = startX + (startWidth - newWidth);
+        }
+        break;
+      case 'bottom-right':
+        if (Math.abs(deltaX) > Math.abs(deltaY)) {
+          newHeight = Math.abs(newWidth) / ratio * Math.sign(startHeight);
+        } else {
+          newWidth = Math.abs(newHeight) * ratio * Math.sign(startWidth);
+        }
+        break;
+    }
+  }
+
+      
+      if (Math.abs(newWidth) < 5) {
+    newWidth = (newWidth >= 0 ? 5 : -5) * signX;
   }
   if (Math.abs(newHeight) < 5) {
-    newHeight = newHeight >= 0 ? 5 : -5;
+    newHeight = (newHeight >= 0 ? 5 : -5) * signY;
   }
-  
-  // УБРАТЬ ВЕСЬ БЛОК shiftPressed! НАХУЙ НЕ НУЖЕН!
-  // if (shiftPressed) { ... }
-  
-  const updatedShapes = shapes.map(s => {
-    if (s.id === transformState.shapeId) {
-      if ((s.type === 'path' || s.type === 'line' || s.type === 'highlighter') && originalPoints && originalBbox) {
-        const newBbox = { x: newX, y: newY, width: newWidth, height: newHeight };
-        const transformedPoints = transformPoints(originalPoints, originalBbox, newBbox);
-        
-        return { 
-          ...s, 
-          width: newWidth, 
-          height: newHeight, 
-          x: newX, 
-          y: newY,
-          points: transformedPoints
-        };
-      } else if (s.type === 'latex') {
-        return { ...s, width: newWidth, height: newHeight, x: newX, y: newY };
-      } else {
-        return { ...s, width: newWidth, height: newHeight, x: newX, y: newY };
-      }
+      
+      const updatedShapes = shapes.map(s => {
+        if (s.id === transformState.shapeId) {
+          if ((s.type === 'path' || s.type === 'line' || s.type === 'highlighter') && originalPoints && originalBbox) {
+            const newBbox = { x: newX, y: newY, width: newWidth, height: newHeight };
+            const transformedPoints = transformPoints(originalPoints, originalBbox, newBbox);
+            
+            return { 
+              ...s, 
+              width: newWidth, 
+              height: newHeight, 
+              x: newX, 
+              y: newY,
+              points: transformedPoints
+            };
+          } else if (s.type === 'latex') {
+            return { ...s, width: newWidth, height: newHeight, x: newX, y: newY };
+          } else {
+            return { ...s, width: newWidth, height: newHeight, x: newX, y: newY };
+          }
+        }
+        return s;
+      });
+      
+      setShapes(updatedShapes);
     }
-    return s;
-  });
-  
-  setShapes(updatedShapes);
-}
-
     else if (isDragging && selectedId) {
       const shape = shapes.find(s => s.id === selectedId);
       
