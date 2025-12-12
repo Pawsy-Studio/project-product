@@ -374,98 +374,77 @@ export const useDrawingHandlers = (
       let newX = startX;
       let newY = startY;
 
-      const signX = Math.sign(startWidth);
-      const signY = Math.sign(startHeight);
-
-      
       switch (anchor) {
-    case 'top-left':
-      newWidth = startWidth - deltaX * signX;
-      newHeight = startHeight - deltaY * signY;
-      newX = startX + deltaX * signX;
-      newY = startY + deltaY * signY;
-      break;
-    case 'top-right':
-      newWidth = startWidth + deltaX * signX;
-      newHeight = startHeight - deltaY * signY;
-      newY = startY + deltaY * signY;
-      break;
-    case 'bottom-left':
-      newWidth = startWidth - deltaX * signX;
-      newHeight = startHeight + deltaY * signY;
-      newX = startX + deltaX * signX;
-      break;
-    case 'bottom-right':
-      newWidth = startWidth + deltaX * signX;
-      newHeight = startHeight + deltaY * signY;
-      break;
-  }
-  
-  if (shiftPressed) {
-    const ratio = Math.abs(startWidth) / Math.abs(startHeight);
-    
-    switch (anchor) {
-      case 'top-left':
-        if (Math.abs(deltaX) > Math.abs(deltaY)) {
-          newHeight = Math.abs(newWidth) / ratio * Math.sign(startHeight);
-          newY = startY + (startHeight - newHeight);
-        } else {
-          newWidth = Math.abs(newHeight) * ratio * Math.sign(startWidth);
-          newX = startX + (startWidth - newWidth);
-        }
-        break;
-      case 'top-right':
-        if (Math.abs(deltaX) > Math.abs(deltaY)) {
-          newHeight = Math.abs(newWidth) / ratio * Math.sign(startHeight);
-          newY = startY + (startHeight - newHeight);
-        } else {
-          newWidth = Math.abs(newHeight) * ratio * Math.sign(startWidth);
-        }
-        break;
-      case 'bottom-left':
-        if (Math.abs(deltaX) > Math.abs(deltaY)) {
-          newHeight = Math.abs(newWidth) / ratio * Math.sign(startHeight);
-        } else {
-          newWidth = Math.abs(newHeight) * ratio * Math.sign(startWidth);
-          newX = startX + (startWidth - newWidth);
-        }
-        break;
-      case 'bottom-right':
-        if (Math.abs(deltaX) > Math.abs(deltaY)) {
-          newHeight = Math.abs(newWidth) / ratio * Math.sign(startHeight);
-        } else {
-          newWidth = Math.abs(newHeight) * ratio * Math.sign(startWidth);
-        }
-        break;
-    }
-  }
+        case 'top-left':
+          newWidth = startWidth - deltaX;
+          newHeight = startHeight - deltaY;
+          newX = startX + deltaX;
+          newY = startY + deltaY;
+          break;
+        case 'top-right':
+          newWidth = startWidth + deltaX;
+          newHeight = startHeight - deltaY;
+          newY = startY + deltaY;
+          break;
+        case 'bottom-left':
+          newWidth = startWidth - deltaX;
+          newHeight = startHeight + deltaY;
+          newX = startX + deltaX;
+          break;
+        case 'bottom-right':
+          newWidth = startWidth + deltaX;
+          newHeight = startHeight + deltaY;
+          break;
+      }
 
-      
-      if (Math.abs(newWidth) < 5) {
-    newWidth = (newWidth >= 0 ? 5 : -5) * signX;
-  }
-  if (Math.abs(newHeight) < 5) {
-    newHeight = (newHeight >= 0 ? 5 : -5) * signY;
-  }
-      
+      // ---- НОРМАЛИЗАЦИЯ ЗЕРКАЛЬНОЙ ТРАНСФОРМАЦИИ ----
+      let finalX = newX;
+      let finalY = newY;
+      let finalW = newWidth;
+      let finalH = newHeight;
+
+      if (finalW < 0) {
+        finalX = finalX + finalW;
+        finalW = Math.abs(finalW);
+      }
+
+      if (finalH < 0) {
+        finalY = finalY + finalH;
+        finalH = Math.abs(finalH);
+      }
+      // ----------------------------------------------
+
       const updatedShapes = shapes.map(s => {
         if (s.id === transformState.shapeId) {
-          if ((s.type === 'path' || s.type === 'line' || s.type === 'highlighter') && originalPoints && originalBbox) {
-            const newBbox = { x: newX, y: newY, width: newWidth, height: newHeight };
+
+          if ((s.type === 'path' || s.type === 'line' || s.type === 'highlighter') &&
+              originalPoints && originalBbox)
+          {
+            const newBbox = { 
+              x: finalX, 
+              y: finalY, 
+              width: finalW, 
+              height: finalH 
+            };
             const transformedPoints = transformPoints(originalPoints, originalBbox, newBbox);
             
             return { 
               ...s, 
-              width: newWidth, 
-              height: newHeight, 
-              x: newX, 
-              y: newY,
+              width: finalW, 
+              height: finalH, 
+              x: finalX, 
+              y: finalY,
               points: transformedPoints
             };
-          } else if (s.type === 'latex') {
-            return { ...s, width: newWidth, height: newHeight, x: newX, y: newY };
-          } else {
-            return { ...s, width: newWidth, height: newHeight, x: newX, y: newY };
+          } 
+          else {
+            return { 
+              ...s, 
+              width: finalW, 
+              height: finalH, 
+              x: finalX, 
+              y: finalY 
+            };
           }
         }
         return s;
