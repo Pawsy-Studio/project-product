@@ -537,6 +537,12 @@ body {
   line-height: 1.5;
 }
 
+.latex-toolbar {
+  border-radius: 9px;
+  border: #696969 solid 2px;
+  background-color: #fff;
+}
+
 .latex-shape-overlay {
   position: fixed;
   pointer-events: none;
