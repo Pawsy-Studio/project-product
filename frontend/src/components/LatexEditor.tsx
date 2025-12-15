@@ -149,8 +149,8 @@ const TextInput: React.FC<TextEditorInterface> = ({
                     key={cat.id}
                     type="button"
                     className={`drawing-tool-btn drawing-tool-btn-small ${
-                      selectedLatexCategory === cat.id 
-                        ? 'drawing-tool-btn-primary' 
+                      selectedLatexCategory === cat.id
+                        ? 'drawing-tool-btn-primary'
                         : 'drawing-tool-btn-outline-secondary'
                     }`}
                     onClick={(e) => {
@@ -159,7 +159,6 @@ const TextInput: React.FC<TextEditorInterface> = ({
                     }}
                   >
                     <span>{cat.icon}</span>
-                    <span>{cat.name}</span>
                   </button>
                 ))}
               </div>
