@@ -91,7 +91,7 @@ const TextInput: React.FC<TextEditorInterface> = ({
   renderLatexToHtml,
   showLatexPreview = true,
   showLatexMenu = false,
-  selectedLatexCategory = 'all',
+  selectedLatexCategory = 'fraction',
   latexPreview = 'E = mc^2',
   fontSize = 20,
   strokeColor = '#000000',
@@ -176,7 +176,9 @@ const TextInput: React.FC<TextEditorInterface> = ({
                     title={symbol.description}
                   >
                     <div className="latex-symbol-name">
-                      <span>{symbol.name}</span>
+                      <span dangerouslySetInnerHTML={{
+                        __html: renderLatexToHtml(symbol.latex, 24)
+                      }} />
                     </div>
                     <div className="latex-symbol-code">
                       {symbol.placeholder || symbol.latex}
@@ -185,10 +187,7 @@ const TextInput: React.FC<TextEditorInterface> = ({
                 ))}
               </div>
               
-              <div className="latex-symbols-tip">
-                <strong>Совет:</strong> Нажмите на символ, чтобы вставить его в формулу. 
-                Курсор автоматически поместится в нужное место.
-              </div>
+
             </div>
           )}
         </div>

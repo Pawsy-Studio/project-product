@@ -118,7 +118,7 @@ const DrawingApp: React.FC = () => {
   );
   
   const [showLatexMenu, setShowLatexMenu] = useState(false);
-  const [selectedLatexCategory, setSelectedLatexCategory] = useState('all');
+  const [selectedLatexCategory, setSelectedLatexCategory] = useState('fraction');
   const [showTextFormatDropdown, setShowTextFormatDropdown] = useState(false);
   const [showTextAlignDropdown, setShowTextAlignDropdown] = useState(false);
   const [showLatexPreview, setShowLatexPreview] = useState(true);
