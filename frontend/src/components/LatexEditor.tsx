@@ -132,7 +132,7 @@ const TextInput: React.FC<TextEditorInterface> = ({
         <div className="latex-symbols-dropdown" style={{ display: 'flex', justifyContent: 'center' }}>
           <button
             type="button"
-            className={`drawing-tool-btn drawing-tool-btn-outline-success drawing-tool-btn-small ${showLatexMenu ? 'active' : ''}`}
+            className={`drawing-tool-btn drawing-tool-btn-outline-success drawing-tool-btn-small latex-symbols-btn ${showLatexMenu ? 'active' : ''}`}
             onClick={(e) => {
               e.stopPropagation();
               setShowLatexMenu(!showLatexMenu);
