@@ -129,7 +129,7 @@ const TextInput: React.FC<TextEditorInterface> = ({
           />
         )}
         
-        <div className="latex-symbols-dropdown">
+        <div className="latex-symbols-dropdown" style={{ display: 'flex', justifyContent: 'center' }}>
           <button
             type="button"
             className="drawing-tool-btn drawing-tool-btn-outline-success drawing-tool-btn-small"
@@ -140,20 +140,7 @@ const TextInput: React.FC<TextEditorInterface> = ({
           >
             Символы
           </button>
-          
-          {setShowLatexPreview && (
-            <button
-              type="button"
-              className="drawing-tool-btn drawing-tool-btn-outline-secondary drawing-tool-btn-small"
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowLatexPreview(!showLatexPreview);
-              }}
-            >
-              {showLatexPreview ? 'Скрыть' : 'Показать'} предпросмотр
-            </button>
-          )}
-          
+
           {showLatexMenu && (
             <div className="latex-symbols-menu">
               <div className="latex-categories-container">
