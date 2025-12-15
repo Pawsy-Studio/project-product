@@ -610,8 +610,8 @@ body {
 
 .latex-symbols-menu {
   position: absolute;
+  margin-top: 15px;
   top: 100%;
-  left: 0;
   background-color: #e1e1e1;
   border: 2px solid #696969;
   border-radius: 9px;
@@ -626,9 +626,10 @@ body {
 .latex-categories-container {
   display: flex;
   flex-wrap: wrap;
+  justify-content: space-between;
   gap: 4px;
   margin-bottom: 10px;
-  border-bottom: 1px solid #eee;
+  border-bottom: 2px solid #696969;
   padding-bottom: 8px;
 }
 

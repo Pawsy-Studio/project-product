@@ -241,7 +241,7 @@ const TextInput: React.FC<TextEditorInterface> = ({
           }
         }}
         autoFocus
-        placeholder="Введите LaTeX формулу (например: \frac{a}{b} или \sqrt{x^2 + y^2})"
+        placeholder="Введите LaTeX формулу"
       />
     </div>
   );
