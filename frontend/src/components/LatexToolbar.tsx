@@ -1,4 +1,5 @@
 import React from 'react';
+import '../App.css';
 import type { Shape } from '../types';
 
 interface LatexToolbarProps {
@@ -26,41 +27,40 @@ const LatexToolbar: React.FC<LatexToolbarProps> = ({
 }) => {
   return (
     <div
-      className="latex-toolbar"
+      className="text-toolbar"
       style={{
-        position: 'fixed',
         left: `${left}px`,
         top: `${top}px`,
         width: `${panelWidth}px`,
-        height: '40px',
-        display: 'flex',
-        alignItems: 'center',
-        padding: '0 10px',
-        gap: '5px',
-        zIndex: 1000,
       }}
     >
-      <button
-        onClick={() => startTextEditing(selectedId)}
-      >
-        ✏️ Редактировать
-      </button>
-      
-      <select
-        value={selectedShape.fontSize || fontSize}
-        onChange={(e) => updateSelectedTextProperty('fontSize', parseInt(e.target.value))}
-      >
-        {[12, 14, 16, 18, 20, 24, 28, 32, 36, 48].map(size => (
-          <option key={size} value={size}>{size}px</option>
-        ))}
-      </select>
-      
-      <input
-        type="color"
-        value={selectedShape.stroke || strokeColor}
-        onChange={(e) => updateSelectedTextProperty('stroke', e.target.value)}
-        title="Цвет формулы"
-      />
+      <div className="text-toolbar-content">
+        <input
+          type="number"
+          className="drawing-tool-input drawing-tool-input-small"
+          value={selectedShape.fontSize || fontSize}
+          onChange={(e) => updateSelectedTextProperty('fontSize', parseInt(e.target.value) || 1)}
+          min="1"
+          max="200"
+          step="1"
+          style={{ width: '40px'}}
+        />
+
+        <input
+          type="color"
+          value={selectedShape.stroke || strokeColor}
+          onChange={(e) => updateSelectedTextProperty('stroke', e.target.value)}
+          className="text-color-picker"
+        />
+
+        <button
+          type="button"
+          className="drawing-tool-btn tool-icon tool-edit-text drawing-tool-btn-outline-secondary drawing-tool-btn-small"
+          onClick={() => startTextEditing(selectedId)}
+          title="Edit Formula"
+        >
+        </button>
+      </div>
     </div>
   );
 };

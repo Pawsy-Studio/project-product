@@ -10,7 +10,7 @@ import ToolsToolbar from './components/ToolsToolbar.tsx';
 import SelDelToolbar from './components/SelDelToolbar.tsx';
 import OCRToolbar from './components/OCRToolbar.tsx';
 import TextToolbar from './components/TextToolbar.tsx';
-import LatexToolbar from './components/LatexToolbar.tsx'; // Добавьте этот импорт
+import LatexToolbar from './components/LatexToolbar.tsx';
 import LatexEditor from './components/LatexEditor.tsx';
 import TextEditor from './components/TextEditor.tsx';
 
@@ -637,9 +637,8 @@ const DrawingApp: React.FC = () => {
     
     const panelHeight = 40;
     
-    // РАЗДЕЛЕНИЕ ШИРИНЫ: формулы в 1.5 раза уже текста
-    const textPanelWidth = 416; // Ширина для текста
-    const latexPanelWidth = Math.round(textPanelWidth / 1.5); // Ширина для LaTeX (примерно 277px)
+    const textPanelWidth = 416;
+    const latexPanelWidth = 152;
     
     const panelWidth = selectedShape.type === 'latex' ? latexPanelWidth : textPanelWidth;
     
@@ -660,7 +659,6 @@ const DrawingApp: React.FC = () => {
       left = containerRect.right - panelWidth;
     }
     
-    // Если это LaTeX, рендерим специальный тулбар
     if (selectedShape.type === 'latex') {
       return (
         <LatexToolbar
@@ -677,7 +675,6 @@ const DrawingApp: React.FC = () => {
       );
     }
     
-    // Для обычного текста рендерим обычный тулбар
     return (
       <TextToolbar
         selectedShape={selectedShape}
