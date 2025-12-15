@@ -99,7 +99,11 @@ const TextToolbar: React.FC<TextToolbarInterface> = ({
             <select
               className="drawing-tool-select drawing-tool-select-small"
               value={selectedShape.fontFamily || fontFamily}
-              onChange={(e) => updateSelectedTextProperty('fontFamily', e.target.value)}
+              onChange={(e) => {
+                updateSelectedTextProperty('fontFamily', e.target.value);
+                setShowTextFormatDropdown(false);
+                setShowTextAlignDropdown(false);
+              }}
               style={{ width: '160px' }}
             >
               {availableFonts.map(font => (
@@ -113,7 +117,11 @@ const TextToolbar: React.FC<TextToolbarInterface> = ({
           type="number"
           className="drawing-tool-input drawing-tool-input-small"
           value={selectedShape.fontSize || fontSize}
-          onChange={(e) => updateSelectedTextProperty('fontSize', parseInt(e.target.value) || 1)}
+          onChange={(e) => {
+            updateSelectedTextProperty('fontSize', parseInt(e.target.value) || 1);
+            setShowTextFormatDropdown(false);
+            setShowTextAlignDropdown(false);
+          }}
           min="1"
           max="200"
           step="1"
@@ -127,6 +135,7 @@ const TextToolbar: React.FC<TextToolbarInterface> = ({
               className={`drawing-tool-btn tool-icon tool-text-format drawing-tool-btn-small ${showTextFormatDropdown ? 'drawing-tool-btn-primary' : 'drawing-tool-btn-outline-secondary'} ${showTextFormatDropdown ? 'active' : ''}`}
               onClick={(e) => {
                 e.stopPropagation();
+                setShowTextAlignDropdown(false); // Close align dropdown when opening format dropdown
                 setShowTextFormatDropdown(!showTextFormatDropdown);
               }}
               title="Формат текста"
@@ -140,7 +149,6 @@ const TextToolbar: React.FC<TextToolbarInterface> = ({
                   onClick={(e) => {
                     e.stopPropagation();
                     toggleBold();
-                    setShowTextFormatDropdown(false);
                   }}
                   title="Жирный"
                 >
@@ -151,7 +159,6 @@ const TextToolbar: React.FC<TextToolbarInterface> = ({
                   onClick={(e) => {
                     e.stopPropagation();
                     toggleItalic();
-                    setShowTextFormatDropdown(false);
                   }}
                   title="Курсив"
                 >
@@ -162,7 +169,6 @@ const TextToolbar: React.FC<TextToolbarInterface> = ({
                   onClick={(e) => {
                     e.stopPropagation();
                     toggleUnderline();
-                    setShowTextFormatDropdown(false);
                   }}
                   title="Подчеркнутый"
                 >
@@ -173,7 +179,6 @@ const TextToolbar: React.FC<TextToolbarInterface> = ({
                   onClick={(e) => {
                     e.stopPropagation();
                     toggleStrikethrough();
-                    setShowTextFormatDropdown(false);
                   }}
                   title="Зачеркнутый"
                 >
@@ -190,6 +195,7 @@ const TextToolbar: React.FC<TextToolbarInterface> = ({
               className={`drawing-tool-btn tool-icon tool-text-align drawing-tool-btn-small ${showTextAlignDropdown ? 'drawing-tool-btn-primary' : 'drawing-tool-btn-outline-secondary'} ${showTextAlignDropdown ? 'active' : ''}`}
               onClick={(e) => {
                 e.stopPropagation();
+                setShowTextFormatDropdown(false); // Close format dropdown when opening align dropdown
                 setShowTextAlignDropdown(!showTextAlignDropdown);
               }}
               title="Выравнивание текста"
@@ -238,14 +244,22 @@ const TextToolbar: React.FC<TextToolbarInterface> = ({
         <input
           type="color"
           value={selectedShape.stroke || strokeColor}
-          onChange={(e) => updateSelectedTextProperty('stroke', e.target.value)}
+          onChange={(e) => {
+            updateSelectedTextProperty('stroke', e.target.value);
+            setShowTextFormatDropdown(false);
+            setShowTextAlignDropdown(false);
+          }}
           className="text-color-picker"
         />
 
         <button
           type="button"
           className="drawing-tool-btn tool-icon tool-edit-text drawing-tool-btn-outline-secondary drawing-tool-btn-small"
-          onClick={() => startTextEditing(selectedId)}
+          onClick={() => {
+            startTextEditing(selectedId);
+            setShowTextFormatDropdown(false);
+            setShowTextAlignDropdown(false);
+          }}
           title={selectedShape.type === 'latex' ? 'Edit Formula' : 'Edit Text'}
         >
         </button>

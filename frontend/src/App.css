@@ -543,6 +543,23 @@ body {
   background-color: #fff;
 }
 
+.latex-symbols-button {
+  font-family: Arial, sans-serif;
+  font-weight: 700;
+  color: #4b4b4b;
+  transition: transform 0.2s ease-in-out, color 0.2s ease-in-out;
+}
+
+.latex-symbols-button:hover {
+  color: #2b7fff;
+  transform: scale(1.05);
+}
+
+.latex-symbols-button:active {
+  color: #2b7fff;
+  transform: scale(0.98);
+}
+
 .latex-shape-overlay {
   position: fixed;
   pointer-events: none;
