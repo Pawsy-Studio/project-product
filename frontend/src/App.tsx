@@ -10,6 +10,7 @@ import ToolsToolbar from './components/ToolsToolbar.tsx';
 import SelDelToolbar from './components/SelDelToolbar.tsx';
 import OCRToolbar from './components/OCRToolbar.tsx';
 import TextToolbar from './components/TextToolbar.tsx';
+import LatexToolbar from './components/LatexToolbar.tsx';
 import LatexEditor from './components/LatexEditor.tsx';
 import TextEditor from './components/TextEditor.tsx';
 
@@ -117,7 +118,7 @@ const DrawingApp: React.FC = () => {
   );
   
   const [showLatexMenu, setShowLatexMenu] = useState(false);
-  const [selectedLatexCategory, setSelectedLatexCategory] = useState('all');
+  const [selectedLatexCategory, setSelectedLatexCategory] = useState('fraction');
   const [showTextFormatDropdown, setShowTextFormatDropdown] = useState(false);
   const [showTextAlignDropdown, setShowTextAlignDropdown] = useState(false);
   const [showLatexPreview, setShowLatexPreview] = useState(true);
@@ -635,7 +636,11 @@ const DrawingApp: React.FC = () => {
     const y = realY * scaleY + containerRect.top;
     
     const panelHeight = 40;
-    const panelWidth = 416;
+    
+    const textPanelWidth = 416;
+    const latexPanelWidth = 152;
+    
+    const panelWidth = selectedShape.type === 'latex' ? latexPanelWidth : textPanelWidth;
     
     const offset = 20;
     
@@ -652,6 +657,22 @@ const DrawingApp: React.FC = () => {
     }
     if (left + panelWidth > containerRect.right) {
       left = containerRect.right - panelWidth;
+    }
+    
+    if (selectedShape.type === 'latex') {
+      return (
+        <LatexToolbar
+          selectedShape={selectedShape}
+          selectedId={selectedId}
+          startTextEditing={startTextEditing}
+          updateSelectedTextProperty={handleUpdateTextProperty}
+          fontSize={selectedShape.fontSize || fontSize}
+          strokeColor={selectedShape.stroke || strokeColor}
+          left={left}
+          top={top}
+          panelWidth={panelWidth}
+        />
+      );
     }
     
     return (

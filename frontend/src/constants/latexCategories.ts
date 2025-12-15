@@ -1,12 +1,11 @@
 import type { LatexCategory } from '../types.ts';
 
 export const latexCategories: LatexCategory[] = [
-  { id: 'all', name: 'Все символы', icon: '📚' },
-  { id: 'fraction', name: 'Дроби', icon: '½' },
-  { id: 'root', name: 'Корни', icon: '√' },
-  { id: 'superscript', name: 'Степени', icon: 'x²' },
-  { id: 'subscript', name: 'Индексы', icon: 'x₁' },
-  { id: 'brackets', name: 'Скобки', icon: '[]' },
-  { id: 'operators', name: 'Операторы', icon: '∑' },
-  { id: 'symbols', name: 'Символы', icon: 'α' },
+  { id: 'fraction', name: '½', icon: '½' },
+  { id: 'root', name: '√', icon: '√' },
+  { id: 'superscript', name: 'x²', icon: 'x²' },
+  { id: 'subscript', name: 'x₁', icon: 'x₁' },
+  { id: 'brackets', name: '[]', icon: '[]' },
+  { id: 'operators', name: '∑', icon: '∑' },
+  { id: 'symbols', name: 'α', icon: 'α' },
 ];

@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import type  { Shape, DrawingState, TransformState, ToolMode } from '../types';
+import type { Shape, DrawingState, TransformState, ToolMode } from '../types';
 import { calculateBoundingBox, isPointInShape, transformPoints } from '../utils/shapeUtils';
 import { measureLatexSize, renderLatexToHtml } from '../utils/latexUtils';
 
@@ -25,6 +25,38 @@ export const useDrawingHandlers = (
   const [originalPointsOnDragStart, setOriginalPointsOnDragStart] = useState<number[]>([]);
   const [erasedShapes, setErasedShapes] = useState<Set<string>>(new Set());
   const [eraserHistoryStart, setEraserHistoryStart] = useState<Shape[] | null>(null);
+
+  // Функция для ограничения фигур в пределах канваса
+  const constrainToCanvas = useCallback((x: number, y: number, width: number, height: number) => {
+    const canvasWidth = 1000;
+    const canvasHeight = 387;
+    
+    // Если размеры отрицательные, нормализуем их
+    const realX = width >= 0 ? x : x + width;
+    const realY = height >= 0 ? y : y + height;
+    const realWidth = Math.abs(width);
+    const realHeight = Math.abs(height);
+    
+    // Ограничиваем координаты, чтобы фигура полностью помещалась в канвас
+    const constrainedRealX = Math.max(0, Math.min(realX, canvasWidth - realWidth));
+    const constrainedRealY = Math.max(0, Math.min(realY, canvasHeight - realHeight));
+    
+    // Восстанавливаем исходные координаты с учетом знаков ширины/высоты
+    let finalX = constrainedRealX;
+    let finalY = constrainedRealY;
+    let finalWidth = width;
+    let finalHeight = height;
+    
+    if (width < 0) {
+      finalX = constrainedRealX - realWidth;
+    }
+    
+    if (height < 0) {
+      finalY = constrainedRealY - realHeight;
+    }
+    
+    return { x: finalX, y: finalY, width: finalWidth, height: finalHeight };
+  }, []);
 
   const handleMouseDown = useCallback((e: any) => {
     const stage = e.target.getStage();
@@ -397,7 +429,7 @@ export const useDrawingHandlers = (
           break;
       }
 
-      // ---- НОРМАЛИЗАЦИЯ ЗЕРКАЛЬНОЙ ТРАНСФОРМАЦИИ ----
+      // Нормализация зеркальной трансформации
       let finalX = newX;
       let finalY = newY;
       let finalW = newWidth;
@@ -412,7 +444,35 @@ export const useDrawingHandlers = (
         finalY = finalY + finalH;
         finalH = Math.abs(finalH);
       }
-      // ----------------------------------------------
+
+      // Сохраняем пропорции при зажатом Shift
+      if (shiftPressed) {
+        const size = Math.max(Math.abs(finalW), Math.abs(finalH));
+        finalW = Math.sign(finalW) * size;
+        finalH = Math.sign(finalH) * size;
+        
+        // Корректируем координаты для сохранения позиции якоря
+        switch (anchor) {
+          case 'top-left':
+            finalX = newX + (newWidth - finalW);
+            finalY = newY + (newHeight - finalH);
+            break;
+          case 'top-right':
+            finalY = newY + (newHeight - finalH);
+            break;
+          case 'bottom-left':
+            finalX = newX + (newWidth - finalW);
+            break;
+          // bottom-right не требует корректировки
+        }
+      }
+
+      // Применяем ограничения канваса
+      const constrained = constrainToCanvas(finalX, finalY, finalW, finalH);
+      finalX = constrained.x;
+      finalY = constrained.y;
+      finalW = constrained.width;
+      finalH = constrained.height;
 
       const updatedShapes = shapes.map(s => {
         if (s.id === transformState.shapeId) {
@@ -463,13 +523,13 @@ export const useDrawingHandlers = (
           const newX = selectedShapeStart.x + deltaX;
           const newY = selectedShapeStart.y + deltaY;
           
-          const constrainedX = Math.max(0, Math.min(newX, 1000 - (s.width > 0 ? s.width : -s.width)));
-          const constrainedY = Math.max(0, Math.min(newY, 387 - (s.height > 0 ? s.height : -s.height)));
+          // Используем constrainToCanvas для ограничения при перемещении
+          const constrained = constrainToCanvas(newX, newY, s.width, s.height);
           
           if ((s.type === 'path' || s.type === 'line' || s.type === 'highlighter') && s.points && originalPointsOnDragStart.length > 0) {
             const deltaFromOriginal = {
-              x: constrainedX - selectedShapeStart.x,
-              y: constrainedY - selectedShapeStart.y
+              x: constrained.x - selectedShapeStart.x,
+              y: constrained.y - selectedShapeStart.y
             };
             
             const newPoints = originalPointsOnDragStart.map((point, index) => 
@@ -478,15 +538,15 @@ export const useDrawingHandlers = (
             
             return { 
               ...s, 
-              x: constrainedX, 
-              y: constrainedY,
+              x: constrained.x, 
+              y: constrained.y,
               points: newPoints
             };
           } else {
             return { 
               ...s, 
-              x: constrainedX, 
-              y: constrainedY 
+              x: constrained.x, 
+              y: constrained.y 
             };
           }
         }
@@ -498,7 +558,8 @@ export const useDrawingHandlers = (
   }, [
     shapes, setShapes, tool, isDragging, selectedId,
     dragStart, selectedShapeStart, originalPointsOnDragStart,
-    erasedShapes, setErasedShapes, setDrawingState
+    erasedShapes, setErasedShapes, setDrawingState,
+    , constrainToCanvas
   ]);
 
   const handleMouseUp = useCallback(() => {

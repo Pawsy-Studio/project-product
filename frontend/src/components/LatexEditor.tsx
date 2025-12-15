@@ -91,7 +91,7 @@ const TextInput: React.FC<TextEditorInterface> = ({
   renderLatexToHtml,
   showLatexPreview = true,
   showLatexMenu = false,
-  selectedLatexCategory = 'all',
+  selectedLatexCategory = 'fraction',
   latexPreview = 'E = mc^2',
   fontSize = 20,
   strokeColor = '#000000',
@@ -117,43 +117,30 @@ const TextInput: React.FC<TextEditorInterface> = ({
     >
       <div className="latex-editor-toolbar">
         {showLatexPreview && (
-          <div 
+          <div
             className="latex-preview"
-            dangerouslySetInnerHTML={{ 
-              __html: renderLatexToHtml(latexPreview || tempText || 'E = mc^2', shape.fontSize || fontSize) 
+            dangerouslySetInnerHTML={{
+              __html: renderLatexToHtml(latexPreview || tempText || 'E = mc^2', 20)
             }}
             style={{
-              fontSize: `${shape.fontSize || fontSize}px`,
+              fontSize: '20px',
               color: shape.stroke,
             }}
           />
         )}
         
-        <div className="latex-symbols-dropdown">
+        <div className="latex-symbols-dropdown" style={{ display: 'flex', justifyContent: 'center' }}>
           <button
             type="button"
-            className="drawing-tool-btn drawing-tool-btn-outline-success drawing-tool-btn-small"
+            className={`drawing-tool-btn drawing-tool-btn-outline-success drawing-tool-btn-small latex-symbols-btn ${showLatexMenu ? 'active' : ''}`}
             onClick={(e) => {
               e.stopPropagation();
               setShowLatexMenu(!showLatexMenu);
             }}
           >
-            Символы
+            <span className='latex-symbols-button'>Символы</span>
           </button>
-          
-          {setShowLatexPreview && (
-            <button
-              type="button"
-              className="drawing-tool-btn drawing-tool-btn-outline-secondary drawing-tool-btn-small"
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowLatexPreview(!showLatexPreview);
-              }}
-            >
-              {showLatexPreview ? 'Скрыть' : 'Показать'} предпросмотр
-            </button>
-          )}
-          
+
           {showLatexMenu && (
             <div className="latex-symbols-menu">
               <div className="latex-categories-container">
@@ -162,8 +149,8 @@ const TextInput: React.FC<TextEditorInterface> = ({
                     key={cat.id}
                     type="button"
                     className={`drawing-tool-btn drawing-tool-btn-small ${
-                      selectedLatexCategory === cat.id 
-                        ? 'drawing-tool-btn-primary' 
+                      selectedLatexCategory === cat.id
+                        ? 'drawing-tool-btn-primary'
                         : 'drawing-tool-btn-outline-secondary'
                     }`}
                     onClick={(e) => {
@@ -172,7 +159,6 @@ const TextInput: React.FC<TextEditorInterface> = ({
                     }}
                   >
                     <span>{cat.icon}</span>
-                    <span>{cat.name}</span>
                   </button>
                 ))}
               </div>
@@ -190,7 +176,9 @@ const TextInput: React.FC<TextEditorInterface> = ({
                     title={symbol.description}
                   >
                     <div className="latex-symbol-name">
-                      <span>{symbol.name}</span>
+                      <span dangerouslySetInnerHTML={{
+                        __html: renderLatexToHtml(symbol.latex, 24)
+                      }} />
                     </div>
                     <div className="latex-symbol-code">
                       {symbol.placeholder || symbol.latex}
@@ -199,10 +187,7 @@ const TextInput: React.FC<TextEditorInterface> = ({
                 ))}
               </div>
               
-              <div className="latex-symbols-tip">
-                <strong>Совет:</strong> Нажмите на символ, чтобы вставить его в формулу. 
-                Курсор автоматически поместится в нужное место.
-              </div>
+
             </div>
           )}
         </div>
@@ -256,7 +241,7 @@ const TextInput: React.FC<TextEditorInterface> = ({
           }
         }}
         autoFocus
-        placeholder="Введите LaTeX формулу (например: \frac{a}{b} или \sqrt{x^2 + y^2})"
+        placeholder="Введите LaTeX формулу"
       />
     </div>
   );
