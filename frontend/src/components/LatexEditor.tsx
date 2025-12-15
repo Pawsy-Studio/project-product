@@ -138,7 +138,7 @@ const TextInput: React.FC<TextEditorInterface> = ({
               setShowLatexMenu(!showLatexMenu);
             }}
           >
-            <span className='latex-symbols-button'>Symbols</span>
+            <span className='latex-symbols-button'>Символы</span>
           </button>
 
           {showLatexMenu && (
