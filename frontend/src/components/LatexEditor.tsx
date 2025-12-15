@@ -117,13 +117,13 @@ const TextInput: React.FC<TextEditorInterface> = ({
     >
       <div className="latex-editor-toolbar">
         {showLatexPreview && (
-          <div 
+          <div
             className="latex-preview"
-            dangerouslySetInnerHTML={{ 
-              __html: renderLatexToHtml(latexPreview || tempText || 'E = mc^2', shape.fontSize || fontSize) 
+            dangerouslySetInnerHTML={{
+              __html: renderLatexToHtml(latexPreview || tempText || 'E = mc^2', 20)
             }}
             style={{
-              fontSize: `${shape.fontSize || fontSize}px`,
+              fontSize: '20px',
               color: shape.stroke,
             }}
           />
