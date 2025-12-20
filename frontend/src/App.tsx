@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Stage, Layer, Rect, Ellipse, Line, Text } from 'react-konva';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
@@ -29,12 +29,18 @@ import { useLatexSymbols } from './hooks/useLatexSymbols';
 import { useDrawingHandlers } from './hooks/useDrawingHandlers';
 import { useDrawingState } from './hooks/useDrawingState';
 import { useKeyboard } from './hooks/useKeyboard';
+import { useWebSocket } from './hooks/useWebSocket';
+import { updateShapes, clearCanvas, undoAction } from './services/api';
 
 import { hexToRgba } from './utils/colorUtils';
 import { calculateBoundingBox } from './utils/shapeUtils';
 import { renderLatexToHtml, measureLatexSize } from './utils/latexUtils';
 
 const DrawingApp: React.FC = () => {
+  // Board ID for backend communication
+  // Added for backend data sending logic
+  const boardId = 'test-board'; // In production, get from URL or props
+
   const [tool, setTool] = useState<ToolMode>('select');
   const [shapes, setShapes] = useState<Shape[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -53,17 +59,44 @@ const DrawingApp: React.FC = () => {
     resetDrawingState,
     resetTransformState
   } = useDrawingState();
-  
+
+  // WebSocket for real-time synchronization
+  // Added for backend data sending logic
+  const { sendShapesUpdate, sendClear, sendUndo } = useWebSocket(
+    boardId,
+    (newShapes: Shape[]) => {
+      setShapes(newShapes);
+      // Update history when receiving from WebSocket
+      // Note: This might need adjustment to avoid infinite loops
+    },
+    shapes
+  );
+
+  // Function to send shapes update to backend
+  // Added for backend data sending logic
+  const sendShapesToBackend = useCallback(async (shapesToSend: Shape[]) => {
+    try {
+      await updateShapes(boardId, shapesToSend);
+      sendShapesUpdate(shapesToSend);
+    } catch (error) {
+      console.error('Failed to send shapes to backend:', error);
+    }
+  }, [boardId, sendShapesUpdate]);
+
   const {
     saveToHistory,
     handleUndo,
     handleRedo
-  } = useHistory(shapes);
+  } = useHistory(shapes, sendShapesToBackend);
 
-  const onUndo = () => {
+  const onUndo = async () => {
     const newShapes = handleUndo();
     if (newShapes) {
       setShapes(newShapes);
+      // Send undo command to backend
+      // Added for backend data sending logic
+      await undoAction(boardId);
+      sendUndo();
     }
   };
 
@@ -71,6 +104,7 @@ const DrawingApp: React.FC = () => {
     const newShapes = handleRedo();
     if (newShapes) {
       setShapes(newShapes);
+      // Note: Redo might need backend support
     }
   };
 
@@ -147,12 +181,16 @@ const DrawingApp: React.FC = () => {
     shapes
   );
 
-  const handleClearCanvas = () => {
+  const handleClearCanvas = async () => {
     setShapes([]);
     setSelectedId(null);
     setEditingTextId(null);
     setTempText('');
     saveToHistory([]);
+    // Send clear command to backend
+    // Added for backend data sending logic
+    await clearCanvas(boardId);
+    sendClear();
   };
 
   const handleLatexSymbolClick = (symbol: any) => {

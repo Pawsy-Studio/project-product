@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import type { Shape } from '../types';
 
-export const useHistory = (initialShapes: Shape[]) => {
+export const useHistory = (initialShapes: Shape[], onShapesChange?: (shapes: Shape[]) => void) => {
   const [history, setHistory] = useState<Shape[][]>([initialShapes]);
   const [historyIndex, setHistoryIndex] = useState(0);
 
@@ -10,7 +10,13 @@ export const useHistory = (initialShapes: Shape[]) => {
     newHistory.push([...newShapes]);
     setHistory(newHistory);
     setHistoryIndex(newHistory.length - 1);
-  }, [history, historyIndex]);
+
+    // Send shapes to backend
+    // Added for backend data sending logic
+    if (onShapesChange) {
+      onShapesChange(newShapes);
+    }
+  }, [history, historyIndex, onShapesChange]);
 
   const handleUndo = useCallback(() => {
     if (historyIndex > 0) {
