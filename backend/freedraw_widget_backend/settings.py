@@ -25,7 +25,7 @@ SECRET_KEY = "django-insecure-nv)$kafd(%mlnkq-zp6ong@_0908r%j_+!)^2*fhe!=cni1m5+
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -40,7 +40,15 @@ INSTALLED_APPS = [
     "freedraw_widget_backend",
     "corsheaders",
     "rest_framework",
+    "channels",
 ]
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer",
+    },
+}
+
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -51,7 +59,7 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     
-    "whitenoise.middleware.WhiteNoiseMiddleware",  
+    #"whitenoise.middleware.WhiteNoiseMiddleware",  
     "corsheaders.middleware.CorsMiddleware",
 ]
 
@@ -74,6 +82,8 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = "freedraw_widget_backend.wsgi.application"
+ASGI_APPLICATION = 'freedraw_widget_backend.asgi.application'
+
 
 
 # Database
@@ -98,7 +108,13 @@ DATABASES = {
 }
 
 
-CORS_ALLOWED_ORIGINS = os.environ.get('CORS_ALLOWED_ORIGINS', 'http://localhost:3000').split(',')
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "ws://localhost:5173",
+    "ws://127.0.0.1:5173",
+]
+
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
@@ -135,6 +151,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
 STATIC_URL = "static/"
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field

@@ -1,18 +1,19 @@
-from django.contrib import admin
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import CanvasDataViewSet
+from .views import CanvasDataViewSet, CanvasCommandView
 
 router = DefaultRouter()
 router.register(r'canvas', CanvasDataViewSet, basename='canvas')
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
+    # REST API для CanvasData
     path('api/', include(router.urls)),
     
-    # REST endpoints
-    path('api/canvas/<str:board_id>/clear/', CanvasDataViewSet.as_view({'post': 'clear'})),
-    path('api/canvas/<str:board_id>/history/', CanvasDataViewSet.as_view({'get': 'history'})),
-    path('api/canvas/<str:board_id>/undo/', CanvasDataViewSet.as_view({'post': 'undo'})),
-    path('api/canvas/<str:board_id>/active-users/', CanvasDataViewSet.as_view({'get': 'active_users'})),
+    # Команды от фронтенда (как в коде фронтенда)
+    path('api/canvas/<str:board_id>/clear/', CanvasCommandView.as_view(), name='canvas-clear'),
+    path('api/canvas/<str:board_id>/undo/', CanvasCommandView.as_view(), name='canvas-undo'),
+    path('api/canvas/<str:board_id>/update/', CanvasCommandView.as_view(), name='canvas-update'),
+    
+    # Альтернативный путь
+    path('api/canvas/<str:board_id>/<str:action>/', CanvasCommandView.as_view(), name='canvas-command'),
 ]

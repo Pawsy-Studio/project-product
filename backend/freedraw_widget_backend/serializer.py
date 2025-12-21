@@ -23,3 +23,13 @@ class CanvasDataSerializer(serializers.ModelSerializer):
         if not value or len(value.strip()) == 0:
             raise serializers.ValidationError("ID доски не может быть пустым")
         return value.strip()
+
+class CanvasUpdateSerializer(serializers.Serializer):
+    """Сериализатор для обновления холста"""
+    shapes = serializers.JSONField(required=True)
+    
+    def validate_shapes(self, value):
+        """Валидация shapes"""
+        if not isinstance(value, list):
+            raise serializers.ValidationError("Shapes должен быть массивом")
+        return value

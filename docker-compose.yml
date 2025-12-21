@@ -6,22 +6,32 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-freedraw_db}
       POSTGRES_USER: ${POSTGRES_USER:-freedraw_user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme123}
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256 --auth-local=scram-sha-256"
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./backend/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - freedraw_network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-freedraw_user} -d ${POSTGRES_DB:-freedraw_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   backend:
-    build: ./backend
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
     container_name: freedraw_backend
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-freedraw_user}:${POSTGRES_PASSWORD:-changeme123}@postgres:5432/${POSTGRES_DB:-freedraw_db}
-      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-dev-secret-key-change-me}
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-django-insecure-nv)$kafd(%mlnkq-zp6ong@_0908r%j_+!)^2*fhe!=cni1m5+}
       DJANGO_DEBUG: "true"
-      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1
+      DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1,backend,0.0.0.0"
+      DJANGO_SETTINGS_MODULE: freedraw_widget_backend.settings
     volumes:
       - ./backend:/app
     ports:
@@ -32,6 +42,15 @@ services:
     networks:
       - freedraw_network
     restart: unless-stopped
+    # ИСПРАВЛЕННАЯ команда:
+    command: >
+      sh -c "
+        python manage.py makemigrations freedraw_widget_backend --noinput &&
+        python manage.py migrate &&
+        python manage.py collectstatic --noinput &&
+        daphne -b 0.0.0.0 -p 8000 freedraw_widget_backend.asgi:application
+      "
+
 
   frontend:
     build:
@@ -41,13 +60,18 @@ services:
     ports:
       - "5173:5173"
     environment:
-      - VITE_API_URL=http://localhost:8000
+      - VITE_API_URL=http://backend:8000  # внутри Docker сети
+      - VITE_WS_URL=ws://backend:8000     # для WebSocket внутри сети
+      - VITE_PUBLIC_API_URL=http://localhost:8000  # для браузера
+      - VITE_PUBLIC_WS_URL=ws://localhost:8000     # для браузера
     volumes:
       - ./frontend:/app
       - /app/node_modules
     networks:
       - freedraw_network
     restart: unless-stopped
+    depends_on:
+      - backend
 
 networks:
   freedraw_network:
