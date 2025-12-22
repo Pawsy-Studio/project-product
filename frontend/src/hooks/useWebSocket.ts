@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, useState } from 'react';
+import { useEffect, useRef, useCallback, useState, useMemo } from 'react';
 import type { Shape } from '../types';
 
 const WS_BASE_URL =
@@ -25,37 +25,66 @@ export const useWebSocket = (
   const onCanvasUpdateRef = useRef(onCanvasUpdate);
   const reconnectTimerRef = useRef<number | null>(null);
   const reconnectAttempts = useRef(0);
+  
+  // ⬇️ Используем useRef для стабильных значений
+  const boardIdRef = useRef(boardId);
+  const userIdRef = useRef(userId);
 
   const MAX_RECONNECT_ATTEMPTS = 5;
   const RECONNECT_DELAY = 1500;
 
   const [isConnected, setIsConnected] = useState(false);
 
-  // всегда актуальный callback
+  // Обновляем refs при изменении пропсов
+  useEffect(() => {
+    boardIdRef.current = boardId;
+  }, [boardId]);
+
+  useEffect(() => {
+    userIdRef.current = userId;
+  }, [userId]);
+
+  // Всегда актуальный callback
   useEffect(() => {
     onCanvasUpdateRef.current = onCanvasUpdate;
   }, [onCanvasUpdate]);
 
+  // ⬇️ connect больше не зависит от изменяющихся пропсов
   const connect = useCallback(() => {
-    if (wsRef.current) return;
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      console.log('[WS] Already connected, skipping');
+      return;
+    }
+
+    // Закрываем существующее соединение
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
+    }
 
     const ws = new WebSocket(
-      `${WS_BASE_URL}/ws/canvas/${boardId}/`
+      `${WS_BASE_URL}/ws/canvas/${boardIdRef.current}/`
     );
 
     wsRef.current = ws;
 
     ws.onopen = () => {
-      console.log('[WS] connected');
+      console.log('[WS] Connected to board:', boardIdRef.current);
       setIsConnected(true);
       reconnectAttempts.current = 0;
+      
+      // Запрашиваем начальное состояние
+      ws.send(JSON.stringify({
+        type: 'init',
+        userId: userIdRef.current
+      }));
     };
 
     ws.onmessage = (event) => {
       try {
         const message: WebSocketMessage = JSON.parse(event.data);
 
-        if (message.userId === userId) return;
+        if (message.userId === userIdRef.current) return;
 
         switch (message.type) {
           case 'init':
@@ -77,54 +106,62 @@ export const useWebSocket = (
             break;
 
           default:
-            console.warn('[WS] unknown message', message);
+            console.warn('[WS] Unknown message type:', message.type);
         }
       } catch (e) {
-        console.error('[WS] message parse error', e);
+        console.error('[WS] Message parse error:', e);
       }
     };
 
     ws.onerror = (e) => {
-      console.error('[WS] error', e);
+      console.error('[WS] Connection error:', e);
     };
 
-    ws.onclose = () => {
-      console.log('[WS] disconnected');
+    ws.onclose = (event) => {
+      console.log('[WS] Disconnected, code:', event.code, 'reason:', event.reason);
       setIsConnected(false);
       wsRef.current = null;
 
+      // Не переподключаемся при нормальном закрытии
+      if (event.code === 1000) return;
+
       if (reconnectAttempts.current < MAX_RECONNECT_ATTEMPTS) {
         reconnectAttempts.current += 1;
+        console.log(`[WS] Reconnecting in ${RECONNECT_DELAY * reconnectAttempts.current}ms (attempt ${reconnectAttempts.current})`);
 
         reconnectTimerRef.current = window.setTimeout(() => {
           connect();
         }, RECONNECT_DELAY * reconnectAttempts.current);
+      } else {
+        console.error('[WS] Max reconnection attempts reached');
       }
     };
-  }, [boardId, userId]);
+  }, []); // ⬅️ Пустой массив зависимостей - функция создается один раз
 
   const disconnect = useCallback(() => {
+    // Очищаем таймер переподключения
     if (reconnectTimerRef.current) {
       clearTimeout(reconnectTimerRef.current);
       reconnectTimerRef.current = null;
     }
 
+    // Закрываем соединение с кодом 1000 (нормальное закрытие)
     if (wsRef.current) {
       wsRef.current.close(1000, 'Client disconnect');
       wsRef.current = null;
+      setIsConnected(false);
     }
   }, []);
 
-  const sendMessage = useCallback(
-    (message: WebSocketMessage) => {
-      if (wsRef.current?.readyState === WebSocket.OPEN) {
-        wsRef.current.send(
-          JSON.stringify({ ...message, userId })
-        );
-      }
-    },
-    [userId]
-  );
+  const sendMessage = useCallback((message: WebSocketMessage) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(
+        JSON.stringify({ ...message, userId: userIdRef.current })
+      );
+    } else {
+      console.warn('[WS] Cannot send message - connection not open');
+    }
+  }, []);
 
   const sendShapesUpdate = useCallback(
     (shapes: Shape[]) => {
@@ -144,16 +181,22 @@ export const useWebSocket = (
     sendMessage({ type: 'undo' });
   }, [sendMessage]);
 
-  // ⬇️ подключаемся ТОЛЬКО при смене boardId
+  // ⬇️ Ключевое исправление - эффект зависит только от boardId
   useEffect(() => {
+    console.log('[WS] Setting up connection for board:', boardId);
     connect();
-    return () => disconnect();
-  }, [connect, disconnect]);
 
-  return {
+    return () => {
+      console.log('[WS] Cleaning up connection for board:', boardId);
+      disconnect();
+    };
+  }, [boardId]); // ⬅️ Только boardId вызывает переподключение
+
+  // Мемоизируем возвращаемый объект, чтобы не вызывать перерендеры
+  return useMemo(() => ({
     sendShapesUpdate,
     sendClear,
     sendUndo,
     isConnected,
-  };
+  }), [sendShapesUpdate, sendClear, sendUndo, isConnected]);
 };
