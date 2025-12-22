@@ -30,7 +30,8 @@ import { useDrawingHandlers } from './hooks/useDrawingHandlers';
 import { useDrawingState } from './hooks/useDrawingState';
 import { useKeyboard } from './hooks/useKeyboard';
 import { useWebSocket } from './hooks/useWebSocket';
-import { updateShapes, clearCanvas, undoAction } from './services/api';
+import type { CanvasData } from './hooks/useWebSocket';
+import { updateCanvasData, clearCanvas, undoAction } from './services/api';
 
 import { hexToRgba } from './utils/colorUtils';
 import { calculateBoundingBox } from './utils/shapeUtils';
@@ -43,6 +44,8 @@ const DrawingApp: React.FC = () => {
 
   const [tool, setTool] = useState<ToolMode>('select');
   const [shapes, setShapes] = useState<Shape[]>([]);
+  const [canvasConfig, setCanvasConfig] = useState<any>({});
+  const [canvasHistory, setCanvasHistory] = useState<any[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [strokeColor, setStrokeColor] = useState('#000000');
   const [strokeWidth, setStrokeWidth] = useState(5);
@@ -62,32 +65,38 @@ const DrawingApp: React.FC = () => {
 
   // WebSocket for real-time synchronization
   // Added for backend data sending logic
+  const onCanvasUpdate = useCallback((data: CanvasData) => {
+    setShapes(data.shapes);
+    setCanvasConfig(data.config || {});
+    setCanvasHistory(data.history || []);
+  }, []);
+
   const { sendShapesUpdate, sendClear, sendUndo } = useWebSocket(
     boardId,
-    (newShapes: Shape[]) => {
-      setShapes(newShapes);
-      // Update history when receiving from WebSocket
-      // Note: This might need adjustment to avoid infinite loops
-    },
-    shapes
+    onCanvasUpdate,
+    crypto.randomUUID()
   );
 
-  // Function to send shapes update to backend
+  // Function to send canvas data update to backend
   // Added for backend data sending logic
-  const sendShapesToBackend = useCallback(async (shapesToSend: Shape[]) => {
+  const sendCanvasDataToBackend = useCallback(async (shapesToSend: Shape[]) => {
     try {
-      await updateShapes(boardId, shapesToSend);
+      await updateCanvasData(boardId, {
+        shapes: shapesToSend,
+        config: canvasConfig,
+        history: canvasHistory
+      });
       sendShapesUpdate(shapesToSend);
     } catch (error) {
-      console.error('Failed to send shapes to backend:', error);
+      console.error('Failed to send canvas data to backend:', error);
     }
-  }, [boardId, sendShapesUpdate]);
+  }, [boardId, canvasConfig, canvasHistory, sendShapesUpdate]);
 
   const {
     saveToHistory,
     handleUndo,
     handleRedo
-  } = useHistory(shapes, sendShapesToBackend);
+  } = useHistory(shapes, sendCanvasDataToBackend);
 
   const onUndo = async () => {
     const newShapes = handleUndo();

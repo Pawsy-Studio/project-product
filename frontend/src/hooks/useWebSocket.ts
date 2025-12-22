@@ -5,18 +5,24 @@ const WS_BASE_URL =
   import.meta.env.VITE_PUBLIC_WS_URL || 'ws://localhost:8000';
 
 export interface WebSocketMessage {
-  type: 'update' | 'clear' | 'undo' | 'shapes';
+  type: 'init' | 'update' | 'clear' | 'undo' | 'shapes';
   data?: any;
   userId?: string;
 }
 
+export interface CanvasData {
+  shapes: Shape[];
+  config?: any;
+  history?: any[];
+}
+
 export const useWebSocket = (
   boardId: string,
-  onShapesUpdate: (shapes: Shape[]) => void,
+  onCanvasUpdate: (data: CanvasData) => void,
   userId: string = crypto.randomUUID()
 ) => {
   const wsRef = useRef<WebSocket | null>(null);
-  const onShapesUpdateRef = useRef(onShapesUpdate);
+  const onCanvasUpdateRef = useRef(onCanvasUpdate);
   const reconnectTimerRef = useRef<number | null>(null);
   const reconnectAttempts = useRef(0);
 
@@ -27,8 +33,8 @@ export const useWebSocket = (
 
   // всегда актуальный callback
   useEffect(() => {
-    onShapesUpdateRef.current = onShapesUpdate;
-  }, [onShapesUpdate]);
+    onCanvasUpdateRef.current = onCanvasUpdate;
+  }, [onCanvasUpdate]);
 
   const connect = useCallback(() => {
     if (wsRef.current) return;
@@ -52,16 +58,22 @@ export const useWebSocket = (
         if (message.userId === userId) return;
 
         switch (message.type) {
+          case 'init':
+            if (message.data) {
+              onCanvasUpdateRef.current(message.data);
+            }
+            break;
+
           case 'update':
           case 'shapes':
           case 'undo':
-            if (message.data?.shapes) {
-              onShapesUpdateRef.current(message.data.shapes);
+            if (message.data) {
+              onCanvasUpdateRef.current(message.data);
             }
             break;
 
           case 'clear':
-            onShapesUpdateRef.current([]);
+            onCanvasUpdateRef.current({ shapes: [], config: {}, history: [] });
             break;
 
           default:

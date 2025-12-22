@@ -50,8 +50,11 @@ class CanvasConsumer(AsyncWebsocketConsumer):
             
             if message_type == 'update':
                 # Сохраняем изменения в базе
-                shapes = data.get('data', {}).get('shapes', [])
-                await self.update_canvas_data(shapes)
+                update_data = data.get('data', {})
+                shapes = update_data.get('shapes', [])
+                config = update_data.get('config', {})
+                history = update_data.get('history', [])
+                await self.update_canvas_data(shapes, config, history)
                 
                 # Рассылаем всем участникам группы
                 await self.channel_layer.group_send(
@@ -131,7 +134,7 @@ class CanvasConsumer(AsyncWebsocketConsumer):
             }
     
     @database_sync_to_async
-    def update_canvas_data(self, shapes):
+    def update_canvas_data(self, shapes, config=None, history=None):
         canvas, created = CanvasData.objects.get_or_create(
             board_id=self.board_id,
             defaults={
@@ -142,10 +145,15 @@ class CanvasConsumer(AsyncWebsocketConsumer):
             }
         )
         canvas.elements = shapes
-        # Сохраняем в историю
-        canvas.history.append({'action': 'update', 'shapes': shapes[:10]})
-        if len(canvas.history) > 50:
-            canvas.history = canvas.history[-50:]
+        if config is not None:
+            canvas.canvas_config = config
+        if history is not None:
+            canvas.history = history
+            # Сохраняем в историю если не передана
+            if not history:
+                canvas.history.append({'action': 'update', 'shapes': shapes[:10]})
+                if len(canvas.history) > 50:
+                    canvas.history = canvas.history[-50:]
         canvas.save()
     
     @database_sync_to_async

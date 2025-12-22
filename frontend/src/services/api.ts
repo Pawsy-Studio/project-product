@@ -46,6 +46,11 @@ export const undoAction = async (boardId: string): Promise<ApiResponse> => {
   return sendCanvasCommand(boardId, 'undo');
 };
 
+export const updateCanvasData = async (boardId: string, data: { shapes: any[], config?: any, history?: any[] }): Promise<ApiResponse> => {
+  return sendCanvasCommand(boardId, 'update', data);
+};
+
+// Legacy function for backward compatibility
 export const updateShapes = async (boardId: string, shapes: any[]): Promise<ApiResponse> => {
-  return sendCanvasCommand(boardId, 'update', { shapes });
+  return updateCanvasData(boardId, { shapes });
 };
