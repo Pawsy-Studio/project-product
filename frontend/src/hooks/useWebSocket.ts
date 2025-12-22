@@ -1,144 +1,147 @@
-// WebSocket hook for real-time canvas synchronization
-// Added for backend data sending logic
-
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import type { Shape } from '../types';
 
-const WS_BASE_URL = 'ws://localhost:8000'; // Adjust to your backend WebSocket URL
+const WS_BASE_URL =
+  import.meta.env.VITE_PUBLIC_WS_URL || 'ws://localhost:8000';
 
 export interface WebSocketMessage {
   type: 'update' | 'clear' | 'undo' | 'shapes';
   data?: any;
-  userId?: string; // To avoid echoing own messages
+  userId?: string;
 }
 
 export const useWebSocket = (
   boardId: string,
   onShapesUpdate: (shapes: Shape[]) => void,
-  currentShapes: Shape[],
-  userId: string = 'user1' // For demo, generate unique ID in production
+  userId: string = crypto.randomUUID()
 ) => {
   const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimeoutRef = useRef<number | null>(null);
+  const onShapesUpdateRef = useRef(onShapesUpdate);
+  const reconnectTimerRef = useRef<number | null>(null);
   const reconnectAttempts = useRef(0);
-  const maxReconnectAttempts = 5;
+
+  const MAX_RECONNECT_ATTEMPTS = 5;
+  const RECONNECT_DELAY = 1500;
+
+  const [isConnected, setIsConnected] = useState(false);
+
+  // всегда актуальный callback
+  useEffect(() => {
+    onShapesUpdateRef.current = onShapesUpdate;
+  }, [onShapesUpdate]);
 
   const connect = useCallback(() => {
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      return; // Already connected
-    }
+    if (wsRef.current) return;
 
-    try {
-      wsRef.current = new WebSocket(`${WS_BASE_URL}/ws/canvas/${boardId}/`);
+    const ws = new WebSocket(
+      `${WS_BASE_URL}/ws/canvas/${boardId}/`
+    );
 
-      wsRef.current.onopen = () => {
-        console.log('WebSocket connected');
-        reconnectAttempts.current = 0;
-      };
+    wsRef.current = ws;
 
-      wsRef.current.onmessage = (event) => {
-        try {
-          const message: WebSocketMessage = JSON.parse(event.data);
+    ws.onopen = () => {
+      console.log('[WS] connected');
+      setIsConnected(true);
+      reconnectAttempts.current = 0;
+    };
 
-          // Ignore own messages
-          if (message.userId === userId) return;
+    ws.onmessage = (event) => {
+      try {
+        const message: WebSocketMessage = JSON.parse(event.data);
 
-          switch (message.type) {
-            case 'update':
-            case 'shapes':
-              if (message.data && message.data.shapes) {
-                onShapesUpdate(message.data.shapes);
-              }
-              break;
-            case 'clear':
-              onShapesUpdate([]);
-              break;
-            case 'undo':
-              // For undo, we might need to receive the previous state
-              if (message.data && message.data.shapes) {
-                onShapesUpdate(message.data.shapes);
-              }
-              break;
-            default:
-              console.log('Unknown message type:', message.type);
-          }
-        } catch (error) {
-          console.error('Error parsing WebSocket message:', error);
+        if (message.userId === userId) return;
+
+        switch (message.type) {
+          case 'update':
+          case 'shapes':
+          case 'undo':
+            if (message.data?.shapes) {
+              onShapesUpdateRef.current(message.data.shapes);
+            }
+            break;
+
+          case 'clear':
+            onShapesUpdateRef.current([]);
+            break;
+
+          default:
+            console.warn('[WS] unknown message', message);
         }
-      };
+      } catch (e) {
+        console.error('[WS] message parse error', e);
+      }
+    };
 
-      wsRef.current.onclose = () => {
-        console.log('WebSocket disconnected');
-        if (reconnectAttempts.current < maxReconnectAttempts) {
-          reconnectAttempts.current++;
-          reconnectTimeoutRef.current = setTimeout(() => {
-            console.log(`Attempting to reconnect (${reconnectAttempts.current}/${maxReconnectAttempts})`);
-            connect();
-          }, 2000 * reconnectAttempts.current); // Exponential backoff
-        }
-      };
+    ws.onerror = (e) => {
+      console.error('[WS] error', e);
+    };
 
-      wsRef.current.onerror = (error) => {
-        console.error('WebSocket error:', error);
-      };
+    ws.onclose = () => {
+      console.log('[WS] disconnected');
+      setIsConnected(false);
+      wsRef.current = null;
 
-    } catch (error) {
-      console.error('Failed to create WebSocket connection:', error);
-    }
-  }, [boardId, onShapesUpdate, userId]);
+      if (reconnectAttempts.current < MAX_RECONNECT_ATTEMPTS) {
+        reconnectAttempts.current += 1;
+
+        reconnectTimerRef.current = window.setTimeout(() => {
+          connect();
+        }, RECONNECT_DELAY * reconnectAttempts.current);
+      }
+    };
+  }, [boardId, userId]);
 
   const disconnect = useCallback(() => {
-    if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current);
-      reconnectTimeoutRef.current = null;
+    if (reconnectTimerRef.current) {
+      clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
     }
+
     if (wsRef.current) {
-      wsRef.current.close();
+      wsRef.current.close(1000, 'Client disconnect');
       wsRef.current = null;
     }
   }, []);
 
-  const sendMessage = useCallback((message: WebSocketMessage) => {
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ ...message, userId }));
-    } else {
-      console.warn('WebSocket not connected, message not sent:', message);
-    }
-  }, [userId]);
+  const sendMessage = useCallback(
+    (message: WebSocketMessage) => {
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(
+          JSON.stringify({ ...message, userId })
+        );
+      }
+    },
+    [userId]
+  );
 
-  // Send shapes update
-  const sendShapesUpdate = useCallback((shapes: Shape[]) => {
-    sendMessage({
-      type: 'update',
-      data: { shapes }
-    });
-  }, [sendMessage]);
+  const sendShapesUpdate = useCallback(
+    (shapes: Shape[]) => {
+      sendMessage({
+        type: 'update',
+        data: { shapes },
+      });
+    },
+    [sendMessage]
+  );
 
-  // Send clear command
   const sendClear = useCallback(() => {
-    sendMessage({
-      type: 'clear'
-    });
+    sendMessage({ type: 'clear' });
   }, [sendMessage]);
 
-  // Send undo command
   const sendUndo = useCallback(() => {
-    sendMessage({
-      type: 'undo'
-    });
+    sendMessage({ type: 'undo' });
   }, [sendMessage]);
 
+  // ⬇️ подключаемся ТОЛЬКО при смене boardId
   useEffect(() => {
     connect();
-    return () => {
-      disconnect();
-    };
+    return () => disconnect();
   }, [connect, disconnect]);
 
   return {
     sendShapesUpdate,
     sendClear,
     sendUndo,
-    isConnected: wsRef.current?.readyState === WebSocket.OPEN,
+    isConnected,
   };
 };
