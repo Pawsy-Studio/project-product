@@ -821,8 +821,8 @@ const DrawingApp: React.FC = () => {
         const width = newShape.width || 0;
         const height = newShape.height || 0;
         
-        const finalX = Math.max(0, Math.min(startX, 1000 - Math.abs(width)));
-        const finalY = Math.max(0, Math.min(startY, 387 - Math.abs(height)));
+        const finalX = Math.max(0, Math.min(startX, 6000 - Math.abs(width)));
+        const finalY = Math.max(0, Math.min(startY, 2500 - Math.abs(height)));
         
         newShape.x = finalX;
         newShape.y = finalY;
@@ -890,8 +890,8 @@ const DrawingApp: React.FC = () => {
       <div className="canvas-container">
         <Stage
           ref={stageRef}
-          width={1000}
-          height={387}
+          width={6000}
+          height={2500}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}

@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import type { Shape, DrawingState, TransformState, ToolMode } from '../types';
+import type { Shape, DrawingState, TransformState, ToolMode, ShapeType } from '../types';
 import { calculateBoundingBox, isPointInShape, transformPoints } from '../utils/shapeUtils';
 import { measureLatexSize, renderLatexToHtml } from '../utils/latexUtils';
 
@@ -28,41 +28,45 @@ export const useDrawingHandlers = (
 
   // Функция для ограничения фигур в пределах канваса
   const constrainToCanvas = useCallback((x: number, y: number, width: number, height: number) => {
-    const canvasWidth = 1000;
-    const canvasHeight = 387;
-    
+    const canvasWidth = 6000;
+    const canvasHeight = 2500;
+
     // Если размеры отрицательные, нормализуем их
     const realX = width >= 0 ? x : x + width;
     const realY = height >= 0 ? y : y + height;
     const realWidth = Math.abs(width);
     const realHeight = Math.abs(height);
-    
+
     // Ограничиваем координаты, чтобы фигура полностью помещалась в канвас
     const constrainedRealX = Math.max(0, Math.min(realX, canvasWidth - realWidth));
     const constrainedRealY = Math.max(0, Math.min(realY, canvasHeight - realHeight));
-    
+
     // Восстанавливаем исходные координаты с учетом знаков ширины/высоты
     let finalX = constrainedRealX;
     let finalY = constrainedRealY;
     let finalWidth = width;
     let finalHeight = height;
-    
+
     if (width < 0) {
       finalX = constrainedRealX - realWidth;
     }
-    
+
     if (height < 0) {
       finalY = constrainedRealY - realHeight;
     }
-    
+
     return { x: finalX, y: finalY, width: finalWidth, height: finalHeight };
   }, []);
 
   const handleMouseDown = useCallback((e: any) => {
     const stage = e.target.getStage();
     const pos = stage.getPointerPosition();
-    
-    if (pos.x < 0 || pos.x > 1000 || pos.y < 0 || pos.y > 387) {
+    const container = stage.container();
+    const adjustedX = pos.x + container.scrollLeft;
+    const adjustedY = pos.y + container.scrollTop;
+    const adjustedPos = { x: adjustedX, y: adjustedY };
+
+    if (adjustedPos.x < 0 || adjustedPos.x > 6000 || adjustedPos.y < 0 || adjustedPos.y > 2500) {
       return;
     }
     
@@ -88,8 +92,8 @@ export const useDrawingHandlers = (
           startHeight: shape.height,
           startX: shape.x,
           startY: shape.y,
-          startMouseX: pos.x,
-          startMouseY: pos.y,
+          startMouseX: adjustedPos.x,
+          startMouseY: adjustedPos.y,
           anchor,
           originalPoints,
           originalBbox,
@@ -115,8 +119,8 @@ export const useDrawingHandlers = (
           var newTextShape: Shape = {
             id: `${isLatex ? 'latex' : 'text'}_${Date.now()}`,
             type: isLatex ? 'latex' : 'text',
-            x: pos.x,
-            y: pos.y,
+            x: adjustedX,
+            y: adjustedY,
             width: size.width,
             height: size.height,
             stroke: strokeColor,
@@ -145,8 +149,8 @@ export const useDrawingHandlers = (
           var newTextShape: Shape = {
             id: `${isLatex ? 'latex' : 'text'}_${Date.now()}`,
             type: isLatex ? 'latex' : 'text',
-            x: pos.x,
-            y: pos.y,
+            x: adjustedX,
+            y: adjustedY,
             width: 200,
             height: height,
             stroke: strokeColor,
@@ -196,40 +200,40 @@ export const useDrawingHandlers = (
         
         setDrawingState({
           isDrawing: true,
-          startX: pos.x,
-          startY: pos.y,
+          startX: adjustedX,
+          startY: adjustedY,
           currentShape: {
             id: `eraser_${Date.now()}`,
             type: 'path',
-            x: pos.x,
-            y: pos.y,
+            x: adjustedX,
+            y: adjustedY,
             width: 0,
             height: 0,
             stroke: '#000000',
             strokeWidth: strokeWidth,
             opacity: 1,
-            points: [pos.x, pos.y]
+            points: [adjustedX, adjustedY]
           }
         });
       }
       else if (!['select', 'text', 'latex'].includes(tool)) {
-        const shapeType = tool === 'pencil' ? 'path' : tool === 'highlighter' ? 'highlighter' : tool;
+        const shapeType = tool === 'pencil' ? 'path' : tool === 'highlighter' ? 'highlighter' : tool as ShapeType;
         
         setDrawingState({
           isDrawing: true,
-          startX: pos.x,
-          startY: pos.y,
+          startX: adjustedX,
+          startY: adjustedY,
           currentShape: {
             id: `${tool}_${Date.now()}`,
             type: shapeType,
-            x: pos.x,
-            y: pos.y,
+            x: adjustedX,
+            y: adjustedY,
             width: 0,
             height: 0,
             stroke: strokeColor,
             strokeWidth: strokeWidth,
             opacity: tool === 'highlighter' ? 0.5 : 1,
-            points: (tool === 'pencil' || tool === 'highlighter') ? [pos.x, pos.y] : undefined
+            points: (tool === 'pencil' || tool === 'highlighter') ? [adjustedX, adjustedY] : undefined
           }
         });
       }
@@ -249,7 +253,7 @@ export const useDrawingHandlers = (
         }
         
         setIsDragging(true);
-        setDragStart({ x: pos.x, y: pos.y });
+        setDragStart({ x: adjustedPos.x, y: adjustedPos.y });
         setSelectedShapeStart({ x: shape.x, y: shape.y });
         
         if ((shape.type === 'path' || shape.type === 'line' || shape.type === 'highlighter') && shape.points) {
@@ -268,56 +272,56 @@ export const useDrawingHandlers = (
     if (!['select', 'text', 'latex'].includes(tool)) {
       if (tool === 'eraser') {
         setEraserHistoryStart([...shapes]);
-        
+
         const newErasedShapes = new Set<string>();
         shapes.forEach(shape => {
-          if (isPointInShape(shape, pos)) {
+          if (isPointInShape(shape, adjustedPos)) {
             newErasedShapes.add(shape.id);
           }
         });
-        
+
         if (newErasedShapes.size > 0) {
           const newShapes = shapes.filter(shape => !newErasedShapes.has(shape.id));
           setShapes(newShapes);
         }
-        
+
         setErasedShapes(newErasedShapes);
-        
+
         setDrawingState({
           isDrawing: true,
-          startX: pos.x,
-          startY: pos.y,
+          startX: adjustedX,
+          startY: adjustedY,
           currentShape: {
             id: `eraser_${Date.now()}`,
             type: 'path',
-            x: pos.x,
-            y: pos.y,
+            x: adjustedX,
+            y: adjustedY,
             width: 0,
             height: 0,
             stroke: '#000000',
             strokeWidth: strokeWidth,
             opacity: 1,
-            points: [pos.x, pos.y]
+            points: [adjustedX, adjustedY]
           }
         });
       } else {
-        const shapeType = tool === 'pencil' ? 'path' : tool === 'highlighter' ? 'highlighter' : tool;
-        
+        const shapeType = tool === 'pencil' ? 'path' : tool === 'highlighter' ? 'highlighter' : tool as ShapeType;
+
         setDrawingState({
           isDrawing: true,
-          startX: pos.x,
-          startY: pos.y,
+          startX: adjustedX,
+          startY: adjustedY,
           currentShape: {
             id: `${tool}_${Date.now()}`,
             type: shapeType,
-            x: pos.x,
-            y: pos.y,
+            x: adjustedX,
+            y: adjustedY,
             width: 0,
             height: 0,
             stroke: strokeColor,
             strokeWidth: strokeWidth,
             opacity: tool === 'highlighter' ? 0.5 : 1,
-            points: (tool === 'pencil' || tool === 'highlighter') ? [pos.x, pos.y] : undefined
+            points: (tool === 'pencil' || tool === 'highlighter') ? [adjustedX, adjustedY] : undefined
           }
         });
       }
@@ -335,10 +339,10 @@ export const useDrawingHandlers = (
   ) => {
     const stage = e.target.getStage();
     const pos = stage.getPointerPosition();
-    
-    const clampedX = Math.max(0, Math.min(pos.x, 1000));
-    const clampedY = Math.max(0, Math.min(pos.y, 387));
-    const clampedPos = { x: clampedX, y: clampedY };
+    const container = stage.container();
+    const adjustedX = pos.x + container.scrollLeft;
+    const adjustedY = pos.y + container.scrollTop;
+    const adjustedPos = { x: adjustedX, y: adjustedY };
     
     if (drawingState.isDrawing && drawingState.currentShape) {
       const { startX, startY, currentShape } = drawingState;
@@ -346,35 +350,35 @@ export const useDrawingHandlers = (
       if (tool === 'pencil' || tool === 'eraser' || tool === 'highlighter') {
         const updatedShape = {
           ...currentShape,
-          points: [...(currentShape.points || []), clampedPos.x, clampedPos.y]
+          points: [...(currentShape.points || []), adjustedPos.x, adjustedPos.y]
         };
         setDrawingState(prev => ({ ...prev, currentShape: updatedShape }));
-        
+
         if (tool === 'eraser') {
-          const shapesToErase = shapes.filter(shape => isPointInShape(shape, clampedPos));
-          
+          const shapesToErase = shapes.filter(shape => isPointInShape(shape, adjustedPos));
+
           if (shapesToErase.length > 0) {
             const newErasedShapes = new Set(erasedShapes);
             shapesToErase.forEach(shape => {
               newErasedShapes.add(shape.id);
             });
-            
+
             const newShapes = shapes.filter(shape => !newErasedShapes.has(shape.id));
             setShapes(newShapes);
             setErasedShapes(newErasedShapes);
           }
         }
-      } 
+      }
       else if (tool === 'line') {
         const updatedShape = {
           ...currentShape,
-          points: [startX, startY, clampedPos.x, clampedPos.y]
+          points: [startX, startY, adjustedPos.x, adjustedPos.y]
         };
         setDrawingState(prev => ({ ...prev, currentShape: updatedShape }));
       }
       else if (tool === 'rectangle' || tool === 'ellipse') {
-        let width = clampedPos.x - startX;
-        let height = clampedPos.y - startY;
+        let width = adjustedPos.x - startX;
+        let height = adjustedPos.y - startY;
         
         if (shiftPressed) {
           const size = Math.max(Math.abs(width), Math.abs(height));
@@ -398,8 +402,8 @@ export const useDrawingHandlers = (
       
       if (!anchor) return;
       
-      const deltaX = clampedPos.x - startMouseX;
-      const deltaY = clampedPos.y - startMouseY;
+      const deltaX = adjustedPos.x - startMouseX;
+      const deltaY = adjustedPos.y - startMouseY;
       
       let newWidth = startWidth;
       let newHeight = startHeight;
@@ -515,8 +519,8 @@ export const useDrawingHandlers = (
     else if (isDragging && selectedId) {
       const shape = shapes.find(s => s.id === selectedId);
       
-      const deltaX = clampedPos.x - dragStart.x;
-      const deltaY = clampedPos.y - dragStart.y;
+      const deltaX = adjustedPos.x - dragStart.x;
+      const deltaY = adjustedPos.y - dragStart.y;
       
       const updatedShapes = shapes.map(s => {
         if (s.id === selectedId) {

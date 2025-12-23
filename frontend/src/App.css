@@ -19,6 +19,7 @@ body {
   height: 387px;
   background-color: white;
   position: relative;
+  overflow: auto;
 }
 
 .top-header {
