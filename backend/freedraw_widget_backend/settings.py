@@ -41,7 +41,7 @@ INSTALLED_APPS = [
     "corsheaders",
     "rest_framework",
     "channels",
-    "drf_yasg",
+    'drf_spectacular',
 ]
 
 CHANNEL_LAYERS = {
@@ -82,20 +82,15 @@ TEMPLATES = [
     },
 ]
 
-SWAGGER_SETTINGS = {
-    'SECURITY_DEFINITIONS': {
-        'Bearer': {
-            'type': 'apiKey',
-            'name': 'Authorization',
-            'in': 'header'
-        }
-    },
-    'USE_SESSION_AUTH': False,
-    'JSON_EDITOR': True,
+REST_FRAMEWORK = {
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
-REDOC_SETTINGS = {
-    'LAZY_RENDERING': False,
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Freedraw Widget API',
+    'DESCRIPTION': 'API for collaborative drawing widget',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
 }
 
 
