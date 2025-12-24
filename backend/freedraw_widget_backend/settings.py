@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     "corsheaders",
     "rest_framework",
     "channels",
+    "drf_yasg",
 ]
 
 CHANNEL_LAYERS = {
@@ -80,6 +81,23 @@ TEMPLATES = [
         },
     },
 ]
+
+SWAGGER_SETTINGS = {
+    'SECURITY_DEFINITIONS': {
+        'Bearer': {
+            'type': 'apiKey',
+            'name': 'Authorization',
+            'in': 'header'
+        }
+    },
+    'USE_SESSION_AUTH': False,
+    'JSON_EDITOR': True,
+}
+
+REDOC_SETTINGS = {
+    'LAZY_RENDERING': False,
+}
+
 
 WSGI_APPLICATION = "freedraw_widget_backend.wsgi.application"
 ASGI_APPLICATION = 'freedraw_widget_backend.asgi.application'
