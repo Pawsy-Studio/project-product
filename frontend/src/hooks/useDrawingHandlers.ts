@@ -390,21 +390,37 @@ export const useDrawingHandlers = (
       else if (tool === 'rectangle' || tool === 'ellipse') {
         let width = adjustedPos.x - startX;
         let height = adjustedPos.y - startY;
-        
+
         if (shiftPressed) {
           const size = Math.max(Math.abs(width), Math.abs(height));
           width = Math.sign(width) * size;
           height = Math.sign(height) * size;
         }
-        
-        let updatedShape = { 
-          ...currentShape, 
-          x: startX,
-          y: startY,
-          width: width,
-          height: height
+
+        // Normalize so x,y is always top-left corner, width,height always positive
+        let normalizedX = startX;
+        let normalizedY = startY;
+        let normalizedWidth = width;
+        let normalizedHeight = height;
+
+        if (width < 0) {
+          normalizedX = startX + width;
+          normalizedWidth = Math.abs(width);
+        }
+
+        if (height < 0) {
+          normalizedY = startY + height;
+          normalizedHeight = Math.abs(height);
+        }
+
+        let updatedShape = {
+          ...currentShape,
+          x: normalizedX,
+          y: normalizedY,
+          width: normalizedWidth,
+          height: normalizedHeight
         };
-        
+
         setDrawingState(prev => ({ ...prev, currentShape: updatedShape }));
       }
     }
@@ -598,6 +614,7 @@ export const useDrawingHandlers = (
     setErasedShapes,
     eraserHistoryStart,
     setEraserHistoryStart,
+    constrainToCanvas,
     handleMouseDown,
     handleMouseMove,
     handleMouseUp

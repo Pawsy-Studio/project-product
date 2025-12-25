@@ -678,7 +678,10 @@ const DrawingApp: React.FC = () => {
   const renderTextToolbar = () => {
     if (tool !== 'select' || !selectedId || editingTextId) return null;
 
-    const selectedShape = shapes.find(s => s.id === selectedId);
+    // At this point selectedId is guaranteed to be a string
+    const currentSelectedId = selectedId;
+
+    const selectedShape = shapes.find(s => s.id === currentSelectedId);
     if (!selectedShape || (selectedShape.type !== 'text' && selectedShape.type !== 'latex')) return null;
     
     const stage = stageRef.current;
@@ -719,11 +722,10 @@ const DrawingApp: React.FC = () => {
     // Remove viewport constraints to allow toolbar to follow text containers anywhere
     
     if (selectedShape.type === 'latex') {
-      const safeSelectedId = selectedId as string;
       return (
         <LatexToolbar
           selectedShape={selectedShape}
-          selectedId={safeSelectedId}
+          selectedId={currentSelectedId}
           startTextEditing={startTextEditing}
           updateSelectedTextProperty={handleUpdateTextProperty}
           fontSize={selectedShape.fontSize || fontSize}
@@ -735,7 +737,7 @@ const DrawingApp: React.FC = () => {
       );
     }
 
-    const safeSelectedId = selectedId as string;
+    const safeSelectedId = currentSelectedId;
 
     return (
       <TextToolbar
@@ -824,23 +826,17 @@ const DrawingApp: React.FC = () => {
         setShapes(newShapes);
         saveToHistory(newShapes);
       }
-      else if ((tool === 'rectangle' || tool === 'ellipse') && 
-               drawingState.currentShape.width !== 0 && 
+      else if ((tool === 'rectangle' || tool === 'ellipse') &&
+               drawingState.currentShape.width !== 0 &&
                drawingState.currentShape.height !== 0) {
-        
-        const startX = drawingState.startX;
-        const startY = drawingState.startY;
-        const width = newShape.width || 0;
-        const height = newShape.height || 0;
-        
-        const finalX = Math.max(0, Math.min(startX, 6000 - Math.abs(width)));
-        const finalY = Math.max(0, Math.min(startY, 2500 - Math.abs(height)));
-        
-        newShape.x = finalX;
-        newShape.y = finalY;
-        newShape.width = width;
-        newShape.height = height;
-        
+
+        // Shape is already normalized in handleMouseMove, just constrain to canvas
+        const constrained = drawingHandlers.constrainToCanvas(newShape.x, newShape.y, newShape.width, newShape.height);
+        newShape.x = constrained.x;
+        newShape.y = constrained.y;
+        newShape.width = constrained.width;
+        newShape.height = constrained.height;
+
         const newShapes = [...shapes, newShape];
         setShapes(newShapes);
         saveToHistory(newShapes);
