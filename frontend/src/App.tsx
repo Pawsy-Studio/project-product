@@ -136,7 +136,7 @@ const DrawingApp: React.FC = () => {
     changeFontSizeWithStep
   } = useTextFormatting(shapes, setShapes, saveToHistory, fontSize);
   
-  const textAreaRef = useRef<HTMLTextAreaElement>(null);
+  const textAreaRef = useRef<HTMLTextAreaElement | null>(null);
   const { insertLatexSymbol } = useLatexSymbols(
     textAreaRef,
     editingTextId,
@@ -165,6 +165,23 @@ const DrawingApp: React.FC = () => {
   const [showTextFormatDropdown, setShowTextFormatDropdown] = useState(false);
   const [showTextAlignDropdown, setShowTextAlignDropdown] = useState(false);
   const [showLatexPreview, setShowLatexPreview] = useState(true);
+  const [canvasScroll, setCanvasScroll] = useState({ left: 0, top: 0 });
+
+  // Update canvas scroll position when scrolling
+  useEffect(() => {
+    const container = stageRef.current?.container();
+    if (!container) return;
+
+    const handleScroll = () => {
+      setCanvasScroll({
+        left: container.scrollLeft,
+        top: container.scrollTop
+      });
+    };
+
+    container.addEventListener('scroll', handleScroll);
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, []);
   
   const handleDeleteShape = (id: string) => {
     const newShapes = shapes.filter(shape => shape.id !== id);
@@ -219,7 +236,7 @@ const DrawingApp: React.FC = () => {
 
           if (s.type === 'latex' && s.latex) {
             const currentFontSize = s.fontSize || fontSize;
-            updatedShape.latexRendered = renderLatexToHtml(s.latex, currentFontSize, value);
+            updatedShape.latexRendered = renderLatexToHtml(s.latex, currentFontSize);
           }
         }
         
@@ -245,7 +262,7 @@ const DrawingApp: React.FC = () => {
             updatedShape.width = size.width;
             updatedShape.height = size.height;
             const color = s.stroke || strokeColor;
-            updatedShape.latexRendered = renderLatexToHtml(s.latex, newFontSize, color);
+            updatedShape.latexRendered = renderLatexToHtml(s.latex, newFontSize);
           }
         }
         
@@ -430,42 +447,45 @@ const DrawingApp: React.FC = () => {
     const stage = stageRef.current;
     if (!stage) return null;
 
+    const container = stage.container();
+    const containerRect = container.getBoundingClientRect();
+    const scrollLeft = container.scrollLeft;
+    const scrollTop = container.scrollTop;
+    const scaleX = stage.scaleX();
+    const scaleY = stage.scaleY();
+
     return shapes
       .filter(shape => shape.type === 'latex' && !shape.isEditing)
       .map((shape) => {
-        const containerRect = stage.container().getBoundingClientRect();
-        const scaleX = stage.scaleX();
-        const scaleY = stage.scaleY();
-        
         const latexX = shape.width >= 0 ? shape.x : shape.x + shape.width;
         const latexY = shape.height >= 0 ? shape.y : shape.y + shape.height;
         const latexWidth = Math.abs(shape.width);
         const latexHeight = Math.abs(shape.height);
-        
-        const x = latexX * scaleX + containerRect.left;
-        const y = latexY * scaleY + containerRect.top;
+
+        const x = containerRect.left + (latexX * scaleX) - scrollLeft;
+        const y = containerRect.top + (latexY * scaleY) - scrollTop;
         const width = Math.max(latexWidth * scaleX, 50);
         const height = Math.max(latexHeight * scaleY, 50);
-        
+
         return (
           <div
             key={shape.id}
             className="latex-shape-overlay"
             style={{
-              position: 'fixed',
-              left: `${x}px`,
-              top: `${y}px`,
+              position: 'absolute',
+              left: `${latexX * scaleX - scrollLeft}px`,
+              top: `${latexY * scaleY - scrollTop}px`,
               width: `${width}px`,
               height: `${height}px`,
               pointerEvents: 'none',
+              zIndex: 10,
             }}
           >
             <div
-              dangerouslySetInnerHTML={{ 
+              dangerouslySetInnerHTML={{
                 __html: shape.latexRendered || renderLatexToHtml(
-                  shape.latex || '', 
-                  shape.fontSize || fontSize,
-                  shape.stroke || strokeColor
+                  shape.latex || '',
+                  shape.fontSize || fontSize
                 )
               }}
               className="latex-rendered-content"
@@ -656,12 +676,10 @@ const DrawingApp: React.FC = () => {
   };
 
   const renderTextToolbar = () => {
-    if (tool !== 'select' || !selectedId) return null;
-    
+    if (tool !== 'select' || !selectedId || editingTextId) return null;
+
     const selectedShape = shapes.find(s => s.id === selectedId);
     if (!selectedShape || (selectedShape.type !== 'text' && selectedShape.type !== 'latex')) return null;
-    
-    if (editingTextId) return null;
     
     const stage = stageRef.current;
     if (!stage) return null;
@@ -701,10 +719,11 @@ const DrawingApp: React.FC = () => {
     // Remove viewport constraints to allow toolbar to follow text containers anywhere
     
     if (selectedShape.type === 'latex') {
+      const safeSelectedId = selectedId as string;
       return (
         <LatexToolbar
           selectedShape={selectedShape}
-          selectedId={selectedId!}
+          selectedId={safeSelectedId}
           startTextEditing={startTextEditing}
           updateSelectedTextProperty={handleUpdateTextProperty}
           fontSize={selectedShape.fontSize || fontSize}
@@ -715,11 +734,13 @@ const DrawingApp: React.FC = () => {
         />
       );
     }
-    
+
+    const safeSelectedId = selectedId as string;
+
     return (
       <TextToolbar
         selectedShape={selectedShape}
-        selectedId={selectedId!}
+        selectedId={safeSelectedId}
         isBold={selectedShape.fontWeight === 'bold'}
         isItalic={selectedShape.fontStyle === 'italic'}
         isUnderline={selectedShape.textDecoration?.includes('underline') || false}
@@ -731,10 +752,10 @@ const DrawingApp: React.FC = () => {
         setShowTextAlignDropdown={setShowTextAlignDropdown}
         updateSelectedTextProperty={handleUpdateTextProperty}
         startTextEditing={startTextEditing}
-        toggleBold={() => toggleTextStyle(selectedId!, 'bold')}
-        toggleItalic={() => toggleTextStyle(selectedId!, 'italic')}
-        toggleUnderline={() => toggleTextStyle(selectedId!, 'underline')}
-        toggleStrikethrough={() => toggleTextStyle(selectedId!, 'strikethrough')}
+        toggleBold={() => toggleTextStyle(safeSelectedId, 'bold')}
+        toggleItalic={() => toggleTextStyle(safeSelectedId, 'italic')}
+        toggleUnderline={() => toggleTextStyle(safeSelectedId, 'underline')}
+        toggleStrikethrough={() => toggleTextStyle(safeSelectedId, 'strikethrough')}
         fontFamily={selectedShape.fontFamily || fontFamily}
         fontSize={selectedShape.fontSize || fontSize}
         strokeColor={selectedShape.stroke || strokeColor}

@@ -113,10 +113,12 @@ export const useDrawingHandlers = (
         const isLatex = tool === 'latex';
         let initialText = isLatex ? 'E = mc^2' : 'Text';
         const currentFontSize = fontSize;
-        
+
+        let newTextShape: Shape;
+
         if (isLatex) {
           const size = measureLatexSize(initialText, currentFontSize);
-          var newTextShape: Shape = {
+          newTextShape = {
             id: `${isLatex ? 'latex' : 'text'}_${Date.now()}`,
             type: isLatex ? 'latex' : 'text',
             x: adjustedX,
@@ -145,8 +147,8 @@ export const useDrawingHandlers = (
           const lineHeight = currentFontSize;
           const lines = initialText.split('\n').length || 1;
           const height = Math.max(lines * lineHeight * 1.2, 50);
-          
-          var newTextShape: Shape = {
+
+          newTextShape = {
             id: `${isLatex ? 'latex' : 'text'}_${Date.now()}`,
             type: isLatex ? 'latex' : 'text',
             x: adjustedX,
@@ -172,11 +174,20 @@ export const useDrawingHandlers = (
             rotation: 0
           };
         }
-        
+
+        // Constrain LaTeX shapes to canvas bounds
+        if (isLatex) {
+          const constrained = constrainToCanvas(newTextShape.x, newTextShape.y, newTextShape.width, newTextShape.height);
+          newTextShape.x = constrained.x;
+          newTextShape.y = constrained.y;
+          newTextShape.width = constrained.width;
+          newTextShape.height = constrained.height;
+        }
+
         const newShapes = [...shapes, newTextShape];
         setShapes(newShapes);
         saveToHistory(newShapes);
-        
+
         setTimeout(() => {
           startTextEditing(newTextShape.id);
         }, 10);
