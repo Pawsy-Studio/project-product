@@ -429,13 +429,13 @@ const DrawingApp: React.FC = () => {
   const renderLatexShapes = () => {
     const stage = stageRef.current;
     if (!stage) return null;
-    
+
     return shapes
       .filter(shape => shape.type === 'latex' && !shape.isEditing)
       .map((shape) => {
         const containerRect = stage.container().getBoundingClientRect();
-        const scaleX = stage.width() / stage.width();
-        const scaleY = stage.height() / stage.height();
+        const scaleX = stage.scaleX();
+        const scaleY = stage.scaleY();
         
         const latexX = shape.width >= 0 ? shape.x : shape.x + shape.width;
         const latexY = shape.height >= 0 ? shape.y : shape.y + shape.height;
@@ -566,16 +566,16 @@ const DrawingApp: React.FC = () => {
 
   const renderTextInput = () => {
     if (!editingTextId) return null;
-    
+
     const shape = shapes.find(s => s.id === editingTextId);
     if (!shape || (shape.type !== 'text' && shape.type !== 'latex')) return null;
-    
+
     const stage = stageRef.current;
     if (!stage) return null;
-    
+
     const containerRect = stage.container().getBoundingClientRect();
-    const scaleX = stage.width() / stage.width();
-    const scaleY = stage.height() / stage.height();
+    const scaleX = stage.scaleX();
+    const scaleY = stage.scaleY();
     
     const textX = shape.width >= 0 ? shape.x : shape.x + shape.width;
     const textY = shape.height >= 0 ? shape.y : shape.y + shape.height;
@@ -668,19 +668,18 @@ const DrawingApp: React.FC = () => {
     
     const container = stage.container();
     const containerRect = container.getBoundingClientRect();
-    
-    const textX = selectedShape.x;
-    const textY = selectedShape.y;
+
+    const textX = selectedShape.width >= 0 ? selectedShape.x : selectedShape.x + selectedShape.width;
+    const textY = selectedShape.height >= 0 ? selectedShape.y : selectedShape.y + selectedShape.height;
     
     const scaleX = stage.scaleX();
     const scaleY = stage.scaleY();
-    
-    const realY = Math.min(selectedShape.y, selectedShape.y + selectedShape.height);
+
     const realHeight = Math.abs(selectedShape.height);
     const realWidth = Math.abs(selectedShape.width);
-    
+
     const x = textX * scaleX + containerRect.left;
-    const y = realY * scaleY + containerRect.top;
+    const y = textY * scaleY + containerRect.top;
     
     const panelHeight = 40;
     
@@ -699,18 +698,13 @@ const DrawingApp: React.FC = () => {
     const textCenterX = x + (realWidth * scaleX) / 2;
     let left = textCenterX - panelWidth / 2;
 
-    if (left < containerRect.left) {
-      left = containerRect.left;
-    }
-    if (left + panelWidth > containerRect.right) {
-      left = containerRect.right - panelWidth;
-    }
+    // Remove viewport constraints to allow toolbar to follow text containers anywhere
     
     if (selectedShape.type === 'latex') {
       return (
         <LatexToolbar
           selectedShape={selectedShape}
-          selectedId={selectedId}
+          selectedId={selectedId!}
           startTextEditing={startTextEditing}
           updateSelectedTextProperty={handleUpdateTextProperty}
           fontSize={selectedShape.fontSize || fontSize}
@@ -725,7 +719,7 @@ const DrawingApp: React.FC = () => {
     return (
       <TextToolbar
         selectedShape={selectedShape}
-        selectedId={selectedId}
+        selectedId={selectedId!}
         isBold={selectedShape.fontWeight === 'bold'}
         isItalic={selectedShape.fontStyle === 'italic'}
         isUnderline={selectedShape.textDecoration?.includes('underline') || false}
@@ -737,20 +731,17 @@ const DrawingApp: React.FC = () => {
         setShowTextAlignDropdown={setShowTextAlignDropdown}
         updateSelectedTextProperty={handleUpdateTextProperty}
         startTextEditing={startTextEditing}
-        toggleBold={() => toggleTextStyle(selectedId, 'bold')}
-        toggleItalic={() => toggleTextStyle(selectedId, 'italic')}
-        toggleUnderline={() => toggleTextStyle(selectedId, 'underline')}
-        toggleStrikethrough={() => toggleTextStyle(selectedId, 'strikethrough')}
+        toggleBold={() => toggleTextStyle(selectedId!, 'bold')}
+        toggleItalic={() => toggleTextStyle(selectedId!, 'italic')}
+        toggleUnderline={() => toggleTextStyle(selectedId!, 'underline')}
+        toggleStrikethrough={() => toggleTextStyle(selectedId!, 'strikethrough')}
         fontFamily={selectedShape.fontFamily || fontFamily}
         fontSize={selectedShape.fontSize || fontSize}
-        textAlign={selectedShape.textAlign || textAlign}
         strokeColor={selectedShape.stroke || strokeColor}
         availableFonts={availableFonts}
         left={left}
         top={top}
         panelWidth={panelWidth}
-        tool={tool}
-        editingTextId={editingTextId}
       />
     );
   };
