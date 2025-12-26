@@ -166,6 +166,28 @@ const DrawingApp: React.FC = () => {
   const [showTextAlignDropdown, setShowTextAlignDropdown] = useState(false);
   const [showLatexPreview, setShowLatexPreview] = useState(true);
   const [canvasScroll, setCanvasScroll] = useState({ left: 0, top: 0 });
+  const [scale, setScale] = useState(1);
+
+  // Zoom functions
+  const zoomIn = useCallback(() => {
+    setScale(prevScale => Math.min(prevScale * 1.2, 5)); // Max zoom 5x
+  }, []);
+
+  const zoomOut = useCallback(() => {
+    setScale(prevScale => Math.max(prevScale / 1.2, 0.1)); // Min zoom 0.1x
+  }, []);
+
+  // Handle wheel zoom
+  const handleWheel = useCallback((e: WheelEvent) => {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      if (e.deltaY < 0) {
+        zoomIn();
+      } else {
+        zoomOut();
+      }
+    }
+  }, [zoomIn, zoomOut]);
 
   // Update canvas scroll position when scrolling
   useEffect(() => {
@@ -180,8 +202,51 @@ const DrawingApp: React.FC = () => {
     };
 
     container.addEventListener('scroll', handleScroll);
-    return () => container.removeEventListener('scroll', handleScroll);
-  }, []);
+    container.addEventListener('wheel', handleWheel, { passive: false });
+
+    return () => {
+      container.removeEventListener('scroll', handleScroll);
+      container.removeEventListener('wheel', handleWheel);
+    };
+  }, [handleWheel]);
+
+  // Apply scale to Stage and adjust scroll position
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+
+    const container = stage.container();
+    const containerRect = container.getBoundingClientRect();
+
+    // Calculate center of visible area
+    const centerX = container.scrollLeft + containerRect.width / 2;
+    const centerY = container.scrollTop + containerRect.height / 2;
+
+    // Store old scale
+    const oldScale = stage.scaleX();
+
+    // Apply new scale
+    stage.scale({ x: scale, y: scale });
+
+    // Adjust scroll to keep center point in the same place
+    if (oldScale !== 0) {
+      const scaleRatio = scale / oldScale;
+      const newScrollLeft = centerX * scaleRatio - containerRect.width / 2;
+      const newScrollTop = centerY * scaleRatio - containerRect.height / 2;
+
+      container.scrollLeft = Math.max(0, newScrollLeft);
+      container.scrollTop = Math.max(0, newScrollTop);
+    }
+
+    // Update canvas scroll state
+    setCanvasScroll({
+      left: container.scrollLeft,
+      top: container.scrollTop
+    });
+
+    // Force redraw
+    stage.batchDraw();
+  }, [scale]);
   
   const handleDeleteShape = (id: string) => {
     const newShapes = shapes.filter(shape => shape.id !== id);
@@ -204,7 +269,9 @@ const DrawingApp: React.FC = () => {
     finishTextEditing,
     changeFontSizeWithStep,
     toggleTextStyle,
-    shapes
+    shapes,
+    zoomIn,
+    zoomOut
   );
 
   const handleClearCanvas = async () => {
@@ -451,8 +518,6 @@ const DrawingApp: React.FC = () => {
     const containerRect = container.getBoundingClientRect();
     const scrollLeft = container.scrollLeft;
     const scrollTop = container.scrollTop;
-    const scaleX = stage.scaleX();
-    const scaleY = stage.scaleY();
 
     return shapes
       .filter(shape => shape.type === 'latex' && !shape.isEditing)
@@ -462,10 +527,10 @@ const DrawingApp: React.FC = () => {
         const latexWidth = Math.abs(shape.width);
         const latexHeight = Math.abs(shape.height);
 
-        const x = containerRect.left + (latexX * scaleX) - scrollLeft;
-        const y = containerRect.top + (latexY * scaleY) - scrollTop;
-        const width = Math.max(latexWidth * scaleX, 50);
-        const height = Math.max(latexHeight * scaleY, 50);
+        const x = containerRect.left + (latexX * scale) - scrollLeft;
+        const y = containerRect.top + (latexY * scale) - scrollTop;
+        const width = Math.max(latexWidth * scale, 50);
+        const height = Math.max(latexHeight * scale, 50);
 
         return (
           <div
@@ -473,8 +538,8 @@ const DrawingApp: React.FC = () => {
             className="latex-shape-overlay"
             style={{
               position: 'absolute',
-              left: `${latexX * scaleX - scrollLeft}px`,
-              top: `${latexY * scaleY - scrollTop}px`,
+              left: `${latexX * scale - scrollLeft}px`,
+              top: `${latexY * scale - scrollTop}px`,
               width: `${width}px`,
               height: `${height}px`,
               pointerEvents: 'none',
@@ -594,16 +659,14 @@ const DrawingApp: React.FC = () => {
     if (!stage) return null;
 
     const containerRect = stage.container().getBoundingClientRect();
-    const scaleX = stage.scaleX();
-    const scaleY = stage.scaleY();
-    
+
     const textX = shape.width >= 0 ? shape.x : shape.x + shape.width;
     const textY = shape.height >= 0 ? shape.y : shape.y + shape.height;
-    
-    const x = textX * scaleX + containerRect.left;
-    const y = textY * scaleY + containerRect.top;
-    const width = Math.max(Math.abs(shape.width) * scaleX, 100);
-    const height = Math.max(Math.abs(shape.height) * scaleY, 40);
+
+    const x = textX * scale + containerRect.left;
+    const y = textY * scale + containerRect.top;
+    const width = Math.max(Math.abs(shape.width) * scale, 100);
+    const height = Math.max(Math.abs(shape.height) * scale, 40);
     
     const fontWeight = shape.fontWeight || 'normal';
     const fontStyle = shape.fontStyle || 'normal';
@@ -692,31 +755,28 @@ const DrawingApp: React.FC = () => {
 
     const textX = selectedShape.width >= 0 ? selectedShape.x : selectedShape.x + selectedShape.width;
     const textY = selectedShape.height >= 0 ? selectedShape.y : selectedShape.y + selectedShape.height;
-    
-    const scaleX = stage.scaleX();
-    const scaleY = stage.scaleY();
 
     const realHeight = Math.abs(selectedShape.height);
     const realWidth = Math.abs(selectedShape.width);
 
-    const x = textX * scaleX + containerRect.left;
-    const y = textY * scaleY + containerRect.top;
-    
+    const x = textX * scale + containerRect.left;
+    const y = textY * scale + containerRect.top;
+
     const panelHeight = 40;
-    
+
     const textPanelWidth = 416;
     const latexPanelWidth = 152;
-    
+
     const panelWidth = selectedShape.type === 'latex' ? latexPanelWidth : textPanelWidth;
-    
+
     const offset = 20;
-    
+
     let top = y - panelHeight - offset;
     if (top < containerRect.top) {
-      top = y + realHeight * scaleY + offset;
+      top = y + realHeight * scale + offset;
     }
-    
-    const textCenterX = x + (realWidth * scaleX) / 2;
+
+    const textCenterX = x + (realWidth * scale) / 2;
     let left = textCenterX - panelWidth / 2;
 
     // Remove viewport constraints to allow toolbar to follow text containers anywhere
@@ -898,8 +958,8 @@ const DrawingApp: React.FC = () => {
       <div className="canvas-container">
         <Stage
           ref={stageRef}
-          width={6000}
-          height={2500}
+          width={6000 * scale}
+          height={2500 * scale}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}

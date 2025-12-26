@@ -10,7 +10,9 @@ export const useKeyboard = (
   finishTextEditing: (saveToHistory?: boolean) => void,
   changeFontSizeWithStep: (selectedId: string | null, direction: 'up' | 'down', shiftPressed: boolean) => void,
   toggleTextStyle: (selectedId: string | null, styleType: 'bold' | 'italic' | 'underline' | 'strikethrough') => void,
-  shapes: any[]
+  shapes: any[],
+  zoomIn?: () => void,
+  zoomOut?: () => void
 ) => {
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === 'Shift') setShiftPressed(true);
@@ -38,29 +40,44 @@ export const useKeyboard = (
       changeFontSizeWithStep(selectedId, direction, e.shiftKey);
     }
     
-    if ((e.ctrlKey || e.metaKey) && selectedId) {
-      const selectedShape = shapes.find(s => s.id === selectedId);
-      if (selectedShape && selectedShape.type === 'text') {
-        switch (e.key) {
-          case 'b':
-            e.preventDefault();
-            toggleTextStyle(selectedId, 'bold');
-            break;
-          case 'i':
-            e.preventDefault();
-            toggleTextStyle(selectedId, 'italic');
-            break;
-          case 'u':
-            e.preventDefault();
-            toggleTextStyle(selectedId, 'underline');
-            break;
+    if ((e.ctrlKey || e.metaKey)) {
+      switch (e.key) {
+        case '=':
+        case '+':
+          e.preventDefault();
+          if (zoomIn) zoomIn();
+          break;
+        case '-':
+          e.preventDefault();
+          if (zoomOut) zoomOut();
+          break;
+      }
+
+      if (selectedId) {
+        const selectedShape = shapes.find(s => s.id === selectedId);
+        if (selectedShape && selectedShape.type === 'text') {
+          switch (e.key) {
+            case 'b':
+              e.preventDefault();
+              toggleTextStyle(selectedId, 'bold');
+              break;
+            case 'i':
+              e.preventDefault();
+              toggleTextStyle(selectedId, 'italic');
+              break;
+            case 'u':
+              e.preventDefault();
+              toggleTextStyle(selectedId, 'underline');
+              break;
+          }
         }
       }
     }
   }, [
     shiftPressed, selectedId, editingTextId, shapes,
     setShiftPressed, handleDeleteShape, handleUndo,
-    finishTextEditing, changeFontSizeWithStep, toggleTextStyle
+    finishTextEditing, changeFontSizeWithStep, toggleTextStyle,
+    zoomIn, zoomOut
   ]);
 
   const handleKeyUp = useCallback((e: KeyboardEvent) => {
