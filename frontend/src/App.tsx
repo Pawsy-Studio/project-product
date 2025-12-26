@@ -991,6 +991,10 @@ const DrawingApp: React.FC = () => {
         {renderTextInput()}
         {renderLatexShapes()}
       </div>
+      <div className="zoom-buttons">
+        <button className="zoom-button zoom-plus" onClick={zoomIn}></button>
+        <button className="zoom-button zoom-minus" onClick={zoomOut}></button>
+      </div>
       {renderTextToolbar()}
     </div>
   );

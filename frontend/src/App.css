@@ -9,6 +9,7 @@ body {
   flex-direction: column;
   gap: 8px;
   padding: 0;
+  position: relative;
 }
 
 .canvas-container {
@@ -738,6 +739,53 @@ body {
   z-index: 1002;
   min-width: 130px;
   box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.zoom-buttons {
+  position: absolute;
+  left: calc(50% + 460px);
+  top: 450px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 100;
+}
+
+.zoom-button {
+  width: 15px;
+  height: 15px;
+  background-color: transparent;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 32px 32px;
+  border: none;
+  transition: background-image 0.2s ease-in-out;
+}
+
+.zoom-plus {
+  background-image: url('../src/assets/icon-plus-64-default.png');
+}
+
+.zoom-plus:hover {
+  background-image: url('../src/assets/icon-plus-64-hover.png');
+}
+
+.zoom-plus:active {
+  transition: none;
+  background-image: url('../src/assets/icon-plus-64-active.png');
+}
+
+.zoom-minus {
+  background-image: url('../src/assets/icon-minus-64-default.png');
+}
+
+.zoom-minus:hover {
+  background-image: url('../src/assets/icon-minus-64-hover.png');
+}
+
+.zoom-minus:active {
+  transition: none;
+  background-image: url('../src/assets/icon-minus-64-active.png');
 }
 
 @media (max-width: 768px) {
