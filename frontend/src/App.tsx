@@ -553,12 +553,12 @@ const DrawingApp: React.FC = () => {
               dangerouslySetInnerHTML={{
                 __html: shape.latexRendered || renderLatexToHtml(
                   shape.latex || '',
-                  shape.fontSize || fontSize
+                  (shape.fontSize || fontSize) * scale
                 )
               }}
               className="latex-rendered-content"
               style={{
-                fontSize: `${shape.fontSize || fontSize}px`,
+                fontSize: `${(shape.fontSize || fontSize) * scale}px`,
                 color: shape.stroke || strokeColor,
               }}
             />
