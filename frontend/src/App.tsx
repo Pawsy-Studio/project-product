@@ -171,11 +171,13 @@ const DrawingApp: React.FC = () => {
 
   // Zoom functions
   const zoomIn = useCallback(() => {
-    setScale(prevScale => Math.min(prevScale * 1.2, 5)); // Max zoom 5x
+    const maxScale = Math.pow(1.2, 2); // 2 steps in from base scale (1.2^2 = 1.44)
+    setScale(prevScale => Math.min(prevScale * 1.2, maxScale));
   }, []);
 
   const zoomOut = useCallback(() => {
-    setScale(prevScale => Math.max(prevScale / 1.2, 0.1)); // Min zoom 0.1x
+    const minScale = Math.pow(1.2, -10); // 10 steps out from base scale (1 / 1.2^10 ≈ 0.1615)
+    setScale(prevScale => Math.max(prevScale / 1.2, minScale));
   }, []);
 
   // Handle wheel zoom
