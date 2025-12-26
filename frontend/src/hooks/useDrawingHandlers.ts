@@ -17,7 +17,8 @@ export const useDrawingHandlers = (
   setSelectedId: React.Dispatch<React.SetStateAction<string | null>>,
   setDrawingState: React.Dispatch<React.SetStateAction<DrawingState>>,
   setTransformState: React.Dispatch<React.SetStateAction<TransformState>>,
-  startTextEditing: (id: string) => void
+  startTextEditing: (id: string) => void,
+  scale: number
 ) => {
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
@@ -62,8 +63,8 @@ export const useDrawingHandlers = (
     const stage = e.target.getStage();
     const pos = stage.getPointerPosition();
     const container = stage.container();
-    const adjustedX = pos.x + container.scrollLeft;
-    const adjustedY = pos.y + container.scrollTop;
+    const adjustedX = (pos.x / scale) + (container.scrollLeft / scale);
+    const adjustedY = (pos.y / scale) + (container.scrollTop / scale);
     const adjustedPos = { x: adjustedX, y: adjustedY };
 
     if (adjustedPos.x < 0 || adjustedPos.x > 6000 || adjustedPos.y < 0 || adjustedPos.y > 2500) {
@@ -194,10 +195,10 @@ export const useDrawingHandlers = (
       }
       else if (tool === 'eraser') {
         setEraserHistoryStart([...shapes]);
-        
+
         const newErasedShapes = new Set<string>();
         shapes.forEach(shape => {
-          if (isPointInShape(shape, pos)) {
+          if (isPointInShape(shape, adjustedPos)) {
             newErasedShapes.add(shape.id);
           }
         });
@@ -339,7 +340,7 @@ export const useDrawingHandlers = (
     }
   }, [
     shapes, setShapes, tool, strokeColor, strokeWidth, fontSize, fontFamily, textAlign,
-    selectedId, setSelectedId, setDrawingState, setTransformState, startTextEditing
+    selectedId, setSelectedId, setDrawingState, setTransformState, startTextEditing, scale, constrainToCanvas
   ]);
 
   const handleMouseMove = useCallback((
@@ -351,8 +352,8 @@ export const useDrawingHandlers = (
     const stage = e.target.getStage();
     const pos = stage.getPointerPosition();
     const container = stage.container();
-    const adjustedX = pos.x + container.scrollLeft;
-    const adjustedY = pos.y + container.scrollTop;
+    const adjustedX = (pos.x / scale) + (container.scrollLeft / scale);
+    const adjustedY = (pos.y / scale) + (container.scrollTop / scale);
     const adjustedPos = { x: adjustedX, y: adjustedY };
     
     if (drawingState.isDrawing && drawingState.currentShape) {
@@ -589,8 +590,7 @@ export const useDrawingHandlers = (
   }, [
     shapes, setShapes, tool, isDragging, selectedId,
     dragStart, selectedShapeStart, originalPointsOnDragStart,
-    erasedShapes, setErasedShapes, setDrawingState,
-    , constrainToCanvas
+    erasedShapes, setErasedShapes, setDrawingState, scale, constrainToCanvas
   ]);
 
   const handleMouseUp = useCallback(() => {

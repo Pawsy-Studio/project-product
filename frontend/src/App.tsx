@@ -53,7 +53,8 @@ const DrawingApp: React.FC = () => {
   const [fontFamily, setFontFamily] = useState('Arial');
   const [textAlign, setTextAlign] = useState<TextAlign>('left');
   const [shiftPressed, setShiftPressed] = useState(false);
-  
+  const [scale, setScale] = useState(1);
+
   const {
     drawingState,
     setDrawingState,
@@ -129,20 +130,20 @@ const DrawingApp: React.FC = () => {
     updateTextInRealTime,
     setIsTextChanged
   } = useTextEditing(shapes, setShapes, saveToHistory, fontSize, strokeColor);
-  
+
   const {
     updateSelectedTextProperty,
     toggleTextStyle,
     changeFontSizeWithStep
   } = useTextFormatting(shapes, setShapes, saveToHistory, fontSize);
-  
-  const textAreaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const textAreaRef = useRef<HTMLTextAreaElement>(null);
   const { insertLatexSymbol } = useLatexSymbols(
     textAreaRef,
     editingTextId,
     updateTextInRealTime
   );
-  
+
   const drawingHandlers = useDrawingHandlers(
     shapes,
     setShapes,
@@ -157,16 +158,16 @@ const DrawingApp: React.FC = () => {
     setSelectedId,
     setDrawingState,
     setTransformState,
-    startTextEditing
+    startTextEditing,
+    scale
   );
-  
+
   const [showLatexMenu, setShowLatexMenu] = useState(false);
   const [selectedLatexCategory, setSelectedLatexCategory] = useState('fraction');
   const [showTextFormatDropdown, setShowTextFormatDropdown] = useState(false);
   const [showTextAlignDropdown, setShowTextAlignDropdown] = useState(false);
   const [showLatexPreview, setShowLatexPreview] = useState(true);
   const [canvasScroll, setCanvasScroll] = useState({ left: 0, top: 0 });
-  const [scale, setScale] = useState(1);
 
   // Zoom functions
   const zoomIn = useCallback(() => {
@@ -941,16 +942,16 @@ const DrawingApp: React.FC = () => {
             handleClearCanvas={handleClearCanvas}
             finishTextEditing={finishTextEditing}
             setTool={setTool}
-            editingTextId={editingTextId}
+            editingTextId={editingTextId || ''}
             tool={tool}
           />
-          <SelDelToolbar 
+          <SelDelToolbar
             finishTextEditing={finishTextEditing}
             setTool={setTool}
             tool={tool}
-            editingTextId={editingTextId}
+            editingTextId={editingTextId || ''}
             handleDeleteShape={handleDeleteShape}
-            selectedId={selectedId}
+            selectedId={selectedId || ''}
           />
           <OCRToolbar />
         </div>
