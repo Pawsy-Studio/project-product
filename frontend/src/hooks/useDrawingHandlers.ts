@@ -60,6 +60,9 @@ export const useDrawingHandlers = (
   }, []);
 
   const handleMouseDown = useCallback((e: any) => {
+    // Ignore middle mouse button presses
+    if (e.evt.button === 1) return;
+
     const stage = e.target.getStage();
     const pos = stage.getPointerPosition();
     const container = stage.container();
