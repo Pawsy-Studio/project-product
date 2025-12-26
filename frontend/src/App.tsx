@@ -167,7 +167,37 @@ const DrawingApp: React.FC = () => {
   const [showTextFormatDropdown, setShowTextFormatDropdown] = useState(false);
   const [showTextAlignDropdown, setShowTextAlignDropdown] = useState(false);
   const [showLatexPreview, setShowLatexPreview] = useState(true);
-  const [canvasScroll, setCanvasScroll] = useState({ left: 0, top: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+
+  // Global mouse event handlers for panning
+  useEffect(() => {
+    if (!isPanning) return;
+
+    const handleGlobalMouseMove = (e: MouseEvent) => {
+      e.preventDefault();
+      const deltaX = e.clientX - panStart.x;
+      const deltaY = e.clientY - panStart.y;
+      const container = canvasContainerRef.current;
+      if (container) {
+        container.scrollLeft -= deltaX;
+        container.scrollTop -= deltaY;
+        setPanStart({ x: e.clientX, y: e.clientY });
+      }
+    };
+
+    const handleGlobalMouseUp = () => {
+      setIsPanning(false);
+    };
+
+    document.addEventListener('mousemove', handleGlobalMouseMove);
+    document.addEventListener('mouseup', handleGlobalMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleGlobalMouseMove);
+      document.removeEventListener('mouseup', handleGlobalMouseUp);
+    };
+  }, [isPanning, panStart]);
 
   // Zoom functions
   const zoomIn = useCallback(() => {
@@ -192,64 +222,29 @@ const DrawingApp: React.FC = () => {
     }
   }, [zoomIn, zoomOut]);
 
-  // Update canvas scroll position when scrolling
-  useEffect(() => {
-    const container = stageRef.current?.container();
-    if (!container) return;
-
-    const handleScroll = () => {
-      setCanvasScroll({
-        left: container.scrollLeft,
-        top: container.scrollTop
-      });
-    };
-
-    container.addEventListener('scroll', handleScroll);
-    container.addEventListener('wheel', handleWheel, { passive: false });
-
-    return () => {
-      container.removeEventListener('scroll', handleScroll);
-      container.removeEventListener('wheel', handleWheel);
-    };
-  }, [handleWheel]);
-
-  // Apply scale to Stage and adjust scroll position
+  // Apply scale to Stage
   useEffect(() => {
     const stage = stageRef.current;
     if (!stage) return;
 
-    const container = stage.container();
-    const containerRect = container.getBoundingClientRect();
-
-    // Calculate center of visible area
-    const centerX = container.scrollLeft + containerRect.width / 2;
-    const centerY = container.scrollTop + containerRect.height / 2;
-
-    // Store old scale
-    const oldScale = stage.scaleX();
-
     // Apply new scale
     stage.scale({ x: scale, y: scale });
-
-    // Adjust scroll to keep center point in the same place
-    if (oldScale !== 0) {
-      const scaleRatio = scale / oldScale;
-      const newScrollLeft = centerX * scaleRatio - containerRect.width / 2;
-      const newScrollTop = centerY * scaleRatio - containerRect.height / 2;
-
-      container.scrollLeft = Math.max(0, newScrollLeft);
-      container.scrollTop = Math.max(0, newScrollTop);
-    }
-
-    // Update canvas scroll state
-    setCanvasScroll({
-      left: container.scrollLeft,
-      top: container.scrollTop
-    });
 
     // Force redraw
     stage.batchDraw();
   }, [scale]);
+
+  // Handle wheel zoom
+  useEffect(() => {
+    const container = stageRef.current?.container();
+    if (!container) return;
+
+    container.addEventListener('wheel', handleWheel, { passive: false });
+
+    return () => {
+      container.removeEventListener('wheel', handleWheel);
+    };
+  }, [handleWheel]);
   
   const handleDeleteShape = (id: string) => {
     const newShapes = shapes.filter(shape => shape.id !== id);
@@ -519,8 +514,6 @@ const DrawingApp: React.FC = () => {
 
     const container = stage.container();
     const containerRect = container.getBoundingClientRect();
-    const scrollLeft = container.scrollLeft;
-    const scrollTop = container.scrollTop;
 
     return shapes
       .filter(shape => shape.type === 'latex' && !shape.isEditing)
@@ -530,8 +523,8 @@ const DrawingApp: React.FC = () => {
         const latexWidth = Math.abs(shape.width);
         const latexHeight = Math.abs(shape.height);
 
-        const x = containerRect.left + (latexX * scale) - scrollLeft;
-        const y = containerRect.top + (latexY * scale) - scrollTop;
+        const x = containerRect.left + (latexX * scale) - container.scrollLeft;
+        const y = containerRect.top + (latexY * scale) - container.scrollTop;
         const width = Math.max(latexWidth * scale, 50);
         const height = Math.max(latexHeight * scale, 50);
 
@@ -541,8 +534,8 @@ const DrawingApp: React.FC = () => {
             className="latex-shape-overlay"
             style={{
               position: 'absolute',
-              left: `${latexX * scale - scrollLeft}px`,
-              top: `${latexY * scale - scrollTop}px`,
+              left: `${latexX * scale - container.scrollLeft}px`,
+              top: `${latexY * scale - container.scrollTop}px`,
               width: `${width}px`,
               height: `${height}px`,
               pointerEvents: 'none',
@@ -833,16 +826,35 @@ const DrawingApp: React.FC = () => {
   };
 
   const stageRef = useRef<any>(null);
+  const canvasContainerRef = useRef<HTMLDivElement>(null);
 
   const handleMouseDown = (e: any) => {
+    // Handle middle mouse button for panning
+    if (e.evt.button === 1) {
+      e.evt.preventDefault();
+      setIsPanning(true);
+      setPanStart({ x: e.evt.clientX, y: e.evt.clientY });
+      return;
+    }
+
     drawingHandlers.handleMouseDown(e);
   };
 
   const handleMouseMove = (e: any) => {
+    // Panning is handled globally, so we don't need to do anything here when panning
+    if (isPanning) {
+      return;
+    }
+
     drawingHandlers.handleMouseMove(e, drawingState, transformState, shiftPressed);
   };
 
   const handleMouseUp = () => {
+    // Reset panning state
+    if (isPanning) {
+      setIsPanning(false);
+    }
+
     if (drawingState.isDrawing && drawingState.currentShape) {
       const newShape = { ...drawingState.currentShape } as Shape;
       
@@ -958,7 +970,7 @@ const DrawingApp: React.FC = () => {
           <OCRToolbar />
         </div>
       </div>
-      <div className="canvas-container">
+      <div className="canvas-container" ref={canvasContainerRef} style={{ cursor: isPanning ? 'grabbing' : 'default' }}>
         <Stage
           ref={stageRef}
           width={6000 * scale}
@@ -966,6 +978,7 @@ const DrawingApp: React.FC = () => {
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
+          onMouseLeave={() => setIsPanning(false)}
           onTouchStart={handleMouseDown}
           onTouchMove={handleMouseMove}
           onTouchEnd={handleMouseUp}

@@ -60,8 +60,7 @@ export const useDrawingHandlers = (
   }, []);
 
   const handleMouseDown = useCallback((e: any) => {
-    // Ignore middle mouse button presses
-    if (e.evt.button === 1) return;
+    // Middle mouse button is handled in App.tsx for panning
 
     const stage = e.target.getStage();
     const pos = stage.getPointerPosition();
