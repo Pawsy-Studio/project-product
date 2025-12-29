@@ -36,11 +36,15 @@ import { updateCanvasData, clearCanvas, undoAction } from './services/api';
 import { hexToRgba } from './utils/colorUtils';
 import { calculateBoundingBox } from './utils/shapeUtils';
 import { renderLatexToHtml, measureLatexSize } from './utils/latexUtils';
+import { getWidgetContext } from './services/widgetBridge';
+
 
 const DrawingApp: React.FC = () => {
-  // Board ID for backend communication
-  // Added for backend data sending logic
-  const boardId = 'test-board'; // In production, get from URL or props
+  const widget = getWidgetContext();
+
+  const boardId = String(widget.board.id); // ВСЕГДА уникальный
+  const widgetId = widget.widgetId;        // number
+
 
   const [tool, setTool] = useState<ToolMode>('select');
   const [shapes, setShapes] = useState<Shape[]>([]);
