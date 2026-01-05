@@ -38,13 +38,28 @@ import { calculateBoundingBox } from './utils/shapeUtils';
 import { renderLatexToHtml, measureLatexSize } from './utils/latexUtils';
 import { getWidgetContext } from './services/widgetBridge';
 
-
 const DrawingApp: React.FC = () => {
-  const widget = getWidgetContext();
+  const [widget, setWidget] = useState<any>(null);
+  const [boardId, setBoardId] = useState<string>('');
+  const [widgetId, setWidgetId] = useState<number | null>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
 
-  const boardId = String(widget.board.id); // ВСЕГДА уникальный
-  const widgetId = widget.widgetId;        // number
-
+  // Инициализация виджета
+  useEffect(() => {
+    try {
+      const widgetContext = getWidgetContext();
+      setWidget(widgetContext);
+      setBoardId(String(widgetContext.board.id));
+      setWidgetId(widgetContext.widgetId);
+      setIsInitialized(true);
+    } catch (error) {
+      // Если виджет еще не инициализирован, работаем в автономном режиме
+      setIsInitialized(true);
+      // Используем временные значения или null
+      setBoardId('temp-' + Date.now());
+      setWidgetId(-1);
+    }
+  }, []);
 
   const [tool, setTool] = useState<ToolMode>('select');
   const [shapes, setShapes] = useState<Shape[]>([]);
@@ -69,13 +84,13 @@ const DrawingApp: React.FC = () => {
   } = useDrawingState();
 
   // WebSocket for real-time synchronization
-  // Added for backend data sending logic
   const onCanvasUpdate = useCallback((data: CanvasData) => {
     setShapes(data.shapes);
     setCanvasConfig(data.config || {});
     setCanvasHistory(data.history || []);
   }, []);
 
+  // Используем WebSocket только если boardId валиден
   const { sendShapesUpdate, sendClear, sendUndo } = useWebSocket(
     boardId,
     onCanvasUpdate,
@@ -83,19 +98,21 @@ const DrawingApp: React.FC = () => {
   );
 
   // Function to send canvas data update to backend
-  // Added for backend data sending logic
   const sendCanvasDataToBackend = useCallback(async (shapesToSend: Shape[]) => {
-    try {
-      await updateCanvasData(boardId, {
-        shapes: shapesToSend,
-        config: canvasConfig,
-        history: canvasHistory
-      });
-      sendShapesUpdate(shapesToSend);
-    } catch (error) {
-      console.error('Failed to send canvas data to backend:', error);
+    // Отправляем данные только если виджет инициализирован
+    if (widgetId && widgetId > 0) {
+      try {
+        await updateCanvasData(boardId, {
+          shapes: shapesToSend,
+          config: canvasConfig,
+          history: canvasHistory
+        });
+        sendShapesUpdate(shapesToSend);
+      } catch (error) {
+        console.error('Failed to send canvas data to backend:', error);
+      }
     }
-  }, [boardId, canvasConfig, canvasHistory, sendShapesUpdate]);
+  }, [boardId, canvasConfig, canvasHistory, sendShapesUpdate, widgetId]);
 
   const {
     saveToHistory,
@@ -107,10 +124,11 @@ const DrawingApp: React.FC = () => {
     const newShapes = handleUndo();
     if (newShapes) {
       setShapes(newShapes);
-      // Send undo command to backend
-      // Added for backend data sending logic
-      await undoAction(boardId);
-      sendUndo();
+      // Send undo command to backend only if initialized
+      if (widgetId && widgetId > 0) {
+        await undoAction(boardId);
+        sendUndo();
+      }
     }
   };
 
@@ -118,7 +136,6 @@ const DrawingApp: React.FC = () => {
     const newShapes = handleRedo();
     if (newShapes) {
       setShapes(newShapes);
-      // Note: Redo might need backend support
     }
   };
 
@@ -205,12 +222,12 @@ const DrawingApp: React.FC = () => {
 
   // Zoom functions
   const zoomIn = useCallback(() => {
-    const maxScale = Math.pow(1.2, 2); // 2 steps in from base scale (1.2^2 = 1.44)
+    const maxScale = Math.pow(1.2, 2);
     setScale(prevScale => Math.min(prevScale * 1.2, maxScale));
   }, []);
 
   const zoomOut = useCallback(() => {
-    const minScale = Math.pow(1.2, -10); // 10 steps out from base scale (1 / 1.2^10 ≈ 0.1615)
+    const minScale = Math.pow(1.2, -10);
     setScale(prevScale => Math.max(prevScale / 1.2, minScale));
   }, []);
 
@@ -231,10 +248,7 @@ const DrawingApp: React.FC = () => {
     const stage = stageRef.current;
     if (!stage) return;
 
-    // Apply new scale
     stage.scale({ x: scale, y: scale });
-
-    // Force redraw
     stage.batchDraw();
   }, [scale]);
 
@@ -282,10 +296,12 @@ const DrawingApp: React.FC = () => {
     setEditingTextId(null);
     setTempText('');
     saveToHistory([]);
-    // Send clear command to backend
-    // Added for backend data sending logic
-    await clearCanvas(boardId);
-    sendClear();
+    
+    // Send clear command to backend only if initialized
+    if (widgetId && widgetId > 0) {
+      await clearCanvas(boardId);
+      sendClear();
+    }
   };
 
   const handleLatexSymbolClick = (symbol: any) => {
@@ -565,89 +581,88 @@ const DrawingApp: React.FC = () => {
   };
 
   const renderSelection = () => {
-  if (!selectedId || tool !== 'select' || drawingState.isDrawing) return null;
-  
-  const shape = shapes.find(s => s.id === selectedId);
-  if (!shape) return null;
-  
-  if ((shape.type === 'path' || shape.type === 'highlighter') && (!shape.points || shape.points.length === 0)) return null;
-  
-  let displayShape = { ...shape };
-  
-  if ((shape.type === 'path' || shape.type === 'line' || shape.type === 'highlighter') && shape.points && shape.points.length > 0) {
-    const bbox = calculateBoundingBox(shape.points);
-    displayShape = { ...shape, x: bbox.x, y: bbox.y, width: bbox.width, height: bbox.height };
-  }
-  
-  const realX = Math.min(displayShape.x, displayShape.x + displayShape.width);
-  const realY = Math.min(displayShape.y, displayShape.y + displayShape.height);
-  const realWidth = Math.abs(displayShape.width);
-  const realHeight = Math.abs(displayShape.height);
-  
-  const selectionPadding = 5;
-  const anchorSize = 10;
-  const halfAnchor = anchorSize / 2;
-  
-  const x = realX - selectionPadding;
-  const y = realY - selectionPadding;
-  const width = realWidth + selectionPadding * 2;
-  const height = realHeight + selectionPadding * 2;
-  
-  const anchors = [
-    { 
-      name: 'anchor-top-left', 
-      x: realX, 
-      y: realY 
-    },
-    { 
-      name: 'anchor-top-right', 
-      x: realX + realWidth, 
-      y: realY 
-    },
-    { 
-      name: 'anchor-bottom-left', 
-      x: realX, 
-      y: realY + realHeight 
-    },
-    { 
-      name: 'anchor-bottom-right', 
-      x: realX + realWidth, 
-      y: realY + realHeight 
+    if (!selectedId || tool !== 'select' || drawingState.isDrawing) return null;
+    
+    const shape = shapes.find(s => s.id === selectedId);
+    if (!shape) return null;
+    
+    if ((shape.type === 'path' || shape.type === 'highlighter') && (!shape.points || shape.points.length === 0)) return null;
+    
+    let displayShape = { ...shape };
+    
+    if ((shape.type === 'path' || shape.type === 'line' || shape.type === 'highlighter') && shape.points && shape.points.length > 0) {
+      const bbox = calculateBoundingBox(shape.points);
+      displayShape = { ...shape, x: bbox.x, y: bbox.y, width: bbox.width, height: bbox.height };
     }
-  ];
-  
-  return (
-    <>
-      <Rect
-        name="selection-rect"
-        x={x}
-        y={y}
-        width={width}
-        height={height}
-        stroke="#007bff"
-        strokeWidth={1}
-        dash={[5, 5]}
-        listening={false}
-      />
-      
-      {anchors.map(anchor => (
+    
+    const realX = Math.min(displayShape.x, displayShape.x + displayShape.width);
+    const realY = Math.min(displayShape.y, displayShape.y + displayShape.height);
+    const realWidth = Math.abs(displayShape.width);
+    const realHeight = Math.abs(displayShape.height);
+    
+    const selectionPadding = 5;
+    const anchorSize = 10;
+    const halfAnchor = anchorSize / 2;
+    
+    const x = realX - selectionPadding;
+    const y = realY - selectionPadding;
+    const width = realWidth + selectionPadding * 2;
+    const height = realHeight + selectionPadding * 2;
+    
+    const anchors = [
+      { 
+        name: 'anchor-top-left', 
+        x: realX, 
+        y: realY 
+      },
+      { 
+        name: 'anchor-top-right', 
+        x: realX + realWidth, 
+        y: realY 
+      },
+      { 
+        name: 'anchor-bottom-left', 
+        x: realX, 
+        y: realY + realHeight 
+      },
+      { 
+        name: 'anchor-bottom-right', 
+        x: realX + realWidth, 
+        y: realY + realHeight 
+      }
+    ];
+    
+    return (
+      <>
         <Rect
-          key={anchor.name}
-          name={anchor.name}
-          shapeId={displayShape.id}
-          x={anchor.x - halfAnchor}
-          y={anchor.y - halfAnchor}
-          width={anchorSize}
-          height={anchorSize}
-          fill="#ffffff"
+          name="selection-rect"
+          x={x}
+          y={y}
+          width={width}
+          height={height}
           stroke="#007bff"
-          strokeWidth={2}
+          strokeWidth={1}
+          dash={[5, 5]}
+          listening={false}
         />
-      ))}
-    </>
-  );
-};
-
+        
+        {anchors.map(anchor => (
+          <Rect
+            key={anchor.name}
+            name={anchor.name}
+            shapeId={displayShape.id}
+            x={anchor.x - halfAnchor}
+            y={anchor.y - halfAnchor}
+            width={anchorSize}
+            height={anchorSize}
+            fill="#ffffff"
+            stroke="#007bff"
+            strokeWidth={2}
+          />
+        ))}
+      </>
+    );
+  };
 
   const renderTextInput = () => {
     if (!editingTextId) return null;
@@ -741,7 +756,6 @@ const DrawingApp: React.FC = () => {
   const renderTextToolbar = () => {
     if (tool !== 'select' || !selectedId || editingTextId) return null;
 
-    // At this point selectedId is guaranteed to be a string
     const currentSelectedId = selectedId;
 
     const selectedShape = shapes.find(s => s.id === currentSelectedId);
@@ -779,8 +793,6 @@ const DrawingApp: React.FC = () => {
     const textCenterX = x + (realWidth * scale) / 2;
     let left = textCenterX - panelWidth / 2;
 
-    // Remove viewport constraints to allow toolbar to follow text containers anywhere
-    
     if (selectedShape.type === 'latex') {
       return (
         <LatexToolbar
@@ -935,6 +947,11 @@ const DrawingApp: React.FC = () => {
       saveToHistory(shapes);
     }
   };
+
+  // Если компонент еще не инициализирован, показываем пустой контейнер
+  if (!isInitialized) {
+    return <div className="drawing-app-container">Loading...</div>;
+  }
 
   return (
     <div className="drawing-app-container">
