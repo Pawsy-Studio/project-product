@@ -61,6 +61,27 @@ const DrawingApp: React.FC = () => {
     }
   }, []);
 
+  // Адаптивное масштабирование приложения
+  useEffect(() => {
+    const updateScale = () => {
+      const baseWidth = 1920;
+      const baseHeight = 500; // approximate app height
+      const marginTop = 30;
+      const marginBottom = 50;
+      const marginLeft = 50;
+      const marginRight = 50;
+      const currentWidth = window.innerWidth - marginLeft - marginRight;
+      const currentHeight = window.innerHeight - marginTop - marginBottom;
+      const scale = Math.min(currentWidth / baseWidth, currentHeight / baseHeight) * 0.95 * 2;
+      document.documentElement.style.setProperty('--scale', scale.toString());
+    };
+
+    updateScale();
+    window.addEventListener('resize', updateScale);
+
+    return () => window.removeEventListener('resize', updateScale);
+  }, []);
+
   const [tool, setTool] = useState<ToolMode>('select');
   const [shapes, setShapes] = useState<Shape[]>([]);
   const [canvasConfig, setCanvasConfig] = useState<any>({});
