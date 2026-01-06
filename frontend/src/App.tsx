@@ -65,11 +65,11 @@ const DrawingApp: React.FC = () => {
   useEffect(() => {
     const updateScale = () => {
       const baseWidth = 1920;
-      const baseHeight = 500; // approximate app height
-      const marginTop = 30;
-      const marginBottom = 50;
-      const marginLeft = 50;
-      const marginRight = 50;
+      const baseHeight = 1080; // approximate app height for HD screen
+      const marginTop = 0;
+      const marginBottom = 30;
+      const marginLeft = 30;
+      const marginRight = 30;
       const currentWidth = window.innerWidth - marginLeft - marginRight;
       const currentHeight = window.innerHeight - marginTop - marginBottom;
       const scale = Math.min(currentWidth / baseWidth, currentHeight / baseHeight) * 0.95 * 2;

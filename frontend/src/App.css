@@ -14,7 +14,7 @@ body {
   gap: 8px;
   padding: 0;
   position: absolute;
-  top: calc(50vh - 10px);
+  top: calc(50vh - 15px);
   left: 50vw;
   transform: translate(-50%, -50%) scale(var(--scale));
   transform-origin: center;
