@@ -84,13 +84,20 @@ TEMPLATES = [
 
 REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    'DEFAULT_PARSER_CLASSES': [
+        'rest_framework.parsers.JSONParser',
+        'rest_framework.parsers.FormParser',
+        'rest_framework.parsers.MultiPartParser',  # Для загрузки изображений
+    ],
 }
+
 
 SPECTACULAR_SETTINGS = {
     'TITLE': 'Freedraw Widget API',
-    'DESCRIPTION': 'API for collaborative drawing widget',
+    'DESCRIPTION': 'API for collaborative drawing widget with LaTeX OCR',
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
+    'COMPONENT_SPLIT_REQUEST': True,  # Для правильного отображения multipart/form-data
 }
 
 
@@ -127,6 +134,16 @@ CORS_ALLOWED_ORIGINS = [
     "ws://localhost:5173",
     "ws://127.0.0.1:5173",
 ]
+
+# Настройки для OCR
+TESSERACT_CMD = os.environ.get('TESSERACT_CMD', '/usr/bin/tesseract')
+TESSDATA_PREFIX = os.environ.get('TESSDATA_PREFIX', '/usr/share/tesseract-ocr/5/tessdata')
+
+# Разрешенные типы файлов для загрузки
+ALLOWED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/bmp', 'image/webp']
+
+# Максимальный размер загружаемого изображения (10MB)
+MAX_UPLOAD_SIZE = 10 * 1024 * 1024
 
 
 # Password validation

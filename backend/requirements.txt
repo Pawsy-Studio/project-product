@@ -6,3 +6,8 @@ psycopg2-binary==2.9.9
 dj-database-url==2.1.0
 daphne
 drf_spectacular
+Pillow==10.3.0
+pytesseract==0.3.10
+numpy==1.26.4
+opencv-python-headless==4.9.0.80
+python-multipart==0.0.9
