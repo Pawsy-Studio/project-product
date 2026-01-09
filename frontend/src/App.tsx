@@ -34,7 +34,7 @@ import type { CanvasData } from './hooks/useWebSocket';
 import { updateCanvasData, clearCanvas, undoAction } from './services/api';
 
 import { hexToRgba } from './utils/colorUtils';
-import { calculateBoundingBox } from './utils/shapeUtils';
+import { calculateBoundingBox, isRectInside } from './utils/shapeUtils';
 import { renderLatexToHtml, measureLatexSize } from './utils/latexUtils';
 import { getWidgetContext } from './services/widgetBridge';
 
@@ -43,6 +43,14 @@ const DrawingApp: React.FC = () => {
   const [boardId, setBoardId] = useState<string>('');
   const [widgetId, setWidgetId] = useState<number | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
+
+  // OCR Selection state
+  const [ocrSelection, setOcrSelection] = useState<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null>(null);
 
   // Инициализация виджета
   useEffect(() => {
@@ -53,9 +61,7 @@ const DrawingApp: React.FC = () => {
       setWidgetId(widgetContext.widgetId);
       setIsInitialized(true);
     } catch (error) {
-      // Если виджет еще не инициализирован, работаем в автономном режиме
       setIsInitialized(true);
-      // Используем временные значения или null
       setBoardId('temp-' + Date.now());
       setWidgetId(-1);
     }
@@ -65,7 +71,7 @@ const DrawingApp: React.FC = () => {
   useEffect(() => {
     const updateScale = () => {
       const baseWidth = 1920;
-      const baseHeight = 1080; // approximate app height for HD screen
+      const baseHeight = 1080;
       const marginTop = 0;
       const marginBottom = 30;
       const marginLeft = 30;
@@ -111,16 +117,13 @@ const DrawingApp: React.FC = () => {
     setCanvasHistory(data.history || []);
   }, []);
 
-  // Используем WebSocket только если boardId валиден
   const { sendShapesUpdate, sendClear, sendUndo } = useWebSocket(
     boardId,
     onCanvasUpdate,
     crypto.randomUUID()
   );
 
-  // Function to send canvas data update to backend
   const sendCanvasDataToBackend = useCallback(async (shapesToSend: Shape[]) => {
-    // Отправляем данные только если виджет инициализирован
     if (widgetId && widgetId > 0) {
       try {
         await updateCanvasData(boardId, {
@@ -141,11 +144,23 @@ const DrawingApp: React.FC = () => {
     handleRedo
   } = useHistory(shapes, sendCanvasDataToBackend);
 
+  // Очищаем OCR выделение при смене инструмента
+  useEffect(() => {
+    if (tool !== 'ocr-selection') {
+      setOcrSelection(null);
+      // Удаляем все OCR границы с холста
+      const newShapes = shapes.filter(shape => !shape.id.startsWith('ocr_border_'));
+      if (newShapes.length !== shapes.length) {
+        setShapes(newShapes);
+        saveToHistory(newShapes);
+      }
+    }
+  }, [tool, shapes, saveToHistory]);
+
   const onUndo = async () => {
     const newShapes = handleUndo();
     if (newShapes) {
       setShapes(newShapes);
-      // Send undo command to backend only if initialized
       if (widgetId && widgetId > 0) {
         await undoAction(boardId);
         sendUndo();
@@ -186,7 +201,16 @@ const DrawingApp: React.FC = () => {
     updateTextInRealTime
   );
 
+  const clearOcrBorders = useCallback(() => {
+    const newShapes = shapes.filter(shape => !shape.id.startsWith('ocr_border_'));
+    if (newShapes.length !== shapes.length) {
+      setShapes(newShapes);
+      saveToHistory(newShapes);
+    }
+  }, [shapes, setShapes, saveToHistory]);
+
   const drawingHandlers = useDrawingHandlers(
+    drawingState,
     shapes,
     setShapes,
     saveToHistory,
@@ -201,7 +225,10 @@ const DrawingApp: React.FC = () => {
     setDrawingState,
     setTransformState,
     startTextEditing,
-    scale
+    scale,
+    ocrSelection,
+    setOcrSelection,
+    clearOcrBorders
   );
 
   const [showLatexMenu, setShowLatexMenu] = useState(false);
@@ -211,6 +238,106 @@ const DrawingApp: React.FC = () => {
   const [showLatexPreview, setShowLatexPreview] = useState(true);
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+
+  // OCR функция для отправки выделенной области
+  const handleOcrRecognize = useCallback(async () => {
+    if (!ocrSelection || !stageRef.current) {
+      console.error('No OCR selection or stage reference');
+      return;
+    }
+
+    try {
+      // Получаем данные canvas в виде изображения
+      const stage = stageRef.current;
+      const dataURL = stage.toDataURL({
+        x: ocrSelection.x * scale,
+        y: ocrSelection.y * scale,
+        width: ocrSelection.width * scale,
+        height: ocrSelection.height * scale
+      });
+
+      // Отправляем на сервер
+      const response = await fetch('http://localhost:8000/api/ocr/latex/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ image_data: dataURL }),
+      });
+
+      const result = await response.json();
+
+      if (result.success && result.latex) {
+        // Удаляем все объекты в выделенной области
+        const newShapes = shapes.filter(shape => {
+          const shapeRect = {
+            x: shape.x,
+            y: shape.y,
+            width: shape.width,
+            height: shape.height
+          };
+          return !isRectInside(ocrSelection, shapeRect);
+        });
+
+        // Создаем новую LaTeX формулу
+        const latexFormula = result.latex;
+        const latexSize = measureLatexSize(latexFormula, fontSize);
+        
+        const newLatexShape: Shape = {
+          id: `latex_${Date.now()}`,
+          type: 'latex',
+          x: ocrSelection.x,
+          y: ocrSelection.y,
+          width: latexSize.width,
+          height: latexSize.height,
+          stroke: strokeColor,
+          strokeWidth: 1,
+          latex: latexFormula,
+          latexRendered: renderLatexToHtml(latexFormula, fontSize),
+          fontSize: fontSize,
+          fontFamily: 'KaTeX_Main',
+          textAlign: 'left',
+          fontWeight: 'normal',
+          fontStyle: 'normal',
+          textDecoration: 'none',
+          isSelected: false,
+          isEditing: false,
+          isLatex: true,
+          scaleX: 1,
+          scaleY: 1,
+          rotation: 0
+        };
+
+        // Добавляем новую формулу и обновляем состояние
+        const updatedShapes = [...newShapes, newLatexShape];
+        setShapes(updatedShapes);
+        saveToHistory(updatedShapes);
+        
+        // Очищаем выделение
+        setOcrSelection(null);
+        setTool('select');
+        
+        // Отправляем на бэкенд
+        sendCanvasDataToBackend(updatedShapes);
+        
+        console.log('OCR успешно распознано:', result);
+      } else {
+        console.error('OCR распознавание не удалось:', result.error);
+        alert('Не удалось распознать формулу. Попробуйте снова.');
+      }
+    } catch (error) {
+      console.error('Ошибка при OCR распознавании:', error);
+      alert('Ошибка при отправке изображения на сервер.');
+    }
+  }, [ocrSelection, shapes, fontSize, strokeColor, scale, saveToHistory, sendCanvasDataToBackend]);
+
+  const handleOcrSelect = useCallback(() => {
+    if (editingTextId) {
+      finishTextEditing();
+    }
+    setOcrSelection(null);
+    setTool('ocr-selection');
+  }, [editingTextId, finishTextEditing]);
 
   // Global mouse event handlers for panning
   useEffect(() => {
@@ -241,7 +368,6 @@ const DrawingApp: React.FC = () => {
     };
   }, [isPanning, panStart]);
 
-  // Zoom functions
   const zoomIn = useCallback(() => {
     const maxScale = Math.pow(1.2, 2);
     setScale(prevScale => Math.min(prevScale * 1.2, maxScale));
@@ -252,7 +378,6 @@ const DrawingApp: React.FC = () => {
     setScale(prevScale => Math.max(prevScale / 1.2, minScale));
   }, []);
 
-  // Handle wheel zoom
   const handleWheel = useCallback((e: WheelEvent) => {
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
@@ -264,7 +389,6 @@ const DrawingApp: React.FC = () => {
     }
   }, [zoomIn, zoomOut]);
 
-  // Apply scale to Stage
   useEffect(() => {
     const stage = stageRef.current;
     if (!stage) return;
@@ -273,7 +397,6 @@ const DrawingApp: React.FC = () => {
     stage.batchDraw();
   }, [scale]);
 
-  // Handle wheel zoom
   useEffect(() => {
     const container = stageRef.current?.container();
     if (!container) return;
@@ -302,7 +425,7 @@ const DrawingApp: React.FC = () => {
     selectedId,
     editingTextId,
     handleDeleteShape,
-    handleUndo,
+    onUndo,
     finishTextEditing,
     changeFontSizeWithStep,
     toggleTextStyle,
@@ -316,9 +439,9 @@ const DrawingApp: React.FC = () => {
     setSelectedId(null);
     setEditingTextId(null);
     setTempText('');
+    setOcrSelection(null);
     saveToHistory([]);
     
-    // Send clear command to backend only if initialized
     if (widgetId && widgetId > 0) {
       await clearCanvas(boardId);
       sendClear();
@@ -409,6 +532,23 @@ const DrawingApp: React.FC = () => {
       }
     }
 
+    // Добавляем OCR выделение как временную фигуру
+    if (ocrSelection) {
+      allShapes.push({
+        id: 'ocr-selection',
+        type: 'rectangle',
+        x: ocrSelection.x,
+        y: ocrSelection.y,
+        width: ocrSelection.width,
+        height: ocrSelection.height,
+        stroke: '#007bff',
+        strokeWidth: 2,
+        dash: [5, 5],
+        fill: 'transparent',
+        opacity: 1
+      } as Shape);
+    }
+
     return allShapes.map((shape) => {
       const shapeOpacity = shape.opacity !== undefined ? shape.opacity : 1;
       const strokeColorWithOpacity = hexToRgba(shape.stroke, shapeOpacity);
@@ -418,14 +558,14 @@ const DrawingApp: React.FC = () => {
         id: shape.id,
         stroke: shape.type === 'text' || shape.type === 'latex' ? undefined : strokeColorWithOpacity,
         strokeWidth: shape.type === 'text' || shape.type === 'latex' ? undefined : shape.strokeWidth,
-        fill: shape.type === 'text' || shape.type === 'latex' ? shape.stroke : undefined,
+        fill: shape.type === 'text' || shape.type === 'latex' ? shape.stroke : shape.fill,
       };
       
       switch (shape.type) {
         case 'rectangle':
           const rectX = shape.width >= 0 ? shape.x : shape.x + shape.width;
           const rectY = shape.height >= 0 ? shape.y : shape.y + shape.height;
-          
+
           return (
             <Rect
               {...commonProps}
@@ -433,6 +573,7 @@ const DrawingApp: React.FC = () => {
               y={rectY}
               width={Math.abs(shape.width)}
               height={Math.abs(shape.height)}
+              dash={shape.dash}
             />
           );
         
@@ -866,7 +1007,6 @@ const DrawingApp: React.FC = () => {
   const canvasContainerRef = useRef<HTMLDivElement>(null);
 
   const handleMouseDown = (e: any) => {
-    // Handle middle mouse button for panning
     if (e.evt.button === 1) {
       e.evt.preventDefault();
       setIsPanning(true);
@@ -878,7 +1018,6 @@ const DrawingApp: React.FC = () => {
   };
 
   const handleMouseMove = (e: any) => {
-    // Panning is handled globally, so we don't need to do anything here when panning
     if (isPanning) {
       return;
     }
@@ -887,7 +1026,6 @@ const DrawingApp: React.FC = () => {
   };
 
   const handleMouseUp = () => {
-    // Reset panning state
     if (isPanning) {
       setIsPanning(false);
     }
@@ -903,6 +1041,45 @@ const DrawingApp: React.FC = () => {
         drawingHandlers.setErasedShapes(new Set());
         drawingHandlers.setEraserHistoryStart(null);
         
+        resetDrawingState();
+        return;
+      }
+      
+      if (tool === 'ocr-selection') {
+        // Для OCR выделения сохраняем область и добавляем постоянную рамку
+        const { x = 0, y = 0, width = 0, height = 0 } = drawingState.currentShape;
+
+        const normalizedX = width >= 0 ? x : x + width;
+        const normalizedY = height >= 0 ? y : y + height;
+        const normalizedWidth = Math.abs(width);
+        const normalizedHeight = Math.abs(height);
+
+        setOcrSelection({
+          x: normalizedX,
+          y: normalizedY,
+          width: normalizedWidth,
+          height: normalizedHeight
+        });
+
+        // Добавляем постоянную рамку выделения на холст
+        const selectionBorder: Shape = {
+          id: `ocr_border_${Date.now()}`,
+          type: 'rectangle',
+          x: normalizedX,
+          y: normalizedY,
+          width: normalizedWidth,
+          height: normalizedHeight,
+          stroke: '#007bff',
+          strokeWidth: 2,
+          dash: [5, 5],
+          fill: 'transparent',
+          opacity: 1
+        };
+
+        const newShapes = [...shapes, selectionBorder];
+        setShapes(newShapes);
+        saveToHistory(newShapes);
+
         resetDrawingState();
         return;
       }
@@ -942,7 +1119,6 @@ const DrawingApp: React.FC = () => {
                drawingState.currentShape.width !== 0 &&
                drawingState.currentShape.height !== 0) {
 
-        // Shape is already normalized in handleMouseMove, just constrain to canvas
         const constrained = drawingHandlers.constrainToCanvas(newShape.x, newShape.y, newShape.width, newShape.height);
         newShape.x = constrained.x;
         newShape.y = constrained.y;
@@ -969,7 +1145,6 @@ const DrawingApp: React.FC = () => {
     }
   };
 
-  // Если компонент еще не инициализирован, показываем пустой контейнер
   if (!isInitialized) {
     return <div className="drawing-app-container">Loading...</div>;
   }
@@ -1009,7 +1184,14 @@ const DrawingApp: React.FC = () => {
             handleDeleteShape={handleDeleteShape}
             selectedId={selectedId || ''}
           />
-          <OCRToolbar />
+          <OCRToolbar 
+            onOcrSelect={handleOcrSelect}
+            onOcrRecognize={handleOcrRecognize}
+            tool={tool}
+            ocrSelection={ocrSelection}
+            editingTextId={editingTextId}
+            finishTextEditing={finishTextEditing}
+          />
         </div>
       </div>
       <div className="canvas-container" ref={canvasContainerRef} style={{ cursor: isPanning ? 'grabbing' : 'default' }}>

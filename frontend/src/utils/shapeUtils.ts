@@ -127,3 +127,25 @@ export const isPointInShape = (shape: Shape, point: { x: number, y: number }): b
   
   return false;
 };
+
+export const isRectInside = (
+  outer: { x: number; y: number; width: number; height: number },
+  inner: { x: number; y: number; width: number; height: number }
+): boolean => {
+  const outerX = outer.width >= 0 ? outer.x : outer.x + outer.width;
+  const outerY = outer.height >= 0 ? outer.y : outer.y + outer.height;
+  const outerWidth = Math.abs(outer.width);
+  const outerHeight = Math.abs(outer.height);
+  
+  const innerX = inner.width >= 0 ? inner.x : inner.x + inner.width;
+  const innerY = inner.height >= 0 ? inner.y : inner.y + inner.height;
+  const innerWidth = Math.abs(inner.width);
+  const innerHeight = Math.abs(inner.height);
+  
+  return (
+    innerX >= outerX &&
+    innerY >= outerY &&
+    innerX + innerWidth <= outerX + outerWidth &&
+    innerY + innerHeight <= outerY + outerHeight
+  );
+};

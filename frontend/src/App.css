@@ -255,8 +255,12 @@ body {
   background-image: url('../public/icon-select-hover.png');
 }
 
+.drawing-tool-btn-primary.tool-ocr,
+.tool-ocr.active {
+  background-image: url('../public/icon-select-active.png');
+}
+
 .tool-ocr:active {
-  transition: none;
   background-image: url('../public/icon-select-active.png');
 }
 

@@ -4,6 +4,7 @@ import { calculateBoundingBox, isPointInShape, transformPoints } from '../utils/
 import { measureLatexSize, renderLatexToHtml } from '../utils/latexUtils';
 
 export const useDrawingHandlers = (
+  drawingState: DrawingState,
   shapes: Shape[],
   setShapes: React.Dispatch<React.SetStateAction<Shape[]>>,
   saveToHistory: (shapes: Shape[]) => void,
@@ -18,7 +19,10 @@ export const useDrawingHandlers = (
   setDrawingState: React.Dispatch<React.SetStateAction<DrawingState>>,
   setTransformState: React.Dispatch<React.SetStateAction<TransformState>>,
   startTextEditing: (id: string) => void,
-  scale: number
+  scale: number,
+  ocrSelection: any,
+  setOcrSelection: React.Dispatch<React.SetStateAction<any>>,
+  clearOcrBorders: () => void
 ) => {
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
@@ -27,22 +31,18 @@ export const useDrawingHandlers = (
   const [erasedShapes, setErasedShapes] = useState<Set<string>>(new Set());
   const [eraserHistoryStart, setEraserHistoryStart] = useState<Shape[] | null>(null);
 
-  // Функция для ограничения фигур в пределах канваса
   const constrainToCanvas = useCallback((x: number, y: number, width: number, height: number) => {
     const canvasWidth = 6000;
     const canvasHeight = 2500;
 
-    // Если размеры отрицательные, нормализуем их
     const realX = width >= 0 ? x : x + width;
     const realY = height >= 0 ? y : y + height;
     const realWidth = Math.abs(width);
     const realHeight = Math.abs(height);
 
-    // Ограничиваем координаты, чтобы фигура полностью помещалась в канвас
     const constrainedRealX = Math.max(0, Math.min(realX, canvasWidth - realWidth));
     const constrainedRealY = Math.max(0, Math.min(realY, canvasHeight - realHeight));
 
-    // Восстанавливаем исходные координаты с учетом знаков ширины/высоты
     let finalX = constrainedRealX;
     let finalY = constrainedRealY;
     let finalWidth = width;
@@ -60,8 +60,6 @@ export const useDrawingHandlers = (
   }, []);
 
   const handleMouseDown = useCallback((e: any) => {
-    // Middle mouse button is handled in App.tsx for panning
-
     const stage = e.target.getStage();
     const pos = stage.getPointerPosition();
     const container = stage.container();
@@ -110,6 +108,31 @@ export const useDrawingHandlers = (
       if (tool === 'select') {
         setSelectedId(null);
         setShapes(shapes.map(shape => ({ ...shape, isSelected: false, isEditing: false })));
+      }
+      
+      if (tool === 'ocr-selection') {
+        // Очищаем предыдущие OCR границы с холста
+        clearOcrBorders();
+        setOcrSelection(null);
+
+        setDrawingState({
+          isDrawing: true,
+          startX: adjustedX,
+          startY: adjustedY,
+          currentShape: {
+            id: `ocr_${Date.now()}`,
+            type: 'rectangle',
+            x: adjustedX,
+            y: adjustedY,
+            width: 0,
+            height: 0,
+            stroke: '#007bff',
+            strokeWidth: 2,
+            dash: [5, 5],
+            opacity: 1
+          }
+        });
+        return;
       }
       
       if (tool === 'text' || tool === 'latex') {
@@ -178,7 +201,6 @@ export const useDrawingHandlers = (
           };
         }
 
-        // Constrain LaTeX shapes to canvas bounds
         if (isLatex) {
           const constrained = constrainToCanvas(newTextShape.x, newTextShape.y, newTextShape.width, newTextShape.height);
           newTextShape.x = constrained.x;
@@ -342,7 +364,8 @@ export const useDrawingHandlers = (
     }
   }, [
     shapes, setShapes, tool, strokeColor, strokeWidth, fontSize, fontFamily, textAlign,
-    selectedId, setSelectedId, setDrawingState, setTransformState, startTextEditing, scale, constrainToCanvas
+    selectedId, setSelectedId, setDrawingState, setTransformState, startTextEditing, scale,
+    ocrSelection, setOcrSelection, constrainToCanvas, clearOcrBorders
   ]);
 
   const handleMouseMove = useCallback((
@@ -361,7 +384,42 @@ export const useDrawingHandlers = (
     if (drawingState.isDrawing && drawingState.currentShape) {
       const { startX, startY, currentShape } = drawingState;
       
-      if (tool === 'pencil' || tool === 'eraser' || tool === 'highlighter') {
+      if (tool === 'ocr-selection') {
+        let width = adjustedPos.x - startX;
+        let height = adjustedPos.y - startY;
+
+        if (shiftPressed) {
+          const size = Math.max(Math.abs(width), Math.abs(height));
+          width = Math.sign(width) * size;
+          height = Math.sign(height) * size;
+        }
+
+        let normalizedX = startX;
+        let normalizedY = startY;
+        let normalizedWidth = width;
+        let normalizedHeight = height;
+
+        if (width < 0) {
+          normalizedX = startX + width;
+          normalizedWidth = Math.abs(width);
+        }
+
+        if (height < 0) {
+          normalizedY = startY + height;
+          normalizedHeight = Math.abs(height);
+        }
+
+        let updatedShape = {
+          ...currentShape,
+          x: normalizedX,
+          y: normalizedY,
+          width: normalizedWidth,
+          height: normalizedHeight
+        };
+
+        setDrawingState(prev => ({ ...prev, currentShape: updatedShape }));
+      }
+      else if (tool === 'pencil' || tool === 'eraser' || tool === 'highlighter') {
         const updatedShape = {
           ...currentShape,
           points: [...(currentShape.points || []), adjustedPos.x, adjustedPos.y]
@@ -400,7 +458,6 @@ export const useDrawingHandlers = (
           height = Math.sign(height) * size;
         }
 
-        // Normalize so x,y is always top-left corner, width,height always positive
         let normalizedX = startX;
         let normalizedY = startY;
         let normalizedWidth = width;
@@ -463,7 +520,6 @@ export const useDrawingHandlers = (
           break;
       }
 
-      // Нормализация зеркальной трансформации
       let finalX = newX;
       let finalY = newY;
       let finalW = newWidth;
@@ -479,13 +535,11 @@ export const useDrawingHandlers = (
         finalH = Math.abs(finalH);
       }
 
-      // Сохраняем пропорции при зажатом Shift
       if (shiftPressed) {
         const size = Math.max(Math.abs(finalW), Math.abs(finalH));
         finalW = Math.sign(finalW) * size;
         finalH = Math.sign(finalH) * size;
         
-        // Корректируем координаты для сохранения позиции якоря
         switch (anchor) {
           case 'top-left':
             finalX = newX + (newWidth - finalW);
@@ -497,11 +551,9 @@ export const useDrawingHandlers = (
           case 'bottom-left':
             finalX = newX + (newWidth - finalW);
             break;
-          // bottom-right не требует корректировки
         }
       }
 
-      // Применяем ограничения канваса
       const constrained = constrainToCanvas(finalX, finalY, finalW, finalH);
       finalX = constrained.x;
       finalY = constrained.y;
@@ -557,7 +609,6 @@ export const useDrawingHandlers = (
           const newX = selectedShapeStart.x + deltaX;
           const newY = selectedShapeStart.y + deltaY;
           
-          // Используем constrainToCanvas для ограничения при перемещении
           const constrained = constrainToCanvas(newX, newY, s.width, s.height);
           
           if ((s.type === 'path' || s.type === 'line' || s.type === 'highlighter') && s.points && originalPointsOnDragStart.length > 0) {

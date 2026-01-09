@@ -37,6 +37,31 @@ export const sendCanvasCommand = async (
   }
 };
 
+// OCR функция для отправки изображения
+export const sendOcrImage = async (imageData: string): Promise<ApiResponse> => {
+  try {
+    const url = `${API_BASE_URL}/api/ocr/latex/`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ image_data: imageData }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const result = await response.json();
+    return result;
+  } catch (error) {
+    console.error('OCR API Error:', error);
+    return { success: false, message: error instanceof Error ? error.message : 'Unknown error' };
+  }
+};
+
 // Specific functions for each action
 export const clearCanvas = async (boardId: string): Promise<ApiResponse> => {
   return sendCanvasCommand(boardId, 'clear');

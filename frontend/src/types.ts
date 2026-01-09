@@ -1,5 +1,15 @@
 export type ShapeType = 'rectangle' | 'ellipse' | 'line' | 'path' | 'text' | 'latex' | 'highlighter';
-export type ToolMode = 'select' | 'rectangle' | 'ellipse' | 'line' | 'pencil' | 'eraser' | 'text' | 'latex' | 'highlighter';
+export type ToolMode = 
+  | 'select' 
+  | 'rectangle' 
+  | 'ellipse' 
+  | 'line' 
+  | 'pencil' 
+  | 'eraser' 
+  | 'text' 
+  | 'latex' 
+  | 'highlighter' 
+  | 'ocr-selection';
 export type AnchorType = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | null;
 export type TextAlign = 'left' | 'center' | 'right';
 
@@ -12,6 +22,8 @@ export interface Shape {
   height: number;
   stroke: string;
   strokeWidth: number;
+  fill?: string;
+  dash?: number[];
   points?: number[];
   opacity?: number;
   isSelected?: boolean;
