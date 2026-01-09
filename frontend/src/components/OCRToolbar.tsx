@@ -39,15 +39,6 @@ const OCRToolbar: React.FC<OCRToolbarProps> = ({
             title="Распознать выделенную область"
           >
           </button>
-          <button
-            type="button"
-            className="drawing-tool-btn tool-icon tool-install drawing-tool-btn-danger drawing-tool-btn-small"
-            onClick={() => {
-              console.log("ЭТО ЗАГЛУШКА ДЛЯ OCR")
-            }}
-            title="Установка"
-          >
-          </button>
         </div>
     );
 };
