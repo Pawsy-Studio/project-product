@@ -1,4 +1,4 @@
-version: '3.8'
+#version: '3.8'
 
 services:
   postgres:
@@ -36,6 +36,7 @@ services:
       # OCR переменные
       TESSERACT_CMD: /usr/bin/tesseract
       TESSDATA_PREFIX: /usr/share/tesseract-ocr/5/tessdata
+      OCR_SPACE_API_KEY: ${OCR_SPACE_API_KEY}
     volumes:
       - ./backend:/app
     ports:

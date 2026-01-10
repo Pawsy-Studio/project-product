@@ -2,18 +2,11 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Установка системных зависимостей
+# Установка системных зависимостей (без Tesseract)
 RUN apt-get update && apt-get install -y \
     gcc \
     postgresql-client \
-    tesseract-ocr \
-    tesseract-ocr-eng \
-    tesseract-ocr-rus \
-    libtesseract-dev \
     && rm -rf /var/lib/apt/lists/*
-
-# Проверяем что Tesseract установился
-RUN tesseract --version
 
 # Копируем requirements отдельно для кэширования
 COPY requirements.txt .

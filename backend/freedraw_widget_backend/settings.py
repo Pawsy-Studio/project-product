@@ -135,15 +135,15 @@ CORS_ALLOWED_ORIGINS = [
     "ws://127.0.0.1:5173",
 ]
 
-# Настройки для OCR
-TESSERACT_CMD = os.environ.get('TESSERACT_CMD', '/usr/bin/tesseract')
-TESSDATA_PREFIX = os.environ.get('TESSDATA_PREFIX', '/usr/share/tesseract-ocr/5/tessdata')
+# Настройки для OCR.space API (заменяет Tesseract)
+OCR_SPACE_API_KEY = os.environ.get('OCR_SPACE_API_KEY', '')
 
 # Разрешенные типы файлов для загрузки
 ALLOWED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/bmp', 'image/webp']
 
 # Максимальный размер загружаемого изображения (10MB)
 MAX_UPLOAD_SIZE = 10 * 1024 * 1024
+
 
 
 # Password validation

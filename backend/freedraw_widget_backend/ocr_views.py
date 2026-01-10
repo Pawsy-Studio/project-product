@@ -1,34 +1,76 @@
 """
 Views для обработки OCR запросов
+Обновлено для использования OCR.space API вместо Tesseract
 """
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
-from .ocr_service import latex_ocr_service
+from .ocr_space_service import get_ocr_space_service
+from django.conf import settings
+
 
 class LaTeXOCRView(APIView):
     """
     API endpoint для распознавания LaTeX формул из изображений
+    Использует OCR.space API для более точного распознавания
     """
     parser_classes = (MultiPartParser, FormParser, JSONParser)
-    
+
     def post(self, request, *args, **kwargs):
         """
         Принимает изображение и возвращает распознанную LaTeX формулу
-        
+
         Expected request format:
         - multipart/form-data с полем 'image'
         или
         - JSON с полем 'image_data' (base64 encoded)
+
+        Optional parameters:
+        - language: код языка для распознавания (по умолчанию 'eng')
         """
+        try:
+            # Получаем сервис OCR
+            ocr_service = get_ocr_space_service()
+        except ValueError as e:
+            return Response({
+                'success': False,
+                'error': str(e),
+                'latex': '',
+                'confidence': 0.0
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        # Получаем язык из параметров (по умолчанию английский)
+        language = request.data.get('language', 'eng')
+
         # Проверяем, загружен ли файл
         if 'image' in request.FILES:
             image_file = request.FILES['image']
-            
-            # Обработка файла изображения
-            result = latex_ocr_service.process_image_file(image_file)
-            
+
+            # Проверка размера файла
+            max_size = getattr(settings, 'MAX_UPLOAD_SIZE', 10 * 1024 * 1024)  # 10MB
+            if image_file.size > max_size:
+                return Response({
+                    'success': False,
+                    'error': f'File too large. Maximum size is {max_size / (1024*1024)}MB',
+                    'latex': '',
+                    'confidence': 0.0
+                }, status=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE)
+
+            # Проверка типа файла
+            allowed_types = getattr(settings, 'ALLOWED_IMAGE_TYPES',
+                                   ['image/png', 'image/jpeg', 'image/jpg', 'image/bmp', 'image/webp'])
+            if image_file.content_type not in allowed_types:
+                return Response({
+                    'success': False,
+                    'error': f'Invalid file type. Allowed types: {", ".join(allowed_types)}',
+                    'latex': '',
+                    'confidence': 0.0
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Обработка файла изображения через OCR.space
+            result = ocr_service.process_image_file(image_file, language=language)
+
             if result['success']:
                 return Response({
                     'success': True,
@@ -43,61 +85,57 @@ class LaTeXOCRView(APIView):
                     'latex': '',
                     'confidence': 0.0
                 }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
+
         # Проверяем base64 данные
         elif 'image_data' in request.data:
             import base64
             from io import BytesIO
-            
+            from django.core.files.uploadedfile import InMemoryUploadedFile
+
             try:
                 # Декодируем base64
                 image_data = request.data['image_data']
                 if 'base64,' in image_data:
                     image_data = image_data.split('base64,')[1]
-                
+
                 image_bytes = base64.b64decode(image_data)
-                
-                # Создаем временный файл
-                import tempfile
-                with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as tmp_file:
-                    tmp_file.write(image_bytes)
-                    tmp_path = tmp_file.name
-                
-                # Используем PIL для открытия изображения
-                from PIL import Image
-                import numpy as np
-                
-                pil_image = Image.open(BytesIO(image_bytes))
-                image_array = np.array(pil_image.convert('RGB'))
-                
-                # Предобработка
-                processed_image = latex_ocr_service.preprocess_image(image_array)
-                
-                # Распознавание
-                recognized_text = latex_ocr_service.image_to_text(processed_image)
-                
-                # Конвертация в LaTeX
-                latex_formula = latex_ocr_service.convert_to_latex(recognized_text)
-                
-                # Очистка
-                import os
-                os.unlink(tmp_path)
-                
-                return Response({
-                    'success': True,
-                    'latex': latex_formula,
-                    'confidence': latex_ocr_service.estimate_confidence(recognized_text, latex_formula),
-                    'original_text': recognized_text
-                })
-                
+
+                # Создаем InMemoryUploadedFile для совместимости
+                image_file = InMemoryUploadedFile(
+                    BytesIO(image_bytes),
+                    None,
+                    'upload.png',
+                    'image/png',
+                    len(image_bytes),
+                    None
+                )
+
+                # Обработка через OCR.space
+                result = ocr_service.process_image_file(image_file, language=language)
+
+                if result['success']:
+                    return Response({
+                        'success': True,
+                        'latex': result['latex'],
+                        'confidence': result['confidence'],
+                        'original_text': result['original_text']
+                    })
+                else:
+                    return Response({
+                        'success': False,
+                        'error': result['error'],
+                        'latex': '',
+                        'confidence': 0.0
+                    }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
             except Exception as e:
                 return Response({
                     'success': False,
-                    'error': str(e),
+                    'error': f'Error decoding base64 image: {str(e)}',
                     'latex': '',
                     'confidence': 0.0
-                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
+                }, status=status.HTTP_400_BAD_REQUEST)
+
         else:
             return Response({
                 'success': False,
@@ -112,23 +150,23 @@ class LaTeXValidateView(APIView):
     API endpoint для валидации LaTeX формул
     """
     parser_classes = (JSONParser,)
-    
+
     def post(self, request, *args, **kwargs):
         """
         Валидирует LaTeX формулу и проверяет ее совместимость с KaTeX
         """
         latex_formula = request.data.get('latex', '')
-        
+
         if not latex_formula:
             return Response({
                 'success': False,
                 'error': 'No LaTeX formula provided',
                 'is_valid': False
             }, status=status.HTTP_400_BAD_REQUEST)
-        
+
         # Базовая валидация LaTeX синтаксиса
         validation_result = self.validate_latex(latex_formula)
-        
+
         return Response({
             'success': True,
             'is_valid': validation_result['is_valid'],
@@ -137,54 +175,50 @@ class LaTeXValidateView(APIView):
             'latex': latex_formula,
             'katex_compatible': self.check_katex_compatibility(latex_formula)
         })
-    
+
     def validate_latex(self, latex_formula):
         """
         Базовая валидация синтаксиса LaTeX
         """
+        import re
+
         errors = []
         warnings = []
-        
+
         # Проверка на незакрытые скобки
         bracket_pairs = [
             ('{', '}'),
             ('(', ')'),
             ('[', ']'),
         ]
-        
+
         for open_bracket, close_bracket in bracket_pairs:
             if latex_formula.count(open_bracket) != latex_formula.count(close_bracket):
                 errors.append(f'Непарные скобки: {open_bracket}{close_bracket}')
-        
+
         # Проверка на незавершенные команды
-        import re
-        # Ищем обратный слеш, за которым нет буквы или другой команды
         invalid_commands = re.findall(r'\\(?![a-zA-Z@]|\s|$)', latex_formula)
         if invalid_commands:
             warnings.append('Возможно незавершенные LaTeX команды')
-        
+
         # Проверка на неэкранированные специальные символы
         special_chars = ['&', '%', '$', '#', '_', '{', '}']
         for char in special_chars:
-            # Ищем символы, которые не экранированы обратным слешом
             pattern = r'(?<!\\)' + re.escape(char)
             matches = re.findall(pattern, latex_formula)
-            if matches and char not in ['{', '}', '$']:  # Скобки и $ могут быть парными
+            if matches and char not in ['{', '}', '$']:
                 warnings.append(f'Неэкранированный специальный символ: {char}')
-        
+
         return {
             'is_valid': len(errors) == 0,
             'errors': errors,
             'warnings': warnings
         }
-    
+
     def check_katex_compatibility(self, latex_formula):
         """
         Проверка совместимости с KaTeX
-        
-        Note: Это базовая проверка, так как полная проверка требует запуска KaTeX
         """
-        # KaTeX не поддерживает некоторые пакеты LaTeX
         unsupported_packages = [
             '\\usepackage',
             '\\newcommand',
@@ -192,14 +226,11 @@ class LaTeXValidateView(APIView):
             '\\def',
             '\\newenvironment',
         ]
-        
+
         for package in unsupported_packages:
             if package in latex_formula:
                 return False
-        
-        # KaTeX имеет ограниченную поддержку некоторых команд
-        # Здесь можно добавить более детальную проверку
-        
+
         return True
 
 
@@ -207,7 +238,7 @@ class LaTeXExamplesView(APIView):
     """
     API endpoint для получения примеров LaTeX формул
     """
-    
+
     def get(self, request, *args, **kwargs):
         """
         Возвращает примеры LaTeX формул для тестирования
@@ -248,10 +279,45 @@ class LaTeXExamplesView(APIView):
                 'latex': '$\\alpha, \\beta, \\gamma, \\delta$',
                 'description': 'Греческие буквы в математике'
             },
+            {
+                'name': 'Предел',
+                'latex': '$\\lim_{x \\to \\infty} \\frac{1}{x} = 0$',
+                'description': 'Предел функции'
+            },
         ]
-        
+
         return Response({
             'success': True,
             'examples': examples,
             'count': len(examples)
         })
+
+
+class OCRHealthCheckView(APIView):
+    """
+    API endpoint для проверки работоспособности OCR.space API
+    """
+
+    def get(self, request, *args, **kwargs):
+        """
+        Проверка конфигурации и доступности OCR.space
+        """
+        try:
+            ocr_service = get_ocr_space_service()
+
+            return Response({
+                'success': True,
+                'service': 'OCR.space API',
+                'api_url': ocr_service.api_url,
+                'api_key_configured': bool(ocr_service.api_key),
+                'api_key_prefix': ocr_service.api_key[:8] + '...' if ocr_service.api_key else 'Not set',
+                'max_upload_size_mb': getattr(settings, 'MAX_UPLOAD_SIZE', 10485760) / (1024*1024),
+                'allowed_image_types': getattr(settings, 'ALLOWED_IMAGE_TYPES', [])
+            })
+        except ValueError as e:
+            return Response({
+                'success': False,
+                'error': str(e),
+                'service': 'OCR.space API',
+                'api_key_configured': False
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
