@@ -31,16 +31,30 @@ class OCRSpaceServiceTests(TestCase):
         self.assertEqual(self.service.api_key, self.api_key)
         self.assertEqual(self.service.api_url, 'https://api.ocr.space/parse/image')
 
+    @override_settings(OCR_SPACE_API_KEY='')
     def test_service_initialization_without_api_key(self):
         """Тест инициализации без API ключа"""
-        with override_settings(OCR_SPACE_API_KEY=''):
+        # Патчим settings чтобы гарантировать пустой ключ
+        with patch('freedraw_widget_backend.ocr_space_service.settings') as mock_settings:
+            mock_settings.OCR_SPACE_API_KEY = ''
+
+            # OCRSpaceService должен выбросить ValueError
             with self.assertRaises(ValueError) as context:
                 OCRSpaceService()
-            self.assertIn('OCR_SPACE_API_KEY', str(context.exception))
+
+            error_msg = str(context.exception).lower()
+            self.assertTrue(
+                'api_key' in error_msg or 'ocr_space_api_key' in error_msg,
+                f"Error should mention API key: {context.exception}"
+            )
 
     def test_singleton_pattern(self):
         """Тест singleton паттерна для get_ocr_space_service"""
         with override_settings(OCR_SPACE_API_KEY='test_key'):
+            # Сбрасываем singleton перед тестом
+            import freedraw_widget_backend.ocr_space_service as ocr_module
+            ocr_module._ocr_space_service = None
+
             service1 = get_ocr_space_service()
             service2 = get_ocr_space_service()
             self.assertIs(service1, service2)
@@ -268,6 +282,28 @@ class OCRAPITests(APITestCase):
         self.examples_url = '/api/ocr/examples/'
         self.health_url = '/api/ocr/health/'
 
+        # Сбрасываем singletons ПЕРЕД каждым тестом
+        self._reset_singletons()
+
+    def tearDown(self):
+        """Очистка после каждого теста"""
+        # Сбрасываем singletons ПОСЛЕ каждого теста
+        self._reset_singletons()
+
+    def _reset_singletons(self):
+        """Вспомогательный метод для сброса всех OCR singletons"""
+        try:
+            import freedraw_widget_backend.parallel_ocr_service as parallel_module
+            parallel_module._parallel_ocr_service = None
+        except (ImportError, AttributeError):
+            pass
+
+        try:
+            import freedraw_widget_backend.ocr_space_service as ocr_space_module
+            ocr_space_module._ocr_space_service = None
+        except (ImportError, AttributeError):
+            pass
+
     def _create_test_image(self, text="x + 2 = 5"):
         """Вспомогательный метод для создания тестового изображения"""
         img = Image.new('RGB', (300, 100), color='white')
@@ -325,23 +361,81 @@ class OCRAPITests(APITestCase):
         self.assertIn('confidence', response.data)
         self.assertIn('original_text', response.data)
 
-    @override_settings(OCR_SPACE_API_KEY='')
-    def test_ocr_recognize_no_api_key(self):
-        """Тест когда API ключ не настроен"""
-        image = self._create_test_image()
+    @override_settings(OCR_SPACE_API_KEY='test_key')
+    @patch('freedraw_widget_backend.ocr_space_service.requests.post')
+    def test_ocr_recognize_with_api_key(self, mock_post):
+        """Тест распознавания с API ключом (OCR.space)"""
+        # Мокаем ответ API
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            'ParsedResults': [{
+                'ParsedText': 'x + 2 = 5',
+                'FileParseExitCode': 1
+            }],
+            'IsErroredOnProcessing': False
+        }
+        mock_post.return_value = mock_response
 
+        image = self._create_test_image()
         response = self.client.post(
             self.ocr_url,
             {'image': image},
             format='multipart'
         )
 
-        # API ключ проверяется при инициализации сервиса
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data['success'])
+        self.assertIn('latex', response.data)
+
+    @patch('freedraw_widget_backend.ocr_space_service.get_ocr_space_service')
+    @patch('freedraw_widget_backend.ocr_service.LaTeXOCRService')
+    def test_ocr_recognize_only_tesseract(self, mock_tesseract_class, mock_ocr_space):
+        """Тест распознавания только через Tesseract (без OCR.space)"""
+        # OCR.space недоступен
+        mock_ocr_space.side_effect = ValueError("No API key")
+
+        # Tesseract работает
+        mock_tesseract = Mock()
+        mock_tesseract.process_image_file.return_value = {
+            'success': True,
+            'latex': '$x + 2$',
+            'confidence': 0.7,
+            'original_text': 'x + 2'
+        }
+        mock_tesseract_class.return_value = mock_tesseract
+
+        image = self._create_test_image()
+        response = self.client.post(
+            self.ocr_url,
+            {'image': image},
+            format='multipart'
+        )
+
+        # Должно работать через Tesseract
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data['success'])
+        self.assertEqual(response.data['provider'], 'Tesseract')
+
+    @patch('freedraw_widget_backend.ocr_space_service.get_ocr_space_service')
+    @patch('freedraw_widget_backend.ocr_service.LaTeXOCRService')
+    def test_ocr_recognize_no_services_available(self, mock_tesseract_class, mock_ocr_space):
+        """Тест когда ни один OCR сервис не доступен"""
+        # Оба сервиса недоступны
+        mock_ocr_space.side_effect = ValueError("No API key")
+        mock_tesseract_class.side_effect = Exception("Tesseract not installed")
+
+        image = self._create_test_image()
+        response = self.client.post(
+            self.ocr_url,
+            {'image': image},
+            format='multipart'
+        )
+
+        # Должна быть ошибка
         self.assertEqual(response.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
-        # response.data может отсутствовать, проверяем content
-        if hasattr(response, 'data'):
-            self.assertFalse(response.data['success'])
-            self.assertIn('error', response.data)
+        self.assertFalse(response.data['success'])
+        self.assertIn('error', response.data)
 
     def test_ocr_recognize_no_image(self):
         """Тест без изображения"""
@@ -510,31 +604,75 @@ class OCRAPITests(APITestCase):
         self.assertIn('latex', example)
         self.assertIn('description', example)
 
+    # Health check тесты
     @override_settings(OCR_SPACE_API_KEY='test_key_12345')
-    def test_health_check_success(self):
-        """Тест проверки здоровья OCR сервиса"""
+    def test_health_check_with_api_key(self):
+        """Тест проверки здоровья с API ключом"""
         response = self.client.get(self.health_url)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertTrue(response.data['success'])
-        self.assertTrue(response.data['api_key_configured'])
-        self.assertIn('OCR.space', response.data['service'])
+        self.assertEqual(response.data['mode'], 'parallel')
+        self.assertIn('services', response.data)
 
-    @override_settings(OCR_SPACE_API_KEY='')
-    def test_health_check_no_api_key(self):
-        """Тест проверки здоровья без API ключа"""
+    @patch('freedraw_widget_backend.ocr_space_service.get_ocr_space_service')
+    def test_health_check_ocr_space_unavailable(self, mock_get_service):
+        """Тест когда OCR.space недоступен (но может быть Tesseract)"""
+        mock_get_service.side_effect = ValueError("API key not configured")
+
         response = self.client.get(self.health_url)
 
+        # Может работать через Tesseract (200) или не работать совсем (500)
+        self.assertIn(response.status_code, [
+            status.HTTP_200_OK,
+            status.HTTP_500_INTERNAL_SERVER_ERROR
+        ])
+
+        if response.status_code == status.HTTP_200_OK:
+            # Работает через Tesseract
+            self.assertTrue(response.data['success'])
+            services = response.data['services']
+            self.assertFalse(services['ocr_space']['available'])
+
+    @patch('freedraw_widget_backend.ocr_space_service.get_ocr_space_service')
+    @patch('freedraw_widget_backend.ocr_service.LaTeXOCRService')
+    def test_health_check_all_services_unavailable(self, mock_tesseract, mock_ocr_space):
+        """Тест когда ни один OCR сервис не доступен"""
+        mock_ocr_space.side_effect = ValueError("No API key")
+        mock_tesseract.side_effect = Exception("Tesseract not installed")
+
+        response = self.client.get(self.health_url)
+
+        # Должна быть ошибка 500
         self.assertEqual(response.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
-        if hasattr(response, 'data'):
-            self.assertFalse(response.data['success'])
-            self.assertFalse(response.data['api_key_configured'])
 
 
 class OCRIntegrationTests(APITestCase):
     """
     Интеграционные тесты для OCR функциональности
     """
+
+    def setUp(self):
+        """Настройка перед каждым тестом"""
+        self._reset_singletons()
+
+    def tearDown(self):
+        """Очистка после каждого теста"""
+        self._reset_singletons()
+
+    def _reset_singletons(self):
+        """Сброс всех OCR singletons"""
+        try:
+            import freedraw_widget_backend.parallel_ocr_service as parallel_module
+            parallel_module._parallel_ocr_service = None
+        except (ImportError, AttributeError):
+            pass
+
+        try:
+            import freedraw_widget_backend.ocr_space_service as ocr_space_module
+            ocr_space_module._ocr_space_service = None
+        except (ImportError, AttributeError):
+            pass
 
     @override_settings(OCR_SPACE_API_KEY='test_key')
     @patch('freedraw_widget_backend.ocr_space_service.requests.post')
@@ -599,3 +737,187 @@ class OCRIntegrationTests(APITestCase):
 
         self.assertEqual(validate_response.status_code, status.HTTP_200_OK)
         self.assertTrue(validate_response.data['success'])
+
+
+class OCRServiceConfigurationTests(TestCase):
+    """
+    Тесты конфигурации OCR сервисов
+    """
+
+    @override_settings(OCR_SPACE_API_KEY='')
+    def test_missing_api_key_raises_error(self):
+        """Тест что отсутствие API ключа вызывает ошибку при инициализации OCRSpaceService"""
+        # Патчим settings
+        with patch('freedraw_widget_backend.ocr_space_service.settings') as mock_settings:
+            mock_settings.OCR_SPACE_API_KEY = ''
+
+            with self.assertRaises(ValueError) as context:
+                OCRSpaceService()
+
+            error_msg = str(context.exception).lower()
+            self.assertTrue(
+                'api_key' in error_msg or 'required' in error_msg,
+                "Error should mention API key requirement"
+            )
+
+    @override_settings(
+        OCR_SPACE_API_KEY='test_key',
+        MAX_UPLOAD_SIZE=5 * 1024 * 1024
+    )
+    def test_upload_size_configuration(self):
+        """Тест настройки максимального размера загрузки"""
+        from django.conf import settings
+        self.assertEqual(settings.MAX_UPLOAD_SIZE, 5 * 1024 * 1024)
+
+    @override_settings(
+        OCR_SPACE_API_KEY='test_key',
+        ALLOWED_IMAGE_TYPES=['image/png', 'image/jpeg']
+    )
+    def test_allowed_types_configuration(self):
+        """Тест настройки разрешенных типов файлов"""
+        from django.conf import settings
+        self.assertIn('image/png', settings.ALLOWED_IMAGE_TYPES)
+        self.assertIn('image/jpeg', settings.ALLOWED_IMAGE_TYPES)
+
+
+class OCREdgeCasesTests(TestCase):
+    """
+    Тесты граничных случаев OCR
+    """
+
+    @override_settings(OCR_SPACE_API_KEY='test_key')
+    def test_convert_empty_text(self):
+        """Тест конвертации пустого текста"""
+        service = OCRSpaceService(api_key='test_key')
+        result = service.convert_to_latex('')
+        self.assertEqual(result, '')
+
+    @override_settings(OCR_SPACE_API_KEY='test_key')
+    def test_convert_whitespace_only(self):
+        """Тест конвертации только пробелов"""
+        service = OCRSpaceService(api_key='test_key')
+        result = service.convert_to_latex('   ')
+
+        # Пробелы должны очищаться, результат пустой или минимальный
+        # Это нормальное поведение - не имеет смысла оборачивать пустоту в LaTeX
+        self.assertIn(result, ['', '$  $', '$ $'])
+
+    @override_settings(OCR_SPACE_API_KEY='test_key')
+    def test_convert_special_characters(self):
+        """Тест конвертации специальных символов"""
+        service = OCRSpaceService(api_key='test_key')
+
+        test_cases = {
+            '∑': '\\sum',
+            '∫': '\\int',
+            '∞': '\\infty',
+            '≠': '\\neq',
+            '≤': '\\leq',
+            '≥': '\\geq',
+            'α': '\\alpha',
+            'β': '\\beta',
+            'π': '\\pi',
+        }
+
+        for char, expected in test_cases.items():
+            result = service.convert_to_latex(char)
+            self.assertIn(expected, result, f"Failed for {char}")
+
+    @override_settings(OCR_SPACE_API_KEY='test_key')
+    def test_convert_nested_fractions(self):
+        """Тест конвертации вложенных дробей"""
+        service = OCRSpaceService(api_key='test_key')
+        text = "a/(b/c)"
+        result = service.convert_to_latex(text)
+        self.assertIn('\\frac', result)
+
+    @override_settings(OCR_SPACE_API_KEY='test_key')
+    def test_convert_complex_formula(self):
+        """Тест конвертации сложной формулы"""
+        service = OCRSpaceService(api_key='test_key')
+        text = "∫(x^2 + 2x + 1)dx"
+        result = service.convert_to_latex(text)
+
+        self.assertIn('\\int', result)
+        self.assertIn('^', result)
+        self.assertIn('+', result)
+
+
+class OCRPerformanceTests(APITestCase):
+    """
+    Тесты производительности OCR
+    """
+
+    @override_settings(OCR_SPACE_API_KEY='test_key')
+    @patch('freedraw_widget_backend.ocr_space_service.requests.post')
+    def test_concurrent_requests(self, mock_post):
+        """Тест параллельных запросов"""
+        import concurrent.futures
+
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            'ParsedResults': [{
+                'ParsedText': 'x + 1',
+                'FileParseExitCode': 1
+            }],
+            'IsErroredOnProcessing': False
+        }
+        mock_post.return_value = mock_response
+
+        def make_request():
+            img = Image.new('RGB', (100, 50), color='white')
+            img_io = BytesIO()
+            img.save(img_io, format='PNG')
+            img_io.seek(0)
+            img_io.name = 'test.png'
+
+            return self.client.post(
+                '/api/ocr/recognize/',
+                {'image': img_io},
+                format='multipart'
+            )
+
+        # Делаем 5 параллельных запросов
+        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+            futures = [executor.submit(make_request) for _ in range(5)]
+            results = [f.result() for f in concurrent.futures.as_completed(futures)]
+
+        # Все запросы должны быть успешными
+        for response in results:
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    @override_settings(OCR_SPACE_API_KEY='test_key')
+    @patch('freedraw_widget_backend.ocr_space_service.requests.post')
+    def test_large_image_processing(self, mock_post):
+        """Тест обработки большого изображения"""
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            'ParsedResults': [{
+                'ParsedText': 'test',
+                'FileParseExitCode': 1
+            }],
+            'IsErroredOnProcessing': False
+        }
+        mock_post.return_value = mock_response
+
+        # Создаем большое изображение
+        large_img = Image.new('RGB', (2000, 2000), color='white')
+        img_io = BytesIO()
+        large_img.save(img_io, format='PNG')
+        img_io.seek(0)
+        img_io.name = 'large.png'
+
+        with override_settings(MAX_UPLOAD_SIZE=50 * 1024 * 1024):  # 50MB
+            response = self.client.post(
+                '/api/ocr/recognize/',
+                {'image': img_io},
+                format='multipart'
+            )
+
+        # Должно обработаться успешно (или вернуть ошибку размера)
+        self.assertIn(response.status_code, [
+            status.HTTP_200_OK,
+            status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
+        ])

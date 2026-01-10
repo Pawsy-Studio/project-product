@@ -1,37 +1,57 @@
 #!/bin/bash
 
-# Устанавливаем тестовые переменные окружения
+# Цвета для вывода
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+echo -e "${YELLOW}========================================${NC}"
+echo -e "${YELLOW}  OCR Tests Runner${NC}"
+echo -e "${YELLOW}========================================${NC}"
+
+# Устанавливаем переменные окружения для тестов
 export OCR_SPACE_API_KEY="test_key_for_testing"
 export DJANGO_SETTINGS_MODULE="freedraw_widget_backend.settings"
 
-# В Docker контейнере код всегда находится в /app
-cd /app || exit 1
-
-echo "Current directory: $(pwd)"
-
-# Проверяем аргументы
-if [ "$1" = "coverage" ]; then
-    echo ""
-    echo "========================================="
-    echo "Running tests with coverage"
-    echo "========================================="
-    coverage run --source='freedraw_widget_backend' manage.py test freedraw_widget_backend.OCR_tests
-    coverage report
-    coverage html
-    echo "HTML coverage report generated in htmlcov/"
-elif [ "$1" = "verbose" ]; then
-    echo "========================================="
-    echo "Running tests with verbose"
-    echo "========================================="
-    python manage.py test freedraw_widget_backend.OCR_tests --verbosity=3
+# Проверяем доступность Tesseract
+if command -v tesseract &> /dev/null; then
+    echo -e "${GREEN}✓ Tesseract is available${NC}"
+    TESSERACT_AVAILABLE=true
 else
-    echo "========================================="
-    echo "Running tests"
-    echo "========================================="
-    python manage.py test freedraw_widget_backend.OCR_tests --verbosity=2
+    echo -e "${YELLOW}⚠ Tesseract is not available, some tests will be skipped${NC}"
+    TESSERACT_AVAILABLE=false
 fi
 
-echo ""
-echo "========================================="
-echo "Tests completed!"
-echo "========================================="
+# Запуск тестов с coverage
+echo -e "\n${YELLOW}Running tests with coverage...${NC}"
+
+# Запускаем все тесты OCR
+python manage.py test freedraw_widget_backend.OCR_tests \
+    --verbosity=2 \
+#    --failfast
+
+TEST_EXIT_CODE=$?
+
+# Если тесты прошли, показываем coverage
+if [ $TEST_EXIT_CODE -eq 0 ]; then
+    echo -e "\n${GREEN}✓ All tests passed!${NC}"
+
+    # Запускаем coverage если установлен
+    if command -v coverage &> /dev/null; then
+        echo -e "\n${YELLOW}Generating coverage report...${NC}"
+
+        coverage run --source='.' manage.py test freedraw_widget_backend.OCR_tests --verbosity=0
+        coverage report -m --include="*ocr*.py"
+        coverage html --include="*ocr*.py"
+
+        echo -e "${GREEN}Coverage report generated in htmlcov/index.html${NC}"
+    fi
+else
+    echo -e "\n${RED}✗ Tests failed${NC}"
+    exit 1
+fi
+
+echo -e "\n${YELLOW}========================================${NC}"
+echo -e "${GREEN}Testing complete!${NC}"
+echo -e "${YELLOW}========================================${NC}"

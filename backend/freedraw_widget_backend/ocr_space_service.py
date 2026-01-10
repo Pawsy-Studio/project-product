@@ -2,6 +2,8 @@
 Сервис для распознавания текста через OCR.space API
 Заменяет Tesseract OCR для более качественного распознавания
 """
+import logging
+
 import requests
 import tempfile
 import os
@@ -15,21 +17,24 @@ class OCRSpaceService:
     Документация: https://ocr.space/OCRAPI
     """
 
-    def __init__(self, api_key=None):
+    def __init__(self, api_key: str = None):
         """
-        Инициализация сервиса OCR.space
-
-        Args:
-            api_key: API ключ для OCR.space (если None, берется из settings)
+        Инициализация OCR.space сервиса
         """
-        self.api_key = api_key or getattr(settings, 'K83572423288957', 'K83572423288957')
-        self.api_url = 'https://api.ocr.space/parse/image'
+        # Если ключ не передан, берем из settings
+        if api_key is None:
+            api_key = getattr(settings, 'OCR_SPACE_API_KEY', '')
 
-        if not self.api_key:
+        # ВАЖНО: Проверяем что ключ не пустой
+        if not api_key or not api_key.strip():
             raise ValueError(
-                "OCR_SPACE_API_KEY не настроен. "
-                "Добавьте его в settings.py или переменные окружения"
+                "OCR_SPACE_API_KEY is required. "
+                "Set OCR_SPACE_API_KEY in settings.py or pass api_key parameter"
             )
+
+        self.api_key = api_key.strip()
+        self.api_url = 'https://api.ocr.space/parse/image'
+        self.logger = logging.getLogger(__name__)
 
     def process_image_file(self, image_file, language='eng', detect_orientation=True):
         """
