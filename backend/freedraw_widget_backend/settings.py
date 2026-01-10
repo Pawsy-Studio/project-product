@@ -136,7 +136,7 @@ CORS_ALLOWED_ORIGINS = [
 ]
 
 # Настройки для OCR.space API (заменяет Tesseract)
-OCR_SPACE_API_KEY = os.environ.get('OCR_SPACE_API_KEY', '')
+OCR_SPACE_API_KEY = os.environ.get('K83572423288957', 'K83572423288957')
 
 # Разрешенные типы файлов для загрузки
 ALLOWED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/bmp', 'image/webp']

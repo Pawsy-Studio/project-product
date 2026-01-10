@@ -22,7 +22,7 @@ class OCRSpaceService:
         Args:
             api_key: API ключ для OCR.space (если None, берется из settings)
         """
-        self.api_key = api_key or getattr(settings, 'OCR_SPACE_API_KEY', '')
+        self.api_key = api_key or getattr(settings, 'K83572423288957', 'K83572423288957')
         self.api_url = 'https://api.ocr.space/parse/image'
 
         if not self.api_key:

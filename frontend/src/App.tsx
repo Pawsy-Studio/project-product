@@ -240,96 +240,148 @@ const DrawingApp: React.FC = () => {
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
 
   // OCR функция для отправки выделенной области
-  const handleOcrRecognize = useCallback(async () => {
-    if (!ocrSelection || !stageRef.current) {
-      console.error('No OCR selection or stage reference');
+// OCR функция для отправки выделенной области
+const handleOcrRecognize = useCallback(async () => {
+  if (!ocrSelection || !stageRef.current) {
+    console.error('No OCR selection or stage reference');
+    return;
+  }
+
+  try {
+    // Получаем canvas элемента stage
+    const stage = stageRef.current;
+    
+    // Создаем временный canvas для обработки изображения
+    const tempCanvas = document.createElement('canvas');
+    const tempCtx = tempCanvas.getContext('2d');
+    
+    if (!tempCtx) {
+      console.error('Failed to get canvas context');
       return;
     }
 
-    try {
-      // Получаем данные canvas в виде изображения
-      const stage = stageRef.current;
-      const dataURL = stage.toDataURL({
-        x: ocrSelection.x * scale,
-        y: ocrSelection.y * scale,
-        width: ocrSelection.width * scale,
-        height: ocrSelection.height * scale
-      });
+    // Устанавливаем размеры временного canvas равными размерам выделенной области
+    tempCanvas.width = ocrSelection.width * scale;
+    tempCanvas.height = ocrSelection.height * scale;
 
-      // Отправляем на сервер
-      const response = await fetch('http://localhost:8000/api/ocr/latex/', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ image_data: dataURL }),
-      });
+    // 1. Заливаем белым фоном
+    tempCtx.fillStyle = 'white';
+    tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
 
-      const result = await response.json();
+    // 2. Получаем изображение с оригинального canvas
+    const dataURL = stage.toDataURL({
+      x: ocrSelection.x * scale,
+      y: ocrSelection.y * scale,
+      width: ocrSelection.width * scale,
+      height: ocrSelection.height * scale
+    });
 
-      if (result.success && result.latex) {
-        // Удаляем все объекты в выделенной области
-        const newShapes = shapes.filter(shape => {
-          const shapeRect = {
-            x: shape.x,
-            y: shape.y,
-            width: shape.width,
-            height: shape.height
-          };
-          return !isRectInside(ocrSelection, shapeRect);
-        });
+    // 3. Создаем изображение и рисуем его поверх белого фона
+    const img = new Image();
+    img.src = dataURL;
+    
+    // Ожидаем загрузки изображения
+    await new Promise((resolve, reject) => {
+      img.onload = resolve;
+      img.onerror = reject;
+    });
 
-        // Создаем новую LaTeX формулу
-        const latexFormula = result.latex;
-        const latexSize = measureLatexSize(latexFormula, fontSize);
-        
-        const newLatexShape: Shape = {
-          id: `latex_${Date.now()}`,
-          type: 'latex',
-          x: ocrSelection.x,
-          y: ocrSelection.y,
-          width: latexSize.width,
-          height: latexSize.height,
-          stroke: strokeColor,
-          strokeWidth: 1,
-          latex: latexFormula,
-          latexRendered: renderLatexToHtml(latexFormula, fontSize),
-          fontSize: fontSize,
-          fontFamily: 'KaTeX_Main',
-          textAlign: 'left',
-          fontWeight: 'normal',
-          fontStyle: 'normal',
-          textDecoration: 'none',
-          isSelected: false,
-          isEditing: false,
-          isLatex: true,
-          scaleX: 1,
-          scaleY: 1,
-          rotation: 0
+    // 4. Рисуем оригинальное изображение поверх белого фона
+    tempCtx.drawImage(img, 0, 0);
+
+    // 5. Получаем финальное изображение с белым фоном
+    const finalDataURL = tempCanvas.toDataURL('image/png', 1.0);
+
+    // 6. Отправляем на сервер изображение с белым фоном
+    const response = await fetch('http://localhost:8000/api/ocr/latex/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ image_data: finalDataURL }),
+    });
+
+    const result = await response.json();
+
+    if (result.success && result.latex) {
+      // Удаляем все объекты в выделенной области
+      const newShapes = shapes.filter(shape => {
+        const shapeRect = {
+          x: shape.x,
+          y: shape.y,
+          width: shape.width,
+          height: shape.height
         };
+        return !isRectInside(ocrSelection, shapeRect);
+      });
 
-        // Добавляем новую формулу и обновляем состояние
-        const updatedShapes = [...newShapes, newLatexShape];
-        setShapes(updatedShapes);
-        saveToHistory(updatedShapes);
-        
-        // Очищаем выделение
-        setOcrSelection(null);
-        setTool('select');
-        
-        // Отправляем на бэкенд
-        sendCanvasDataToBackend(updatedShapes);
-        
-        console.log('OCR успешно распознано:', result);
-      } else {
-        console.error('OCR распознавание не удалось:', result.error);
-        alert('Не удалось распознать формулу. Попробуйте снова.');
+      // Создаем новую LaTeX формулу
+      let latexFormula = result.latex.trim();
+      
+      // ОЧИСТКА ЛИШНИХ ЗНАКОВ $ (если OCR сервер добавляет их)
+      // Удаляем обрамляющие $, если они есть
+      if (latexFormula.startsWith('$') && latexFormula.endsWith('$')) {
+        latexFormula = latexFormula.slice(1, -1);
       }
-    } catch (error) {
-      console.error('Ошибка при OCR распознавании:', error);
-      alert('Ошибка при отправке изображения на сервер.');
+      // Также удаляем двойные $$ (display mode)
+      if (latexFormula.startsWith('$$') && latexFormula.endsWith('$$')) {
+        latexFormula = latexFormula.slice(2, -2);
+      }
+      
+      // Удаляем пробелы в начале и конце после удаления $
+      latexFormula = latexFormula.trim();
+      
+      const latexSize = measureLatexSize(latexFormula, fontSize);
+      
+      const newLatexShape: Shape = {
+        id: `latex_${Date.now()}`,
+        type: 'latex',
+        x: ocrSelection.x,
+        y: ocrSelection.y,
+        width: latexSize.width,
+        height: latexSize.height,
+        stroke: strokeColor,
+        strokeWidth: 1,
+        latex: latexFormula,
+        latexRendered: renderLatexToHtml(latexFormula, fontSize),
+        fontSize: fontSize,
+        fontFamily: 'KaTeX_Main',
+        textAlign: 'left',
+        fontWeight: 'normal',
+        fontStyle: 'normal',
+        textDecoration: 'none',
+        isSelected: false,
+        isEditing: false,
+        isLatex: true,
+        scaleX: 1,
+        scaleY: 1,
+        rotation: 0
+      };
+
+      // Добавляем новую формулу и обновляем состояние
+      const updatedShapes = [...newShapes, newLatexShape];
+      setShapes(updatedShapes);
+      saveToHistory(updatedShapes);
+      
+      // Очищаем выделение
+      setOcrSelection(null);
+      setTool('select');
+      
+      // Отправляем на бэкенд
+      sendCanvasDataToBackend(updatedShapes);
+      
+      console.log('OCR успешно распознано:', result);
+    } else {
+      console.error('OCR распознавание не удалось:', result.error);
+      alert('Не удалось распознать формулу. Попробуйте снова.');
     }
-  }, [ocrSelection, shapes, fontSize, strokeColor, scale, saveToHistory, sendCanvasDataToBackend]);
+  } catch (error) {
+    console.error('Ошибка при OCR распознавании:', error);
+    alert('Ошибка при отправке изображения на сервер.');
+  }
+}, [ocrSelection, shapes, fontSize, strokeColor, scale, saveToHistory, sendCanvasDataToBackend]);
+
+
 
   const handleOcrSelect = useCallback(() => {
     if (editingTextId) {
