@@ -13,7 +13,7 @@ from django.core.files.uploadedfile import InMemoryUploadedFile
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 
-from backend.freedraw_widget_backend.ocr_space_service import OCRSpaceService, get_ocr_space_service
+from ..ocr_space_service import OCRSpaceService, get_ocr_space_service
 
 
 class OCRSpaceServiceTests(TestCase):
