@@ -699,7 +699,7 @@ body {
 }
 
 .text-toolbar {
-  position: fixed;
+  position: absolute;
   background-color: #e1e1e1;
   border: 2px solid #696969;
   border-radius: 9px;

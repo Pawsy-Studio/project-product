@@ -998,12 +998,11 @@ const handleOcrRecognize = useCallback(async () => {
 
     const selectedShape = shapes.find(s => s.id === currentSelectedId);
     if (!selectedShape || (selectedShape.type !== 'text' && selectedShape.type !== 'latex')) return null;
-    
+
     const stage = stageRef.current;
     if (!stage) return null;
-    
+
     const container = stage.container();
-    const containerRect = container.getBoundingClientRect();
 
     const textX = selectedShape.width >= 0 ? selectedShape.x : selectedShape.x + selectedShape.width;
     const textY = selectedShape.height >= 0 ? selectedShape.y : selectedShape.y + selectedShape.height;
@@ -1011,8 +1010,8 @@ const handleOcrRecognize = useCallback(async () => {
     const realHeight = Math.abs(selectedShape.height);
     const realWidth = Math.abs(selectedShape.width);
 
-    const x = textX * scale + containerRect.left;
-    const y = textY * scale + containerRect.top;
+    const x = textX * scale - container.scrollLeft;
+    const y = textY * scale - container.scrollTop;
 
     const panelHeight = 40;
 
@@ -1023,10 +1022,7 @@ const handleOcrRecognize = useCallback(async () => {
 
     const offset = 20;
 
-    let top = y - panelHeight - offset;
-    if (top < containerRect.top) {
-      top = y + realHeight * scale + offset;
-    }
+    const top = y + realHeight * scale + offset;
 
     const textCenterX = x + (realWidth * scale) / 2;
     let left = textCenterX - panelWidth / 2;
@@ -1290,12 +1286,12 @@ const handleOcrRecognize = useCallback(async () => {
         </Stage>
         {renderTextInput()}
         {renderLatexShapes()}
+        {renderTextToolbar()}
       </div>
       <div className="zoom-buttons">
         <button className="zoom-button zoom-plus" onClick={zoomIn}></button>
         <button className="zoom-button zoom-minus" onClick={zoomOut}></button>
       </div>
-      {renderTextToolbar()}
     </div>
   );
 };
