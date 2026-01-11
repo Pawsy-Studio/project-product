@@ -13,6 +13,7 @@ import TextToolbar from './components/TextToolbar.tsx';
 import LatexToolbar from './components/LatexToolbar.tsx';
 import LatexEditor from './components/LatexEditor.tsx';
 import TextEditor from './components/TextEditor.tsx';
+import OCRPreview from './components/OCRPreview.tsx';
 import SlotMachineEasterEgg from './components/SlotMachineEasterEgg';
 
 import type { 
@@ -51,6 +52,13 @@ const DrawingApp: React.FC = () => {
     y: number;
     width: number;
     height: number;
+  } | null>(null);
+
+  // OCR Preview state
+  const [ocrPreview, setOcrPreview] = useState<{
+    latex: string;
+    position: { x: number; y: number };
+    isEditing?: boolean;
   } | null>(null);
 
   // Инициализация виджета
@@ -197,7 +205,7 @@ const DrawingApp: React.FC = () => {
     changeFontSizeWithStep
   } = useTextFormatting(shapes, setShapes, saveToHistory, fontSize);
 
-  const textAreaRef = useRef<HTMLTextAreaElement>(null);
+  const textAreaRef = useRef<HTMLTextAreaElement | null>(null);
   const { insertLatexSymbol } = useLatexSymbols(
     textAreaRef,
     editingTextId,
@@ -242,7 +250,6 @@ const DrawingApp: React.FC = () => {
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
 
-  // OCR функция для отправки выделенной области
 // OCR функция для отправки выделенной области
 const handleOcrRecognize = useCallback(async () => {
   if (!ocrSelection || !stageRef.current) {
@@ -345,18 +352,7 @@ const handleOcrRecognize = useCallback(async () => {
     // ============================================
 
     if (result.success && result.latex) {
-      // Удаляем все объекты в выделенной области (используем shapesWithoutOcrBorder)
-      const newShapes = shapesWithoutOcrBorder.filter(shape => {
-        const shapeRect = {
-          x: shape.x,
-          y: shape.y,
-          width: shape.width,
-          height: shape.height
-        };
-        return !isRectInside(ocrSelection, shapeRect);
-      });
-
-      // Создаем новую LaTeX формулу
+      // Очищаем формулу от лишних символов
       let latexFormula = result.latex.trim();
 
       // ОЧИСТКА ЛИШНИХ ЗНАКОВ $ (если OCR сервер добавляет их)
@@ -372,44 +368,37 @@ const handleOcrRecognize = useCallback(async () => {
       // Удаляем пробелы в начале и конце после удаления $
       latexFormula = latexFormula.trim();
 
-      const latexSize = measureLatexSize(latexFormula, fontSize);
+      // Показываем превью вместо непосредственной вставки
+      const stage = stageRef.current;
+      if (stage) {
+        const container = stage.container();
+        const canvasContainer = canvasContainerRef.current;
+        if (canvasContainer) {
+          // Рассчитываем позицию как у обычных тулбаров - относительно Stage координат
+          const selectionX = ocrSelection.x * scale - container.scrollLeft;
+          const selectionY = ocrSelection.y * scale - container.scrollTop;
+          const selectionWidth = ocrSelection.width * scale;
+          const selectionHeight = ocrSelection.height * scale;
 
-      const newLatexShape: Shape = {
-        id: `latex_${Date.now()}`,
-        type: 'latex',
-        x: ocrSelection.x,
-        y: ocrSelection.y,
-        width: latexSize.width,
-        height: latexSize.height,
-        stroke: strokeColor,
-        strokeWidth: 1,
-        latex: latexFormula,
-        latexRendered: renderLatexToHtml(latexFormula, fontSize),
-        fontSize: fontSize,
-        fontFamily: 'KaTeX_Main',
-        textAlign: 'left',
-        fontWeight: 'normal',
-        fontStyle: 'normal',
-        textDecoration: 'none',
-        isSelected: false,
-        isEditing: false,
-        isLatex: true,
-        scaleX: 1,
-        scaleY: 1,
-        rotation: 0
-      };
+          // Панель шириной 200px (как в CSS)
+          const panelWidth = 200;
 
-      // Добавляем новую формулу и обновляем состояние
-      const updatedShapes = [...newShapes, newLatexShape];
-      setShapes(updatedShapes);
-      saveToHistory(updatedShapes);
+          // Центр выделения
+          const selectionCenterX = selectionX + selectionWidth / 2;
 
-      // Очищаем выделение
-      setOcrSelection(null);
-      setTool('select');
+          // Позиция снизу выделения с небольшим отступом (как у тулбаров)
+          const offset = 20;
+          const top = selectionY + selectionHeight + offset;
 
-      // Отправляем на бэкенд
-      sendCanvasDataToBackend(updatedShapes);
+          // Центрируем по выделению (как у обычных тулбаров)
+          let left = selectionCenterX - panelWidth / 2;
+
+          setOcrPreview({
+            latex: latexFormula,
+            position: { x: left, y: top }
+          });
+        }
+      }
 
       console.log('OCR успешно распознано:', result);
     } else {
@@ -429,9 +418,93 @@ const handleOcrRecognize = useCallback(async () => {
     console.error('Ошибка при OCR распознавании:', error);
     alert('Ошибка при отправке изображения на сервер.');
   }
-}, [ocrSelection, shapes, fontSize, strokeColor, scale, saveToHistory, sendCanvasDataToBackend, setShowSlotMachine]);
+}, [ocrSelection, shapes, scale, setShapes]);
 
+// Функции для работы с OCR превью
+const handleOcrSave = useCallback((finalLatex: string) => {
+  if (!ocrSelection) return;
 
+  // Удаляем все объекты в выделенной области
+  const shapesWithoutOcrBorder = shapes.filter(shape => !shape.id.startsWith('ocr_border_'));
+  const newShapes = shapesWithoutOcrBorder.filter(shape => {
+    const shapeRect = {
+      x: shape.x,
+      y: shape.y,
+      width: shape.width,
+      height: shape.height
+    };
+    return !isRectInside(ocrSelection, shapeRect);
+  });
+
+  // Создаем новую LaTeX формулу
+  const latexSize = measureLatexSize(finalLatex, fontSize);
+
+  const newLatexShape: Shape = {
+    id: `latex_${Date.now()}`,
+    type: 'latex',
+    x: ocrSelection.x,
+    y: ocrSelection.y,
+    width: latexSize.width,
+    height: latexSize.height,
+    stroke: strokeColor,
+    strokeWidth: 1,
+    latex: finalLatex,
+    latexRendered: renderLatexToHtml(finalLatex, fontSize),
+    fontSize: fontSize,
+    fontFamily: 'KaTeX_Main',
+    textAlign: 'left',
+    fontWeight: 'normal',
+    fontStyle: 'normal',
+    textDecoration: 'none',
+    isSelected: false,
+    isEditing: false,
+    isLatex: true,
+    scaleX: 1,
+    scaleY: 1,
+    rotation: 0
+  };
+
+  // Добавляем новую формулу и обновляем состояние
+  const updatedShapes = [...newShapes, newLatexShape];
+  setShapes(updatedShapes);
+  saveToHistory(updatedShapes);
+
+  // Очищаем состояния
+  setOcrSelection(null);
+  setOcrPreview(null);
+  setTool('select');
+
+  // Отправляем на бэкенд
+  sendCanvasDataToBackend(updatedShapes);
+}, [ocrSelection, shapes, fontSize, strokeColor, saveToHistory, sendCanvasDataToBackend, setShapes, setOcrSelection, setOcrPreview, setTool]);
+
+const handleOcrEdit = useCallback(() => {
+  if (!ocrPreview) return;
+
+  // Переключаем превью в режим редактирования
+  setOcrPreview({
+    ...ocrPreview,
+    isEditing: true
+  });
+}, [ocrPreview, setOcrPreview]);
+
+const handleOcrFinishEdit = useCallback((editedLatex: string) => {
+  if (!ocrPreview) return;
+
+  // Сохраняем отредактированную формулу в превью
+  setOcrPreview({
+    ...ocrPreview,
+    latex: editedLatex,
+    isEditing: false
+  });
+}, [ocrPreview, setOcrPreview]);
+
+const handleOcrCancel = useCallback(() => {
+  // Просто очищаем состояния, ничего не удаляем и не вставляем
+  setOcrSelection(null);
+  setOcrPreview(null);
+  setTool('select');
+}, [setOcrSelection, setOcrPreview, setTool]);
 
 
 
@@ -474,7 +547,7 @@ const handleOcrRecognize = useCallback(async () => {
   }, [isPanning, panStart]);
 
   const zoomIn = useCallback(() => {
-    const maxScale = Math.pow(1.2, 2);
+    const maxScale = 1.2;
     setScale(prevScale => Math.min(prevScale * 1.2, maxScale));
   }, []);
 
@@ -1027,12 +1100,11 @@ const handleOcrRecognize = useCallback(async () => {
 
     const selectedShape = shapes.find(s => s.id === currentSelectedId);
     if (!selectedShape || (selectedShape.type !== 'text' && selectedShape.type !== 'latex')) return null;
-    
+
     const stage = stageRef.current;
     if (!stage) return null;
-    
+
     const container = stage.container();
-    const containerRect = container.getBoundingClientRect();
 
     const textX = selectedShape.width >= 0 ? selectedShape.x : selectedShape.x + selectedShape.width;
     const textY = selectedShape.height >= 0 ? selectedShape.y : selectedShape.y + selectedShape.height;
@@ -1040,8 +1112,8 @@ const handleOcrRecognize = useCallback(async () => {
     const realHeight = Math.abs(selectedShape.height);
     const realWidth = Math.abs(selectedShape.width);
 
-    const x = textX * scale + containerRect.left;
-    const y = textY * scale + containerRect.top;
+    const x = textX * scale - container.scrollLeft;
+    const y = textY * scale - container.scrollTop;
 
     const panelHeight = 40;
 
@@ -1052,10 +1124,7 @@ const handleOcrRecognize = useCallback(async () => {
 
     const offset = 20;
 
-    let top = y - panelHeight - offset;
-    if (top < containerRect.top) {
-      top = y + realHeight * scale + offset;
-    }
+    const top = y + realHeight * scale + offset;
 
     const textCenterX = x + (realWidth * scale) / 2;
     let left = textCenterX - panelWidth / 2;
@@ -1319,13 +1388,25 @@ const handleOcrRecognize = useCallback(async () => {
         </Stage>
         {renderTextInput()}
         {renderLatexShapes()}
+        {renderTextToolbar()}
+        {ocrPreview && (
+          <OCRPreview
+            latex={ocrPreview.latex}
+            position={ocrPreview.position}
+            fontSize={fontSize}
+            strokeColor={strokeColor}
+            onSave={handleOcrSave}
+            onEdit={handleOcrEdit}
+            onCancel={handleOcrCancel}
+            isEditing={ocrPreview.isEditing}
+            onFinishEdit={handleOcrFinishEdit}
+          />
+        )}
       </div>
       <div className="zoom-buttons">
         <button className="zoom-button zoom-plus" onClick={zoomIn}></button>
         <button className="zoom-button zoom-minus" onClick={zoomOut}></button>
       </div>
-      {renderTextToolbar()}
-
       {/* 🎰 Пасхалка со слот-машиной */}
       <SlotMachineEasterEgg
         isOpen={showSlotMachine}
