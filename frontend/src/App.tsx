@@ -445,7 +445,7 @@ const handleOcrRecognize = useCallback(async () => {
   }, [isPanning, panStart]);
 
   const zoomIn = useCallback(() => {
-    const maxScale = Math.pow(1.2, 2);
+    const maxScale = 1.2;
     setScale(prevScale => Math.min(prevScale * 1.2, maxScale));
   }, []);
 
