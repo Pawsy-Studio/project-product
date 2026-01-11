@@ -23,9 +23,9 @@
 
 .slot-machine-modal {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 16px;
-  padding: 24px;
-  max-width: 380px;
+  border-radius: 12px;
+  padding: 16px;
+  max-width: 320px;
   width: 90%;
   position: relative;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
@@ -45,14 +45,14 @@
 
 .slot-machine-close {
   position: absolute;
-  top: 8px;
-  right: 8px;
+  top: 6px;
+  right: 6px;
   background: rgba(255, 255, 255, 0.2);
   border: none;
   color: white;
-  font-size: 24px;
-  width: 32px;
-  height: 32px;
+  font-size: 20px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   cursor: pointer;
   transition: all 0.3s;
@@ -70,8 +70,8 @@
 }
 
 .slot-machine-title {
-  font-size: 24px;
-  margin-bottom: 12px;
+  font-size: 18px;
+  margin-bottom: 8px;
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
   animation: neonGlow 2s infinite alternate;
 }
@@ -86,34 +86,56 @@
 }
 
 .slot-machine-credits {
-  font-size: 18px;
+  font-size: 15px;
   font-weight: bold;
-  margin-bottom: 16px;
+  margin-bottom: 8px;
   background: rgba(255, 255, 255, 0.2);
-  padding: 8px 16px;
-  border-radius: 8px;
+  padding: 6px 12px;
+  border-radius: 6px;
   display: inline-block;
+}
+
+/* 🔥 Индикатор комбо */
+.combo-indicator {
+  background: linear-gradient(45deg, #ff6b6b, #ff8c42);
+  color: white;
+  padding: 6px 10px;
+  border-radius: 6px;
+  margin: 6px 0;
+  font-weight: bold;
+  font-size: 11px;
+  animation: pulseCombo 1s infinite;
+  box-shadow: 0 0 15px rgba(255, 107, 107, 0.6);
+}
+
+@keyframes pulseCombo {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
 }
 
 .slot-machine-reels {
   display: flex;
   justify-content: center;
-  gap: 12px;
-  margin: 20px 0;
+  gap: 8px;
+  margin: 12px 0;
   perspective: 1000px;
 }
 
 .slot-reel {
-  width: 80px;
-  height: 80px;
+  width: 60px;
+  height: 60px;
   background: white;
-  border-radius: 12px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 48px;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
-  border: 4px solid gold;
+  font-size: 36px;
+  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
+  border: 3px solid gold;
   transition: transform 0.3s;
 }
 
@@ -123,6 +145,7 @@
 
 .slot-reel.spinning {
   animation: spinReel 0.1s linear infinite;
+  filter: blur(2px);
 }
 
 @keyframes spinReel {
@@ -135,13 +158,14 @@
 }
 
 .slot-result {
-  font-size: 16px;
+  font-size: 13px;
   font-weight: bold;
-  margin: 12px 0;
-  padding: 10px;
-  border-radius: 8px;
+  margin: 8px 0;
+  padding: 8px;
+  border-radius: 6px;
   background: rgba(255, 255, 255, 0.2);
   animation: resultPop 0.5s ease-out;
+  min-height: 20px;
 }
 
 .slot-result.jackpot {
@@ -170,23 +194,70 @@
   }
 }
 
+/* 💰 Селектор ставок */
+.bet-selector {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 8px 0;
+  flex-wrap: wrap;
+}
+
+.bet-label {
+  font-weight: bold;
+  font-size: 12px;
+  margin-right: 2px;
+}
+
+.bet-button {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 12px;
+  transition: all 0.3s;
+  min-width: 35px;
+}
+
+.bet-button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.3);
+  transform: translateY(-2px);
+}
+
+.bet-button.active {
+  background: linear-gradient(45deg, #FFD700, #FFA500);
+  color: #000;
+  border-color: #FFD700;
+  box-shadow: 0 0 10px rgba(255, 215, 0, 0.6);
+}
+
+.bet-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .slot-spin-button {
   background: linear-gradient(45deg, #FFD700, #FFA500);
   color: #000;
   border: none;
-  padding: 12px 28px;
-  font-size: 16px;
+  padding: 10px 20px;
+  font-size: 14px;
   font-weight: bold;
   border-radius: 50px;
   cursor: pointer;
   transition: all 0.3s;
-  box-shadow: 0 5px 15px rgba(255, 215, 0, 0.4);
-  margin: 12px 0;
+  box-shadow: 0 4px 12px rgba(255, 215, 0, 0.4);
+  margin: 8px 0;
+  width: 100%;
 }
 
 .slot-spin-button:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(255, 215, 0, 0.6);
+  box-shadow: 0 6px 16px rgba(255, 215, 0, 0.6);
 }
 
 .slot-spin-button:active:not(:disabled) {
@@ -200,12 +271,12 @@
 }
 
 .slot-machine-info {
-  margin-top: 12px;
-  font-size: 12px;
+  margin-top: 8px;
+  font-size: 10px;
   opacity: 0.8;
-  line-height: 1.4;
+  line-height: 1.3;
 }
 
 .slot-machine-info p {
-  margin: 3px 0;
+  margin: 2px 0;
 }

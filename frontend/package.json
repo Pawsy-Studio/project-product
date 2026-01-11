@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@xyflow/react": "^12.9.3",
+    "canvas-confetti": "^1.9.4",
     "katex": "^0.16.25",
     "konva": "^10.0.12",
     "react": "^19.2.0",
@@ -20,6 +21,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
+    "@types/canvas-confetti": "^1.9.0",
     "@types/node": "^24.10.0",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
