@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 
 export const useLatexSymbols = (
-  textAreaRef: React.RefObject<HTMLTextAreaElement>,
+  textAreaRef: React.RefObject<HTMLTextAreaElement | null>,
   editingTextId: string | null,
   updateTextInRealTime: (text: string) => void
 ) => {

@@ -49,7 +49,7 @@ interface LatexCategory {
 interface TextEditorInterface {
   shape: Shape;
   tempText: string;
-  textAreaRef: React.RefObject<HTMLTextAreaElement>;
+  textAreaRef: React.RefObject<HTMLTextAreaElement | null>;
   updateTextInRealTime: (text: string) => void;
   finishTextEditing: (saveToHistoryFlag?: boolean) => void;
   
