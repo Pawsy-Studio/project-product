@@ -248,15 +248,29 @@ const handleOcrRecognize = useCallback(async () => {
   }
 
   try {
-    // Получаем canvas элемента stage
     const stage = stageRef.current;
-    
+
+    // ИСПРАВЛЕНИЕ: Временно удаляем рамку OCR перед созданием скриншота
+    const shapesWithoutOcrBorder = shapes.filter(shape => !shape.id.startsWith('ocr_border_'));
+    const hadOcrBorder = shapesWithoutOcrBorder.length !== shapes.length;
+
+    // Временно обновляем состояние без рамки
+    if (hadOcrBorder) {
+      setShapes(shapesWithoutOcrBorder);
+      // Даем время на перерисовку canvas
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+
     // Создаем временный canvas для обработки изображения
     const tempCanvas = document.createElement('canvas');
     const tempCtx = tempCanvas.getContext('2d');
-    
+
     if (!tempCtx) {
       console.error('Failed to get canvas context');
+      // Восстанавливаем рамку если была ошибка
+      if (hadOcrBorder) {
+        setShapes(shapes);
+      }
       return;
     }
 
@@ -268,7 +282,7 @@ const handleOcrRecognize = useCallback(async () => {
     tempCtx.fillStyle = 'white';
     tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
 
-    // 2. Получаем изображение с оригинального canvas
+    // 2. Получаем изображение с оригинального canvas (теперь БЕЗ рамки)
     const dataURL = stage.toDataURL({
       x: ocrSelection.x * scale,
       y: ocrSelection.y * scale,
@@ -279,7 +293,7 @@ const handleOcrRecognize = useCallback(async () => {
     // 3. Создаем изображение и рисуем его поверх белого фона
     const img = new Image();
     img.src = dataURL;
-    
+
     // Ожидаем загрузки изображения
     await new Promise((resolve, reject) => {
       img.onload = resolve;
@@ -304,8 +318,8 @@ const handleOcrRecognize = useCallback(async () => {
     const result = await response.json();
 
     if (result.success && result.latex) {
-      // Удаляем все объекты в выделенной области
-      const newShapes = shapes.filter(shape => {
+      // Удаляем все объекты в выделенной области (используем shapesWithoutOcrBorder)
+      const newShapes = shapesWithoutOcrBorder.filter(shape => {
         const shapeRect = {
           x: shape.x,
           y: shape.y,
@@ -317,7 +331,7 @@ const handleOcrRecognize = useCallback(async () => {
 
       // Создаем новую LaTeX формулу
       let latexFormula = result.latex.trim();
-      
+
       // ОЧИСТКА ЛИШНИХ ЗНАКОВ $ (если OCR сервер добавляет их)
       // Удаляем обрамляющие $, если они есть
       if (latexFormula.startsWith('$') && latexFormula.endsWith('$')) {
@@ -327,12 +341,12 @@ const handleOcrRecognize = useCallback(async () => {
       if (latexFormula.startsWith('$$') && latexFormula.endsWith('$$')) {
         latexFormula = latexFormula.slice(2, -2);
       }
-      
+
       // Удаляем пробелы в начале и конце после удаления $
       latexFormula = latexFormula.trim();
-      
+
       const latexSize = measureLatexSize(latexFormula, fontSize);
-      
+
       const newLatexShape: Shape = {
         id: `latex_${Date.now()}`,
         type: 'latex',
@@ -362,24 +376,34 @@ const handleOcrRecognize = useCallback(async () => {
       const updatedShapes = [...newShapes, newLatexShape];
       setShapes(updatedShapes);
       saveToHistory(updatedShapes);
-      
+
       // Очищаем выделение
       setOcrSelection(null);
       setTool('select');
-      
+
       // Отправляем на бэкенд
       sendCanvasDataToBackend(updatedShapes);
-      
+
       console.log('OCR успешно распознано:', result);
     } else {
+      // В случае ошибки восстанавливаем рамку
+      if (hadOcrBorder) {
+        setShapes(shapes);
+      }
       console.error('OCR распознавание не удалось:', result.error);
       alert('Не удалось распознать формулу. Попробуйте снова.');
     }
   } catch (error) {
+    // В случае ошибки восстанавливаем рамку
+    const shapesWithOcrBorder = shapes.filter(shape => shape.id.startsWith('ocr_border_'));
+    if (shapesWithOcrBorder.length > 0) {
+      setShapes(shapes);
+    }
     console.error('Ошибка при OCR распознавании:', error);
     alert('Ошибка при отправке изображения на сервер.');
   }
 }, [ocrSelection, shapes, fontSize, strokeColor, scale, saveToHistory, sendCanvasDataToBackend]);
+
 
 
 
