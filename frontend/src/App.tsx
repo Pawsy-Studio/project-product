@@ -13,6 +13,7 @@ import TextToolbar from './components/TextToolbar.tsx';
 import LatexToolbar from './components/LatexToolbar.tsx';
 import LatexEditor from './components/LatexEditor.tsx';
 import TextEditor from './components/TextEditor.tsx';
+import SlotMachineEasterEgg from './components/SlotMachineEasterEgg';
 
 import type { 
   Shape, ToolMode, TextAlign, AnchorType,
@@ -87,6 +88,8 @@ const DrawingApp: React.FC = () => {
 
     return () => window.removeEventListener('resize', updateScale);
   }, []);
+
+  const [showSlotMachine, setShowSlotMachine] = useState(false);
 
   const [tool, setTool] = useState<ToolMode>('select');
   const [shapes, setShapes] = useState<Shape[]>([]);
@@ -317,6 +320,30 @@ const handleOcrRecognize = useCallback(async () => {
 
     const result = await response.json();
 
+    // ============================================
+    // 🎰 ПАСХАЛКА: Проверка на "казик"
+    // ============================================
+    if (result.success && result.original_text) {
+      const recognizedText = result.original_text.toLowerCase().trim();
+      const triggers = ['казик', 'kazik', 'casino', 'казино'];
+
+      if (triggers.some(trigger => recognizedText.includes(trigger))) {
+        setShowSlotMachine(true);
+
+        // Очищаем выделение
+        setOcrSelection(null);
+        setTool('select');
+
+        // Восстанавливаем shapes если была рамка
+        if (hadOcrBorder) {
+          setShapes(shapes);
+        }
+
+        return; // Останавливаем дальнейшую обработку
+      }
+    }
+    // ============================================
+
     if (result.success && result.latex) {
       // Удаляем все объекты в выделенной области (используем shapesWithoutOcrBorder)
       const newShapes = shapesWithoutOcrBorder.filter(shape => {
@@ -402,7 +429,9 @@ const handleOcrRecognize = useCallback(async () => {
     console.error('Ошибка при OCR распознавании:', error);
     alert('Ошибка при отправке изображения на сервер.');
   }
-}, [ocrSelection, shapes, fontSize, strokeColor, scale, saveToHistory, sendCanvasDataToBackend]);
+}, [ocrSelection, shapes, fontSize, strokeColor, scale, saveToHistory, sendCanvasDataToBackend, setShowSlotMachine]);
+
+
 
 
 
@@ -1296,8 +1325,15 @@ const handleOcrRecognize = useCallback(async () => {
         <button className="zoom-button zoom-minus" onClick={zoomOut}></button>
       </div>
       {renderTextToolbar()}
+
+      {/* 🎰 Пасхалка со слот-машиной */}
+      <SlotMachineEasterEgg
+        isOpen={showSlotMachine}
+        onClose={() => setShowSlotMachine(false)}
+      />
     </div>
   );
 };
+
 
 export default DrawingApp;
