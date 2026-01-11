@@ -8,6 +8,7 @@ import requests
 import tempfile
 import os
 import re
+from collections import Counter
 from django.conf import settings
 
 
@@ -97,8 +98,8 @@ class OCRSpaceService:
                     # Конвертируем в LaTeX
                     latex_formula = self.convert_to_latex(parsed_text)
 
-                    # Рассчитываем уверенность
-                    confidence = self._calculate_confidence(response_data, parsed_text)
+                    # Рассчитываем уверенность (УЛУЧШЕННАЯ ВЕРСИЯ)
+                    confidence = self._calculate_confidence(response_data, parsed_text, latex_formula)
 
                     return {
                         'success': True,
@@ -241,13 +242,14 @@ class OCRSpaceService:
 
         return text
 
-    def _calculate_confidence(self, response_data, parsed_text):
+    def _calculate_confidence(self, response_data, parsed_text, latex_formula):
         """
-        Расчет уверенности на основе ответа API
+        УЛУЧШЕННЫЙ расчет уверенности на основе реальных данных API и качества результата
 
         Args:
             response_data: Ответ от OCR.space API
             parsed_text: Распознанный текст
+            latex_formula: Сконвертированная LaTeX формула
 
         Returns:
             float: Оценка уверенности от 0 до 1
@@ -257,34 +259,106 @@ class OCRSpaceService:
             if not parsed_results:
                 return 0.0
 
-            # Проверяем код выхода парсера (1 = успех)
-            exit_code = parsed_results[0].get('FileParseExitCode', 0)
+            result = parsed_results[0]
+
+            # 1. КРИТИЧНО: Проверка кода выхода парсера (1 = успех)
+            exit_code = result.get('FileParseExitCode', 0)
             if exit_code != 1:
-                return 0.3
+                self.logger.warning(f"OCR.space exit code: {exit_code} (not success)")
+                return 0.2  # Низкая уверенность для неуспешных результатов
 
-            # Базовая уверенность для успешного распознавания
-            confidence = 0.75
-
-            # Увеличиваем за длину текста
-            if len(parsed_text) > 5:
-                confidence += 0.05
-            if len(parsed_text) > 15:
-                confidence += 0.05
-
-            # Проверяем наличие математических символов
-            math_indicators = ['=', '+', '-', '/', '^', 'x', 'y', 'z']
-            for indicator in math_indicators:
-                if indicator in parsed_text.lower():
-                    confidence += 0.01
-
-            # Уменьшаем если есть ошибки
+            # 2. Проверка на ошибки обработки
             if response_data.get('IsErroredOnProcessing', False):
-                confidence -= 0.3
+                self.logger.warning("OCR.space processing error")
+                return 0.15
 
-            return min(max(confidence, 0.0), 1.0)
+            # 3. Базовая уверенность для успешного распознавания
+            # СНИЖЕНО с 0.75 до 0.55
+            base_confidence = 0.55
 
-        except Exception:
-            return 0.5
+            # 4. Оценка качества текста (до +0.20)
+            text_quality_bonus = 0.0
+
+            text_stripped = parsed_text.strip()
+            text_len = len(text_stripped)
+
+            if text_len == 0:
+                return 0.0
+            elif text_len < 2:
+                text_quality_bonus += 0.02  # Очень короткий текст
+            elif text_len < 5:
+                text_quality_bonus += 0.08
+            elif text_len < 15:
+                text_quality_bonus += 0.15
+            else:
+                text_quality_bonus += 0.20  # Длинный текст более надежен
+
+            # 5. Оценка математической структуры (до +0.20)
+            math_structure_bonus = 0.0
+
+            # LaTeX команды (более ценные индикаторы)
+            latex_commands = [
+                '\\frac', '\\sqrt', '\\sum', '\\int', '\\lim',
+                '\\alpha', '\\beta', '\\gamma', '\\delta', '\\pi', '\\theta',
+                '\\Sigma', '\\Delta', '\\Omega',
+                '\\times', '\\div', '\\cdot', '\\pm',
+                '\\leq', '\\geq', '\\neq', '\\approx',
+                '\\rightarrow', '\\leftarrow', '\\infty'
+            ]
+            latex_count = sum(1 for cmd in latex_commands if cmd in latex_formula)
+            math_structure_bonus += min(latex_count * 0.04, 0.15)
+
+            # Базовые математические символы
+            math_symbols = ['=', '+', '-', '×', '÷', '^', '_', '(', ')']
+            symbol_count = sum(1 for sym in math_symbols if sym in parsed_text)
+            math_structure_bonus += min(symbol_count * 0.01, 0.05)
+
+            # 6. ШТРАФЫ за подозрительные паттерны (до -0.30)
+            penalty = 0.0
+
+            # Штраф за повторяющиеся символы (признак ошибки распознавания)
+            if text_len > 0:
+                char_counts = Counter(text_stripped.replace(' ', ''))
+                if char_counts:
+                    max_char_freq = max(char_counts.values()) / max(len(text_stripped.replace(' ', '')), 1)
+                    if max_char_freq > 0.6:  # Более 60% один символ
+                        penalty += 0.25
+                        self.logger.warning(f"High character repetition: {max_char_freq:.2f}")
+                    elif max_char_freq > 0.4:  # Более 40% один символ
+                        penalty += 0.15
+
+            # Штраф за много нераспознанных/шумовых символов
+            noise_chars = ['?', '#', '@', '&', '~', '`', '|']
+            noise_count = sum(parsed_text.count(c) for c in noise_chars)
+            if noise_count > 3:
+                penalty += 0.20
+                self.logger.warning(f"High noise character count: {noise_count}")
+            elif noise_count > 1:
+                penalty += 0.10
+
+            # Штраф за слишком много пробелов (может быть признаком плохого распознавания)
+            space_ratio = parsed_text.count(' ') / max(text_len, 1)
+            if space_ratio > 0.5:  # Более 50% - пробелы
+                penalty += 0.10
+
+            # 7. ИТОГОВАЯ УВЕРЕННОСТЬ
+            confidence = base_confidence + text_quality_bonus + math_structure_bonus - penalty
+
+            # Ограничиваем диапазон [0.0, 0.95]
+            # Максимум 0.95, а не 1.0, чтобы оставить место для идеальных результатов
+            final_confidence = min(max(confidence, 0.0), 0.95)
+
+            self.logger.info(
+                f"OCR.space confidence: {final_confidence:.3f} "
+                f"(base={base_confidence:.2f}, text_quality=+{text_quality_bonus:.2f}, "
+                f"math=+{math_structure_bonus:.2f}, penalty=-{penalty:.2f})"
+            )
+
+            return final_confidence
+
+        except Exception as e:
+            self.logger.error(f"Error calculating confidence: {e}")
+            return 0.3  # Уверенность по умолчанию при ошибке
 
 
 # Глобальный экземпляр сервиса

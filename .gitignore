@@ -66,4 +66,4 @@ Thumbs.db
 
 .vscode-test
 
-!/backend/.coverage
+backend/.coverage

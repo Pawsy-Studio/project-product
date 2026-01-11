@@ -134,7 +134,7 @@ class OCRSpaceServiceTests(TestCase):
     def test_calculate_confidence_no_results(self):
         """Тест расчета уверенности без результатов"""
         response_data = {'ParsedResults': []}
-        confidence = self.service._calculate_confidence(response_data, "")
+        confidence = self.service._calculate_confidence(response_data, "", "")
         self.assertEqual(confidence, 0.0)
 
     def test_calculate_confidence_successful_parsing(self):
@@ -143,7 +143,7 @@ class OCRSpaceServiceTests(TestCase):
             'ParsedResults': [{'FileParseExitCode': 1}],
             'IsErroredOnProcessing': False
         }
-        confidence = self.service._calculate_confidence(response_data, "x + 2 = 5")
+        confidence = self.service._calculate_confidence(response_data, "x + 2 = 5", "$x + 2 = 5$")
         self.assertGreater(confidence, 0.5)
         self.assertLessEqual(confidence, 1.0)
 
@@ -153,7 +153,7 @@ class OCRSpaceServiceTests(TestCase):
             'ParsedResults': [{'FileParseExitCode': 0}],
             'IsErroredOnProcessing': True
         }
-        confidence = self.service._calculate_confidence(response_data, "test")
+        confidence = self.service._calculate_confidence(response_data, "test", "$test$")
         self.assertLess(confidence, 0.5)
 
     @patch('requests.post')
