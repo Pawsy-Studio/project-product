@@ -1,7 +1,7 @@
 import '../App.css'
 
 interface TextEditorInterface{
-    textAreaRef: React.RefObject<HTMLTextAreaElement>;
+  textAreaRef: React.RefObject<HTMLTextAreaElement | null>;
     tempText: string;
     updateTextInRealTime: (text: string) => void;
     finishTextEditing: () => void;
