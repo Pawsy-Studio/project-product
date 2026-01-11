@@ -36,14 +36,15 @@ import { updateCanvasData, clearCanvas, undoAction } from './services/api';
 import { hexToRgba } from './utils/colorUtils';
 import { calculateBoundingBox, isRectInside } from './utils/shapeUtils';
 import { renderLatexToHtml, measureLatexSize } from './utils/latexUtils';
-import { getWidgetContext } from './services/widgetBridge';
+import { onWidgetInitialized, type WidgetInitPayload } from './services/widgetBridge';
+import { statsService, type MetricsData, type WidgetConfig } from './services/statsService';
 
 const DrawingApp: React.FC = () => {
-  const [widget, setWidget] = useState<any>(null);
+  const [widget, setWidget] = useState<WidgetInitPayload | null>(null);
   const [boardId, setBoardId] = useState<string>('');
   const [widgetId, setWidgetId] = useState<number | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
-
+  
   // OCR Selection state
   const [ocrSelection, setOcrSelection] = useState<{
     x: number;
@@ -52,18 +53,69 @@ const DrawingApp: React.FC = () => {
     height: number;
   } | null>(null);
 
-  // Инициализация виджета
+  // Статистика и метрики
+  const [statsModuleCreated, setStatsModuleCreated] = useState(false);
+  const [toolsUsage, setToolsUsage] = useState<Record<string, number>>({});
+  const [sessionStartTime] = useState(Date.now());
+  const [isDrawingActive, setIsDrawingActive] = useState(false);
+
+  // Инициализация виджета через widgetBridge
   useEffect(() => {
-    try {
-      const widgetContext = getWidgetContext();
-      setWidget(widgetContext);
-      setBoardId(String(widgetContext.board.id));
-      setWidgetId(widgetContext.widgetId);
+    const unsubscribe = onWidgetInitialized((payload: WidgetInitPayload) => {
+      console.log('Widget initialized via getInfo:', payload);
+      
+      setWidget(payload);
+      setBoardId(String(payload.board.id));
+      setWidgetId(payload.widgetId);
+      
+      // Загружаем конфиг если он есть
+      if (payload.config) {
+        setCanvasConfig(payload.config);
+      }
+      
       setIsInitialized(true);
-    } catch (error) {
-      setIsInitialized(true);
+      
+      // Инициализируем модуль статистики для реальных виджетов
+      if (payload.widgetId > 0) {
+        initializeStatsModule(payload);
+      }
+    });
+
+    // Для development режима - автоинициализация
+    if (process.env.NODE_ENV === 'development') {
+      const devPayload: WidgetInitPayload = {
+        widgetId: -1,
+        userId: 0,
+        role: 'user',
+        config: {},
+        board: {
+          id: 0,
+          name: 'Dev Board',
+          parentId: 0
+        }
+      };
+      
+      console.warn('Running in standalone development mode');
+      setWidget(devPayload);
       setBoardId('temp-' + Date.now());
       setWidgetId(-1);
+      setIsInitialized(true);
+    }
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
+  // Функция инициализации модуля статистики
+  const initializeStatsModule = useCallback(async (widgetInfo: WidgetInitPayload) => {
+    try {
+      const moduleName = `DrawingWidget-${widgetInfo.widgetId}-${widgetInfo.board.id}`;
+      const moduleData = await statsService.createModule(moduleName);
+      console.log('Stats module created:', moduleData);
+      setStatsModuleCreated(true);
+    } catch (error) {
+      console.error('Failed to create stats module:', error);
     }
   }, []);
 
@@ -123,8 +175,101 @@ const DrawingApp: React.FC = () => {
     crypto.randomUUID()
   );
 
+  // Функция для сбора метрик
+  const collectMetrics = useCallback((): MetricsData => {
+    const now = Date.now();
+    const sessionDuration = Math.floor((now - sessionStartTime) / 1000);
+
+    return {
+      shapesCount: shapes.length,
+      toolsUsage: { ...toolsUsage },
+      lastUpdated: new Date().toISOString(),
+      sessionDuration,
+      boardId,
+      widgetId
+    };
+  }, [shapes.length, toolsUsage, sessionStartTime, boardId, widgetId]);
+
+  // Функция для создания конфига виджета
+  const createWidgetConfig = useCallback((): WidgetConfig => {
+    return {
+      shapes: shapes.map(shape => ({
+        id: shape.id,
+        type: shape.type,
+        x: shape.x,
+        y: shape.y,
+        width: shape.width,
+        height: shape.height,
+        stroke: shape.stroke,
+        strokeWidth: shape.strokeWidth,
+        ...(shape.type === 'text' && { text: shape.text }),
+        ...(shape.type === 'latex' && { latex: shape.latex }),
+      })),
+      config: {
+        ...canvasConfig,
+        strokeColor,
+        strokeWidth,
+        fontSize,
+        fontFamily,
+        textAlign,
+        scale,
+        lastModifiedBy: 'drawing-app'
+      },
+      lastModified: new Date().toISOString(),
+      version: '1.0.0'
+    };
+  }, [shapes, canvasConfig, strokeColor, strokeWidth, fontSize, fontFamily, textAlign, scale]);
+
+  // Функция для отправки конфига на платформу
+  const sendWidgetConfigImmediately = useCallback(async () => {
+    if (!widget || !widget.widgetId || widget.widgetId <= 0) {
+      console.log('Standalone mode, skipping widget config update');
+      return;
+    }
+
+    try {
+      const config = createWidgetConfig();
+      
+      const response = await fetch(`http://85.234.22.160:1111/api/widget/${widget.widgetId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${getAuthToken()}`,
+        },
+        body: JSON.stringify(config)
+      });
+
+      if (!response.ok) {
+        console.warn('Failed to update widget config:', response.statusText);
+      }
+    } catch (error) {
+      console.error('Error updating widget config:', error);
+    }
+  }, [widget, createWidgetConfig]);
+
+  // Функция для получения auth token
+  const getAuthToken = (): string => {
+    return localStorage.getItem('authToken') || '';
+  };
+
+  // Отправка метрик раз в 30 секунд
+  useEffect(() => {
+    if (!statsModuleCreated || !widget || widget.widgetId <= 0) return;
+
+    const intervalId = setInterval(async () => {
+      try {
+        const metrics = collectMetrics();
+        await statsService.sendMetrics(metrics);
+      } catch (error) {
+        console.error('Failed to send metrics:', error);
+      }
+    }, 30000);
+
+    return () => clearInterval(intervalId);
+  }, [statsModuleCreated, widget, collectMetrics]);
+
   const sendCanvasDataToBackend = useCallback(async (shapesToSend: Shape[]) => {
-    if (widgetId && widgetId > 0) {
+    if (widget && widget.widgetId > 0) {
       try {
         await updateCanvasData(boardId, {
           shapes: shapesToSend,
@@ -132,17 +277,35 @@ const DrawingApp: React.FC = () => {
           history: canvasHistory
         });
         sendShapesUpdate(shapesToSend);
+        
+        // Отправляем конфиг на платформу
+        sendWidgetConfigImmediately();
       } catch (error) {
         console.error('Failed to send canvas data to backend:', error);
       }
     }
-  }, [boardId, canvasConfig, canvasHistory, sendShapesUpdate, widgetId]);
+  }, [boardId, canvasConfig, canvasHistory, sendShapesUpdate, widget, sendWidgetConfigImmediately]);
 
   const {
     saveToHistory,
     handleUndo,
     handleRedo
   } = useHistory(shapes, sendCanvasDataToBackend);
+
+  // Обновляем статистику использования инструментов
+  const updateToolsUsage = useCallback((toolName: string) => {
+    setToolsUsage(prev => ({
+      ...prev,
+      [toolName]: (prev[toolName] || 0) + 1
+    }));
+  }, []);
+
+  // Отслеживаем использование инструментов
+  useEffect(() => {
+    if (tool && tool !== 'select') {
+      updateToolsUsage(tool);
+    }
+  }, [tool, updateToolsUsage]);
 
   // Очищаем OCR выделение при смене инструмента
   useEffect(() => {
@@ -161,9 +324,12 @@ const DrawingApp: React.FC = () => {
     const newShapes = handleUndo();
     if (newShapes) {
       setShapes(newShapes);
-      if (widgetId && widgetId > 0) {
+      if (widget && widget.widgetId > 0) {
         await undoAction(boardId);
         sendUndo();
+        
+        // Отправляем обновленный конфиг
+        sendWidgetConfigImmediately();
       }
     }
   };
@@ -240,172 +406,168 @@ const DrawingApp: React.FC = () => {
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
 
   // OCR функция для отправки выделенной области
-// OCR функция для отправки выделенной области
-const handleOcrRecognize = useCallback(async () => {
-  if (!ocrSelection || !stageRef.current) {
-    console.error('No OCR selection or stage reference');
-    return;
-  }
-
-  try {
-    const stage = stageRef.current;
-
-    // ИСПРАВЛЕНИЕ: Временно удаляем рамку OCR перед созданием скриншота
-    const shapesWithoutOcrBorder = shapes.filter(shape => !shape.id.startsWith('ocr_border_'));
-    const hadOcrBorder = shapesWithoutOcrBorder.length !== shapes.length;
-
-    // Временно обновляем состояние без рамки
-    if (hadOcrBorder) {
-      setShapes(shapesWithoutOcrBorder);
-      // Даем время на перерисовку canvas
-      await new Promise(resolve => setTimeout(resolve, 50));
-    }
-
-    // Создаем временный canvas для обработки изображения
-    const tempCanvas = document.createElement('canvas');
-    const tempCtx = tempCanvas.getContext('2d');
-
-    if (!tempCtx) {
-      console.error('Failed to get canvas context');
-      // Восстанавливаем рамку если была ошибка
-      if (hadOcrBorder) {
-        setShapes(shapes);
-      }
+  const handleOcrRecognize = useCallback(async () => {
+    if (!ocrSelection || !stageRef.current) {
+      console.error('No OCR selection or stage reference');
       return;
     }
 
-    // Устанавливаем размеры временного canvas равными размерам выделенной области
-    tempCanvas.width = ocrSelection.width * scale;
-    tempCanvas.height = ocrSelection.height * scale;
+    try {
+      const stage = stageRef.current;
 
-    // 1. Заливаем белым фоном
-    tempCtx.fillStyle = 'white';
-    tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+      // ИСПРАВЛЕНИЕ: Временно удаляем рамку OCR перед созданием скриншота
+      const shapesWithoutOcrBorder = shapes.filter(shape => !shape.id.startsWith('ocr_border_'));
+      const hadOcrBorder = shapesWithoutOcrBorder.length !== shapes.length;
 
-    // 2. Получаем изображение с оригинального canvas (теперь БЕЗ рамки)
-    const dataURL = stage.toDataURL({
-      x: ocrSelection.x * scale,
-      y: ocrSelection.y * scale,
-      width: ocrSelection.width * scale,
-      height: ocrSelection.height * scale
-    });
+      // Временно обновляем состояние без рамки
+      if (hadOcrBorder) {
+        setShapes(shapesWithoutOcrBorder);
+        // Даем время на перерисовку canvas
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
 
-    // 3. Создаем изображение и рисуем его поверх белого фона
-    const img = new Image();
-    img.src = dataURL;
+      // Создаем временный canvas для обработки изображения
+      const tempCanvas = document.createElement('canvas');
+      const tempCtx = tempCanvas.getContext('2d');
 
-    // Ожидаем загрузки изображения
-    await new Promise((resolve, reject) => {
-      img.onload = resolve;
-      img.onerror = reject;
-    });
+      if (!tempCtx) {
+        console.error('Failed to get canvas context');
+        // Восстанавливаем рамку если была ошибка
+        if (hadOcrBorder) {
+          setShapes(shapes);
+        }
+        return;
+      }
 
-    // 4. Рисуем оригинальное изображение поверх белого фона
-    tempCtx.drawImage(img, 0, 0);
+      // Устанавливаем размеры временного canvas равными размерам выделенной области
+      tempCanvas.width = ocrSelection.width * scale;
+      tempCanvas.height = ocrSelection.height * scale;
 
-    // 5. Получаем финальное изображение с белым фоном
-    const finalDataURL = tempCanvas.toDataURL('image/png', 1.0);
+      // 1. Заливаем белым фоном
+      tempCtx.fillStyle = 'white';
+      tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
 
-    // 6. Отправляем на сервер изображение с белым фоном
-    const response = await fetch('http://localhost:8000/api/ocr/latex/', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ image_data: finalDataURL }),
-    });
-
-    const result = await response.json();
-
-    if (result.success && result.latex) {
-      // Удаляем все объекты в выделенной области (используем shapesWithoutOcrBorder)
-      const newShapes = shapesWithoutOcrBorder.filter(shape => {
-        const shapeRect = {
-          x: shape.x,
-          y: shape.y,
-          width: shape.width,
-          height: shape.height
-        };
-        return !isRectInside(ocrSelection, shapeRect);
+      // 2. Получаем изображение с оригинального canvas (теперь БЕЗ рамки)
+      const dataURL = stage.toDataURL({
+        x: ocrSelection.x * scale,
+        y: ocrSelection.y * scale,
+        width: ocrSelection.width * scale,
+        height: ocrSelection.height * scale
       });
 
-      // Создаем новую LaTeX формулу
-      let latexFormula = result.latex.trim();
+      // 3. Создаем изображение и рисуем его поверх белого фона
+      const img = new Image();
+      img.src = dataURL;
 
-      // ОЧИСТКА ЛИШНИХ ЗНАКОВ $ (если OCR сервер добавляет их)
-      // Удаляем обрамляющие $, если они есть
-      if (latexFormula.startsWith('$') && latexFormula.endsWith('$')) {
-        latexFormula = latexFormula.slice(1, -1);
+      // Ожидаем загрузки изображения
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+      });
+
+      // 4. Рисуем оригинальное изображение поверх белого фона
+      tempCtx.drawImage(img, 0, 0);
+
+      // 5. Получаем финальное изображение с белым фоном
+      const finalDataURL = tempCanvas.toDataURL('image/png', 1.0);
+
+      // 6. Отправляем на сервер изображение с белым фоном
+      const response = await fetch('http://localhost:8000/api/ocr/latex/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ image_data: finalDataURL }),
+      });
+
+      const result = await response.json();
+
+      if (result.success && result.latex) {
+        // Удаляем все объекты в выделенной области (используем shapesWithoutOcrBorder)
+        const newShapes = shapesWithoutOcrBorder.filter(shape => {
+          const shapeRect = {
+            x: shape.x,
+            y: shape.y,
+            width: shape.width,
+            height: shape.height
+          };
+          return !isRectInside(ocrSelection, shapeRect);
+        });
+
+        // Создаем новую LaTeX формулу
+        let latexFormula = result.latex.trim();
+
+        // ОЧИСТКА ЛИШНИХ ЗНАКОВ $ (если OCR сервер добавляет их)
+        // Удаляем обрамляющие $, если они есть
+        if (latexFormula.startsWith('$') && latexFormula.endsWith('$')) {
+          latexFormula = latexFormula.slice(1, -1);
+        }
+        // Также удаляем двойные $$ (display mode)
+        if (latexFormula.startsWith('$$') && latexFormula.endsWith('$$')) {
+          latexFormula = latexFormula.slice(2, -2);
+        }
+
+        // Удаляем пробелы в начале и конце после удаления $
+        latexFormula = latexFormula.trim();
+
+        const latexSize = measureLatexSize(latexFormula, fontSize);
+
+        const newLatexShape: Shape = {
+          id: `latex_${Date.now()}`,
+          type: 'latex',
+          x: ocrSelection.x,
+          y: ocrSelection.y,
+          width: latexSize.width,
+          height: latexSize.height,
+          stroke: strokeColor,
+          strokeWidth: 1,
+          latex: latexFormula,
+          latexRendered: renderLatexToHtml(latexFormula, fontSize),
+          fontSize: fontSize,
+          fontFamily: 'KaTeX_Main',
+          textAlign: 'left',
+          fontWeight: 'normal',
+          fontStyle: 'normal',
+          textDecoration: 'none',
+          isSelected: false,
+          isEditing: false,
+          isLatex: true,
+          scaleX: 1,
+          scaleY: 1,
+          rotation: 0
+        };
+
+        // Добавляем новую формулу и обновляем состояние
+        const updatedShapes = [...newShapes, newLatexShape];
+        setShapes(updatedShapes);
+        saveToHistory(updatedShapes);
+
+        // Очищаем выделение
+        setOcrSelection(null);
+        setTool('select');
+
+        // Отправляем на бэкенд и на платформу
+        sendCanvasDataToBackend(updatedShapes);
+
+        console.log('OCR успешно распознано:', result);
+      } else {
+        // В случае ошибки восстанавливаем рамку
+        if (hadOcrBorder) {
+          setShapes(shapes);
+        }
+        console.error('OCR распознавание не удалось:', result.error);
+        alert('Не удалось распознать формулу. Попробуйте снова.');
       }
-      // Также удаляем двойные $$ (display mode)
-      if (latexFormula.startsWith('$$') && latexFormula.endsWith('$$')) {
-        latexFormula = latexFormula.slice(2, -2);
-      }
-
-      // Удаляем пробелы в начале и конце после удаления $
-      latexFormula = latexFormula.trim();
-
-      const latexSize = measureLatexSize(latexFormula, fontSize);
-
-      const newLatexShape: Shape = {
-        id: `latex_${Date.now()}`,
-        type: 'latex',
-        x: ocrSelection.x,
-        y: ocrSelection.y,
-        width: latexSize.width,
-        height: latexSize.height,
-        stroke: strokeColor,
-        strokeWidth: 1,
-        latex: latexFormula,
-        latexRendered: renderLatexToHtml(latexFormula, fontSize),
-        fontSize: fontSize,
-        fontFamily: 'KaTeX_Main',
-        textAlign: 'left',
-        fontWeight: 'normal',
-        fontStyle: 'normal',
-        textDecoration: 'none',
-        isSelected: false,
-        isEditing: false,
-        isLatex: true,
-        scaleX: 1,
-        scaleY: 1,
-        rotation: 0
-      };
-
-      // Добавляем новую формулу и обновляем состояние
-      const updatedShapes = [...newShapes, newLatexShape];
-      setShapes(updatedShapes);
-      saveToHistory(updatedShapes);
-
-      // Очищаем выделение
-      setOcrSelection(null);
-      setTool('select');
-
-      // Отправляем на бэкенд
-      sendCanvasDataToBackend(updatedShapes);
-
-      console.log('OCR успешно распознано:', result);
-    } else {
+    } catch (error) {
       // В случае ошибки восстанавливаем рамку
-      if (hadOcrBorder) {
+      const shapesWithOcrBorder = shapes.filter(shape => shape.id.startsWith('ocr_border_'));
+      if (shapesWithOcrBorder.length > 0) {
         setShapes(shapes);
       }
-      console.error('OCR распознавание не удалось:', result.error);
-      alert('Не удалось распознать формулу. Попробуйте снова.');
+      console.error('Ошибка при OCR распознавании:', error);
+      alert('Ошибка при отправке изображения на сервер.');
     }
-  } catch (error) {
-    // В случае ошибки восстанавливаем рамку
-    const shapesWithOcrBorder = shapes.filter(shape => shape.id.startsWith('ocr_border_'));
-    if (shapesWithOcrBorder.length > 0) {
-      setShapes(shapes);
-    }
-    console.error('Ошибка при OCR распознавании:', error);
-    alert('Ошибка при отправке изображения на сервер.');
-  }
-}, [ocrSelection, shapes, fontSize, strokeColor, scale, saveToHistory, sendCanvasDataToBackend]);
-
-
-
+  }, [ocrSelection, shapes, fontSize, strokeColor, scale, saveToHistory, sendCanvasDataToBackend]);
 
   const handleOcrSelect = useCallback(() => {
     if (editingTextId) {
@@ -518,9 +680,12 @@ const handleOcrRecognize = useCallback(async () => {
     setOcrSelection(null);
     saveToHistory([]);
     
-    if (widgetId && widgetId > 0) {
+    if (widget && widget.widgetId > 0) {
       await clearCanvas(boardId);
       sendClear();
+      
+      // Отправляем пустой конфиг
+      sendWidgetConfigImmediately();
     }
   };
 
@@ -1086,6 +1251,11 @@ const handleOcrRecognize = useCallback(async () => {
       return;
     }
 
+    // Устанавливаем флаг активного рисования
+    if (tool !== 'select') {
+      setIsDrawingActive(true);
+    }
+
     drawingHandlers.handleMouseDown(e);
   };
 
@@ -1203,6 +1373,11 @@ const handleOcrRecognize = useCallback(async () => {
       }
       
       resetDrawingState();
+      
+      // После завершения рисования отправляем конфиг
+      if (widget && widget.widgetId > 0) {
+        sendWidgetConfigImmediately();
+      }
     }
     
     if (transformState.isTransforming) {
@@ -1215,6 +1390,9 @@ const handleOcrRecognize = useCallback(async () => {
       drawingHandlers.setOriginalPointsOnDragStart([]);
       saveToHistory(shapes);
     }
+    
+    // Сбрасываем флаг активного рисования
+    setIsDrawingActive(false);
   };
 
   if (!isInitialized) {
