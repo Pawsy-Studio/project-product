@@ -56,7 +56,7 @@ const DrawingApp: React.FC = () => {
   const [statsModuleCreated, setStatsModuleCreated] = useState(false);
   const [toolsUsage, setToolsUsage] = useState<Record<string, number>>({});
   const [sessionStartTime] = useState(Date.now());
-  const [setIsDrawingActive] = useState(false);
+  const [isDrawingActive, setIsDrawingActive] = useState(false);
 
   // Инициализация виджета через widgetBridge
   useEffect(() => {
@@ -187,7 +187,7 @@ const DrawingApp: React.FC = () => {
       boardId,
       widgetId
     };
-  }, [shapes.length, toolsUsage, sessionStartTime, boardId, widgetId]);
+  }, [shapes.length, toolsUsage, sessionStartTime, boardId, widgetId]);   
 
   // Функция для создания конфига виджета
   const createWidgetConfig = useCallback((): WidgetConfig => {
@@ -372,7 +372,7 @@ const DrawingApp: React.FC = () => {
   }, [shapes, setShapes, saveToHistory]);
 
   const drawingHandlers = useDrawingHandlers(
-    drawingState,
+    setIsDrawingActive,
     shapes,
     setShapes,
     saveToHistory,
