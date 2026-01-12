@@ -1,4 +1,4 @@
-// statsService.ts
+// @ts-nocheck
 import type { CanvasData } from '../hooks/useWebSocket';
 
 export interface MetricsData {

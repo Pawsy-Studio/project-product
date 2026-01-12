@@ -93,10 +93,7 @@ const TextInput: React.FC<TextEditorInterface> = ({
   showLatexMenu = false,
   selectedLatexCategory = 'fraction',
   latexPreview = 'E = mc^2',
-  fontSize = 20,
-  strokeColor = '#000000',
   setShowLatexMenu,
-  setShowLatexPreview,
   setSelectedLatexCategory
 }) => {
 

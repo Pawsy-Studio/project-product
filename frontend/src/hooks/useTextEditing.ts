@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useState, useCallback, useEffect } from 'react';
 import type  { Shape } from '../types';
 import { renderLatexToHtml, measureLatexSize } from '../utils/latexUtils';

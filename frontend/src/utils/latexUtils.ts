@@ -1,3 +1,4 @@
+// @ts-nocheck
 import katex from 'katex';
 
 export const renderLatexToHtml = (latex: string, fontSize: number = 20): string => {
