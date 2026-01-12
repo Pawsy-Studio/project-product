@@ -364,7 +364,7 @@ export const useDrawingHandlers = (
       }
     }
   }, [
-    shapes, setShapes, tool, strokeColor, strokeWidth, fontSize, fontFamily, textAlign,
+    setIsDrawingActive, shapes, setShapes, tool, strokeColor, strokeWidth, fontSize, fontFamily, textAlign,
     selectedId, setSelectedId, setDrawingState, setTransformState, startTextEditing, scale,
     ocrSelection, setOcrSelection, constrainToCanvas, clearOcrBorders
   ]);
