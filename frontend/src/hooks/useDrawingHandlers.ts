@@ -5,6 +5,7 @@ import { calculateBoundingBox, isPointInShape, transformPoints } from '../utils/
 import { measureLatexSize, renderLatexToHtml } from '../utils/latexUtils';
 
 export const useDrawingHandlers = (
+  setIsDrawingActive: React.Dispatch<React.SetStateAction<boolean>>,
   shapes: Shape[],
   setShapes: React.Dispatch<React.SetStateAction<Shape[]>>,
   saveToHistory: (shapes: Shape[]) => void,
