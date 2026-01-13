@@ -52,10 +52,11 @@ interface LatexEditorProps {
   textAreaRef: React.RefObject<HTMLTextAreaElement | null>;
   updateTextInRealTime: (text: string) => void;
   finishTextEditing: (saveToHistoryFlag?: boolean) => void;
-  
+
   x: number;
   y: number;
   width: number;
+  height: number;
   textareaStyle: React.CSSProperties;
   
   latexSymbols: LatexSymbol[];
@@ -84,6 +85,7 @@ const LatexEditor: React.FC<LatexEditorProps> = ({
   x,
   y,
   width,
+  height,
   textareaStyle,
   latexSymbols = [],
   latexCategories = [],
@@ -210,14 +212,14 @@ const LatexEditor: React.FC<LatexEditorProps> = ({
       </div>
 
       {/* Отдельный контейнер для textarea (поле ввода формулы) */}
-      <div 
+      <div
         className="latex-editor-container"
         style={{
           position: 'absolute',
           left: `${x}px`,
           top: `${y}px`,
           width: `${width}px`,
-          height: `${textareaStyle.height}`,
+          height: `${height}px`,
           zIndex: 1001,
           pointerEvents: 'auto',
         }}

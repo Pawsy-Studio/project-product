@@ -1122,6 +1122,7 @@ const DrawingApp: React.FC = () => {
           x={canvasX}
           y={canvasY}
           width={width}
+          height={height}
           textareaStyle={baseTextareaStyle} // Передаем стиль БЕЗ позиционирования
           latexSymbols={latexSymbols}
           latexCategories={latexCategories}
