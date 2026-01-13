@@ -31,7 +31,7 @@ interface Shape {
   rotation?: number;
 }
 
-interface TextToolbarInterface {
+interface TextToolbarProps {
   selectedShape: Shape;
   selectedId: string;
   showTextFormatDropdown: boolean;
@@ -58,7 +58,7 @@ interface TextToolbarInterface {
   currentAlign: string;
 }
 
-const TextToolbar: React.FC<TextToolbarInterface> = ({
+const TextToolbar: React.FC<TextToolbarProps> = ({
   selectedShape,
   selectedId,
   isBold,
@@ -79,7 +79,7 @@ const TextToolbar: React.FC<TextToolbarInterface> = ({
   fontFamily,
   fontSize,
   strokeColor,
-  availableFonts,
+  availableFonts = [],
   left,
   top,
   panelWidth,
@@ -88,9 +88,12 @@ const TextToolbar: React.FC<TextToolbarInterface> = ({
     <div 
       className="text-toolbar"
       style={{
+        position: 'absolute',
         left: `${left}px`,
         top: `${top}px`,
         width: `${panelWidth}px`,
+        zIndex: 1001,
+        pointerEvents: 'auto',
       }}
     >
       <div className="text-toolbar-content">
@@ -142,7 +145,12 @@ const TextToolbar: React.FC<TextToolbarInterface> = ({
             >
             </button>
             {showTextFormatDropdown && (
-              <div className="text-format-dropdown-menu" style={{ display: 'flex', flexDirection: 'row', gap: '5px' }}>
+              <div className="text-format-dropdown-menu" style={{ 
+                display: 'flex', 
+                flexDirection: 'row', 
+                gap: '5px',
+                pointerEvents: 'auto',
+              }}>
                 <button
                   type="button"
                   className={`drawing-tool-btn tool-icon tool-bold drawing-tool-btn-small ${isBold ? 'active' : ''}`}
@@ -202,7 +210,12 @@ const TextToolbar: React.FC<TextToolbarInterface> = ({
             >
             </button>
             {showTextAlignDropdown && (
-              <div className="text-align-dropdown-menu" style={{ display: 'flex', flexDirection: 'row', gap: '5px' }}>
+              <div className="text-align-dropdown-menu" style={{ 
+                display: 'flex', 
+                flexDirection: 'row', 
+                gap: '5px',
+                pointerEvents: 'auto',
+              }}>
                 <button
                   type="button"
                   className={`drawing-tool-btn tool-icon tool-align-left drawing-tool-btn-small ${currentAlign === 'left' ? 'active' : ''}`}

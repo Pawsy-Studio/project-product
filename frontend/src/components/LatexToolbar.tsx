@@ -29,9 +29,12 @@ const LatexToolbar: React.FC<LatexToolbarProps> = ({
     <div
       className="text-toolbar"
       style={{
+        position: 'absolute',
         left: `${left}px`,
         top: `${top}px`,
         width: `${panelWidth}px`,
+        zIndex: 1001,
+        pointerEvents: 'auto',
       }}
     >
       <div className="text-toolbar-content">

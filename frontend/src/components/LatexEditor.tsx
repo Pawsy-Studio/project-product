@@ -46,7 +46,7 @@ interface LatexCategory {
   icon: string;
 }
 
-interface TextEditorInterface {
+interface LatexEditorProps {
   shape: Shape;
   tempText: string;
   textAreaRef: React.RefObject<HTMLTextAreaElement | null>;
@@ -75,7 +75,7 @@ interface TextEditorInterface {
   setSelectedLatexCategory: (category: string) => void;
 }
 
-const TextInput: React.FC<TextEditorInterface> = ({
+const LatexEditor: React.FC<LatexEditorProps> = ({
   shape,
   tempText,
   textAreaRef,
@@ -85,8 +85,8 @@ const TextInput: React.FC<TextEditorInterface> = ({
   y,
   width,
   textareaStyle,
-  latexSymbols,
-  latexCategories,
+  latexSymbols = [],
+  latexCategories = [],
   handleLatexSymbolClick,
   renderLatexToHtml,
   showLatexPreview = true,
@@ -101,15 +101,31 @@ const TextInput: React.FC<TextEditorInterface> = ({
     ? latexSymbols 
     : latexSymbols.filter(sym => sym.category === selectedLatexCategory);
 
+  // Создаем стиль для textarea без позиционирования
+  const textareaContainerStyle = {
+    ...textareaStyle,
+    // Убираем абсолютное позиционирование из стиля textarea
+    position: 'relative' as const,
+    left: 0,
+    top: 0,
+    width: '100%',
+    height: '100%',
+    margin: 0,
+    padding: '4px',
+    boxSizing: 'border-box' as const,
+  };
+
   return (
     <div 
       className="latex-editor-container" 
       style={{
-        position: 'fixed',
+        position: 'absolute',
         left: `${x}px`,
-        top: `${y - 120}px`,
+        top: `${y}px`,
         width: `${width + 200}px`,
+        minHeight: '120px',
         zIndex: 1001,
+        pointerEvents: 'auto',
       }}
     >
       <div className="latex-editor-toolbar">
@@ -122,11 +138,20 @@ const TextInput: React.FC<TextEditorInterface> = ({
             style={{
               fontSize: '20px',
               color: shape.stroke,
+              minHeight: '40px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
             }}
           />
         )}
         
-        <div className="latex-symbols-dropdown" style={{ display: 'flex', justifyContent: 'center' }}>
+        <div className="latex-symbols-dropdown" style={{ 
+          display: 'flex', 
+          justifyContent: 'center',
+          position: 'relative',
+          marginTop: '8px'
+        }}>
           <button
             type="button"
             className={`drawing-tool-btn drawing-tool-btn-outline-success drawing-tool-btn-small latex-symbols-btn ${showLatexMenu ? 'active' : ''}`}
@@ -139,7 +164,14 @@ const TextInput: React.FC<TextEditorInterface> = ({
           </button>
 
           {showLatexMenu && (
-            <div className="latex-symbols-menu">
+            <div className="latex-symbols-menu" style={{
+              position: 'absolute',
+              top: '100%',
+              left: '0',
+              marginTop: '10px',
+              zIndex: 1002,
+              pointerEvents: 'auto',
+            }}>
               <div className="latex-categories-container">
                 {latexCategories.map(cat => (
                   <button
@@ -183,65 +215,69 @@ const TextInput: React.FC<TextEditorInterface> = ({
                   </button>
                 ))}
               </div>
-              
-
             </div>
           )}
         </div>
       </div>
       
-      <textarea
-        ref={textAreaRef}
-        value={tempText}
-        onChange={(e) => updateTextInRealTime(e.target.value)}
-        onBlur={() => {
-          setTimeout(() => {
-            const activeElement = document.activeElement;
-            if (!activeElement || 
-                (!activeElement.closest('.latex-editor-container') && 
-                 !activeElement.closest('.latex-symbols-menu'))) {
-              finishTextEditing();
+      <div style={{ 
+        marginTop: '8px',
+        flex: 1,
+        minHeight: '40px',
+      }}>
+        <textarea
+          ref={textAreaRef}
+          value={tempText}
+          onChange={(e) => updateTextInRealTime(e.target.value)}
+          onBlur={() => {
+            setTimeout(() => {
+              const activeElement = document.activeElement;
+              if (!activeElement || 
+                  (!activeElement.closest('.latex-editor-container') && 
+                   !activeElement.closest('.latex-symbols-menu'))) {
+                finishTextEditing(true);
+              }
+            }, 100);
+          }}
+          style={textareaContainerStyle}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') {
+              finishTextEditing(true);
             }
-          }, 100);
-        }}
-        style={textareaStyle}
-        onKeyDown={(e) => {
-          if (e.key === 'Escape') {
-            finishTextEditing();
-          }
-          if (e.key === 'Enter' && e.ctrlKey) {
-            finishTextEditing();
-          }
-          if (e.key === 'Tab') {
-            e.preventDefault();
-            const textarea = e.target as HTMLTextAreaElement;
-            const start = textarea.selectionStart;
-            const end = textarea.selectionEnd;
-            const text = textarea.value;
-
-            const pairs: { [key: string]: string } = {
-              '(': ')',
-              '[': ']',
-              '{': '}',
-              '|': '|',
-              '\\': '\\',
-            };
-
-            const charBefore = text.substring(start - 1, start);
-            if (pairs[charBefore]) {
-              const newText = text.substring(0, start) + pairs[charBefore] + text.substring(end);
-              updateTextInRealTime(newText);
-              setTimeout(() => {
-                textarea.setSelectionRange(start, start);
-              }, 0);
+            if (e.key === 'Enter' && e.ctrlKey) {
+              finishTextEditing(true);
             }
-          }
-        }}
-        autoFocus
-        placeholder="Введите LaTeX формулу"
-      />
+            if (e.key === 'Tab') {
+              e.preventDefault();
+              const textarea = e.target as HTMLTextAreaElement;
+              const start = textarea.selectionStart;
+              const end = textarea.selectionEnd;
+              const text = textarea.value;
+
+              const pairs: { [key: string]: string } = {
+                '(': ')',
+                '[': ']',
+                '{': '}',
+                '|': '|',
+                '\\': '\\',
+              };
+
+              const charBefore = text.substring(start - 1, start);
+              if (pairs[charBefore]) {
+                const newText = text.substring(0, start) + pairs[charBefore] + text.substring(end);
+                updateTextInRealTime(newText);
+                setTimeout(() => {
+                  textarea.setSelectionRange(start, start);
+                }, 0);
+              }
+            }
+          }}
+          autoFocus
+          placeholder="Введите LaTeX формулу"
+        />
+      </div>
     </div>
   );
 };
 
-export default TextInput;
+export default LatexEditor;

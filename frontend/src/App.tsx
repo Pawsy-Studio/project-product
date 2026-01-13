@@ -58,6 +58,9 @@ const DrawingApp: React.FC = () => {
   const [sessionStartTime] = useState(Date.now());
   const [isDrawingActive, setIsDrawingActive] = useState(false);
 
+  // Состояние для отслеживания скролла
+  const [scrollPosition, setScrollPosition] = useState({ left: 0, top: 0 });
+
   // Инициализация виджета через widgetBridge
   useEffect(() => {
     const unsubscribe = onWidgetInitialized((payload: WidgetInitPayload) => {
@@ -1065,29 +1068,26 @@ const DrawingApp: React.FC = () => {
     const shape = shapes.find(s => s.id === editingTextId);
     if (!shape || (shape.type !== 'text' && shape.type !== 'latex')) return null;
 
-    const stage = stageRef.current;
-    if (!stage) return null;
+    const container = canvasContainerRef.current;
+    if (!container) return null;
 
-    const containerRect = stage.container().getBoundingClientRect();
-
+    // Получаем абсолютные координаты фигуры на холсте (с учетом масштаба)
     const textX = shape.width >= 0 ? shape.x : shape.x + shape.width;
     const textY = shape.height >= 0 ? shape.y : shape.y + shape.height;
 
-    const x = textX * scale + containerRect.left;
-    const y = textY * scale + containerRect.top;
+    // Координаты в пикселях на холсте (с учетом масштаба)
+    const canvasX = textX * scale;
+    const canvasY = textY * scale;
+
     const width = Math.max(Math.abs(shape.width) * scale, 100);
     const height = Math.max(Math.abs(shape.height) * scale, 40);
-    
+
     const fontWeight = shape.fontWeight || 'normal';
     const fontStyle = shape.fontStyle || 'normal';
     const textDecoration = shape.textDecoration || 'none';
-    
-    const textareaStyle: React.CSSProperties = {
-      position: 'fixed',
-      left: `${x}px`,
-      top: `${y}px`,
-      width: `${width}px`,
-      height: `${height}px`,
+
+    // Базовый стиль для textarea - БЕЗ позиционирования!
+    const baseTextareaStyle: React.CSSProperties = {
       fontSize: `${shape.fontSize || fontSize}px`,
       fontFamily: shape.type === 'latex' ? 'KaTeX_Main, Times New Roman, serif' : (shape.fontFamily || fontFamily),
       textAlign: shape.textAlign || textAlign,
@@ -1098,7 +1098,6 @@ const DrawingApp: React.FC = () => {
       resize: 'both',
       overflow: 'auto',
       padding: '4px',
-      zIndex: 1000,
       lineHeight: '1.2',
       whiteSpace: 'pre-wrap',
       wordWrap: 'break-word',
@@ -1106,45 +1105,60 @@ const DrawingApp: React.FC = () => {
       fontStyle: fontStyle === 'italic' ? 'italic' : 'normal',
       textDecoration: textDecoration,
       backdropFilter: 'blur(2px)',
+      width: '100%',
+      height: '100%',
+      boxSizing: 'border-box',
+      display: 'block',
     };
-    
+
     if (shape.type === 'latex') {
       return (
-       <LatexEditor
-        shape={shape}
-        tempText={tempText}
-        textAreaRef={textAreaRef}
-        updateTextInRealTime={updateTextInRealTime}
-        finishTextEditing={finishTextEditing}
-        x={x}
-        y={y}
-        width={width}
-        textareaStyle={textareaStyle}
-        latexSymbols={latexSymbols}
-        latexCategories={latexCategories}
-        handleLatexSymbolClick={handleLatexSymbolClick}
-        renderLatexToHtml={renderLatexToHtml}
-        showLatexPreview={showLatexPreview}
-        showLatexMenu={showLatexMenu}
-        selectedLatexCategory={selectedLatexCategory}
-        latexPreview={latexPreview}
-        fontSize={fontSize}
-        strokeColor={strokeColor}
-        setShowLatexMenu={setShowLatexMenu}
-        setShowLatexPreview={setShowLatexPreview}
-        setSelectedLatexCategory={setSelectedLatexCategory}
-      />
+        <LatexEditor
+          shape={shape}
+          tempText={tempText}
+          textAreaRef={textAreaRef}
+          updateTextInRealTime={updateTextInRealTime}
+          finishTextEditing={finishTextEditing}
+          x={canvasX}
+          y={canvasY}
+          width={width}
+          textareaStyle={baseTextareaStyle} // Передаем стиль БЕЗ позиционирования
+          latexSymbols={latexSymbols}
+          latexCategories={latexCategories}
+          handleLatexSymbolClick={handleLatexSymbolClick}
+          renderLatexToHtml={renderLatexToHtml}
+          showLatexPreview={showLatexPreview}
+          showLatexMenu={showLatexMenu}
+          selectedLatexCategory={selectedLatexCategory}
+          latexPreview={latexPreview}
+          fontSize={fontSize}
+          strokeColor={strokeColor}
+          setShowLatexMenu={setShowLatexMenu}
+          setShowLatexPreview={setShowLatexPreview}
+          setSelectedLatexCategory={setSelectedLatexCategory}
+        />
       );
     }
-    
+
+    // Для обычного текста используем старый стиль с позиционированием
+    const textareaStyle: React.CSSProperties = {
+      ...baseTextareaStyle,
+      position: 'absolute',
+      left: `${canvasX}px`,
+      top: `${canvasY}px`,
+      width: `${width}px`,
+      height: `${height}px`,
+      zIndex: 1000,
+    };
+
     return (
-     <TextEditor 
+      <TextEditor
         textAreaRef={textAreaRef}
         tempText={tempText}
         updateTextInRealTime={updateTextInRealTime}
-        finishTextEditing={finishTextEditing}
+        finishTextEditing={() => finishTextEditing(true)}
         textareaStyle={textareaStyle}
-     />
+      />
     );
   };
 
@@ -1156,10 +1170,8 @@ const DrawingApp: React.FC = () => {
     const selectedShape = shapes.find(s => s.id === currentSelectedId);
     if (!selectedShape || (selectedShape.type !== 'text' && selectedShape.type !== 'latex')) return null;
 
-    const stage = stageRef.current;
-    if (!stage) return null;
-
-    const container = stage.container();
+    const container = canvasContainerRef.current;
+    if (!container) return null;
 
     const textX = selectedShape.width >= 0 ? selectedShape.x : selectedShape.x + selectedShape.width;
     const textY = selectedShape.height >= 0 ? selectedShape.y : selectedShape.y + selectedShape.height;
@@ -1167,9 +1179,9 @@ const DrawingApp: React.FC = () => {
     const realHeight = Math.abs(selectedShape.height);
     const realWidth = Math.abs(selectedShape.width);
 
-    const x = textX * scale - container.scrollLeft;
-    const y = textY * scale - container.scrollTop;
-
+    // Абсолютные координаты на холсте
+    const canvasX = textX * scale;
+    const canvasY = textY * scale;
 
     const textPanelWidth = 416;
     const latexPanelWidth = 152;
@@ -1178,10 +1190,15 @@ const DrawingApp: React.FC = () => {
 
     const offset = 20;
 
-    const top = y + realHeight * scale + offset;
+    const top = canvasY + realHeight * scale + offset;
 
-    const textCenterX = x + (realWidth * scale) / 2;
+    const textCenterX = canvasX + (realWidth * scale) / 2;
     let left = textCenterX - panelWidth / 2;
+
+    // Ограничиваем позицию, чтобы не выходила за границы видимой области
+    const maxLeft = 6000 * scale - panelWidth;
+    if (left > maxLeft) left = maxLeft;
+    if (left < 0) left = 0;
 
     if (selectedShape.type === 'latex') {
       return (
@@ -1233,6 +1250,24 @@ const DrawingApp: React.FC = () => {
 
   const stageRef = useRef<any>(null);
   const canvasContainerRef = useRef<HTMLDivElement>(null);
+
+  // Эффект для отслеживания скролла и обновления позиций редакторов
+  useEffect(() => {
+    const container = canvasContainerRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      setScrollPosition({
+        left: container.scrollLeft,
+        top: container.scrollTop,
+      });
+    };
+
+    container.addEventListener('scroll', handleScroll);
+    return () => {
+      container.removeEventListener('scroll', handleScroll);
+    };
+  }, []);
 
   const handleMouseDown = (e: any) => {
     if (e.evt.button === 1) {
@@ -1436,6 +1471,22 @@ const DrawingApp: React.FC = () => {
         </div>
       </div>
       <div className="canvas-container" ref={canvasContainerRef} style={{ cursor: isPanning ? 'grabbing' : 'default' }}>
+        <div 
+          className="canvas-overlay-container"
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: `${6000 * scale}px`,
+            height: `${2500 * scale}px`,
+            pointerEvents: 'none',
+            zIndex: 1000,
+          }}
+        >
+          {renderLatexShapes()}
+          {renderTextInput()}
+          {renderTextToolbar()}
+        </div>
         <Stage
           ref={stageRef}
           width={6000 * scale}
@@ -1453,9 +1504,6 @@ const DrawingApp: React.FC = () => {
             {renderSelection()}
           </Layer>
         </Stage>
-        {renderTextInput()}
-        {renderLatexShapes()}
-        {renderTextToolbar()}
       </div>
       <div className="zoom-buttons">
         <button className="zoom-button zoom-plus" onClick={zoomIn}></button>
