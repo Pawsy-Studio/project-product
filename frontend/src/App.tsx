@@ -9,6 +9,7 @@ import RangeToolbar from './components/RangeToolbar.tsx';
 import ToolsToolbar from './components/ToolsToolbar.tsx';
 import SelDelToolbar from './components/SelDelToolbar.tsx';
 import OCRToolbar from './components/OCRToolbar.tsx';
+import OCRPreview from './components/OCRPreview.tsx';
 import TextToolbar from './components/TextToolbar.tsx';
 import LatexToolbar from './components/LatexToolbar.tsx';
 import LatexEditor from './components/LatexEditor.tsx';
@@ -51,6 +52,11 @@ const DrawingApp: React.FC = () => {
     width: number;
     height: number;
   } | null>(null);
+
+  // OCR Preview state
+  const [showOcrPreview, setShowOcrPreview] = useState(false);
+  const [ocrPreviewLatex, setOcrPreviewLatex] = useState('');
+  const [isOcrEditing, setIsOcrEditing] = useState(false);
 
   // Статистика и метрики
   const [statsModuleCreated, setStatsModuleCreated] = useState(false);
@@ -482,22 +488,9 @@ const DrawingApp: React.FC = () => {
       const result = await response.json();
 
       if (result.success && result.latex) {
-        // Удаляем все объекты в выделенной области (используем shapesWithoutOcrBorder)
-        const newShapes = shapesWithoutOcrBorder.filter(shape => {
-          const shapeRect = {
-            x: shape.x,
-            y: shape.y,
-            width: shape.width,
-            height: shape.height
-          };
-          return !isRectInside(ocrSelection, shapeRect);
-        });
-
-        // Создаем новую LaTeX формулу
-        let latexFormula = result.latex.trim();
-
         // ОЧИСТКА ЛИШНИХ ЗНАКОВ $ (если OCR сервер добавляет их)
         // Удаляем обрамляющие $, если они есть
+        let latexFormula = result.latex.trim();
         if (latexFormula.startsWith('$') && latexFormula.endsWith('$')) {
           latexFormula = latexFormula.slice(1, -1);
         }
@@ -505,48 +498,12 @@ const DrawingApp: React.FC = () => {
         if (latexFormula.startsWith('$$') && latexFormula.endsWith('$$')) {
           latexFormula = latexFormula.slice(2, -2);
         }
-
-        // Удаляем пробелы в начале и конце после удаления $
         latexFormula = latexFormula.trim();
 
-        const latexSize = measureLatexSize(latexFormula, fontSize);
-
-        const newLatexShape: Shape = {
-          id: `latex_${Date.now()}`,
-          type: 'latex',
-          x: ocrSelection.x,
-          y: ocrSelection.y,
-          width: latexSize.width,
-          height: latexSize.height,
-          stroke: strokeColor,
-          strokeWidth: 1,
-          latex: latexFormula,
-          latexRendered: renderLatexToHtml(latexFormula, fontSize),
-          fontSize: fontSize,
-          fontFamily: 'KaTeX_Main',
-          textAlign: 'left',
-          fontWeight: 'normal',
-          fontStyle: 'normal',
-          textDecoration: 'none',
-          isSelected: false,
-          isEditing: false,
-          isLatex: true,
-          scaleX: 1,
-          scaleY: 1,
-          rotation: 0
-        };
-
-        // Добавляем новую формулу и обновляем состояние
-        const updatedShapes = [...newShapes, newLatexShape];
-        setShapes(updatedShapes);
-        saveToHistory(updatedShapes);
-
-        // Очищаем выделение
-        setOcrSelection(null);
-        setTool('select');
-
-        // Отправляем на бэкенд и на платформу
-        sendCanvasDataToBackend(updatedShapes);
+        // Показываем preview
+        setOcrPreviewLatex(latexFormula);
+        setShowOcrPreview(true);
+        setIsOcrEditing(false);
 
         console.log('OCR успешно распознано:', result);
       } else {
@@ -566,7 +523,7 @@ const DrawingApp: React.FC = () => {
       console.error('Ошибка при OCR распознавании:', error);
       alert('Ошибка при отправке изображения на сервер.');
     }
-  }, [ocrSelection, shapes, fontSize, strokeColor, scale, saveToHistory, sendCanvasDataToBackend]);
+  }, [ocrSelection, shapes, scale]);
 
   const handleOcrSelect = useCallback(() => {
     if (editingTextId) {
@@ -575,6 +532,79 @@ const DrawingApp: React.FC = () => {
     setOcrSelection(null);
     setTool('ocr-selection');
   }, [editingTextId, finishTextEditing]);
+
+  // OCR Preview handlers
+  const handleOcrPreviewSave = useCallback((finalLatex: string) => {
+    if (!ocrSelection) return;
+
+    // Удаляем все объекты в выделенной области
+    const shapesWithoutOcrBorder = shapes.filter(shape => !shape.id.startsWith('ocr_border_'));
+    const newShapes = shapesWithoutOcrBorder.filter(shape => {
+      const shapeRect = {
+        x: shape.x,
+        y: shape.y,
+        width: shape.width,
+        height: shape.height
+      };
+      return !isRectInside(ocrSelection, shapeRect);
+    });
+
+    // Создаем новую LaTeX формулу
+    const latexSize = measureLatexSize(finalLatex, fontSize);
+
+    const newLatexShape: Shape = {
+      id: `latex_${Date.now()}`,
+      type: 'latex',
+      x: ocrSelection.x,
+      y: ocrSelection.y,
+      width: latexSize.width,
+      height: latexSize.height,
+      stroke: strokeColor,
+      strokeWidth: 1,
+      latex: finalLatex,
+      latexRendered: renderLatexToHtml(finalLatex, fontSize),
+      fontSize: fontSize,
+      fontFamily: 'KaTeX_Main',
+      textAlign: 'left',
+      fontWeight: 'normal',
+      fontStyle: 'normal',
+      textDecoration: 'none',
+      isSelected: false,
+      isEditing: false,
+      isLatex: true,
+      scaleX: 1,
+      scaleY: 1,
+      rotation: 0
+    };
+
+    // Добавляем новую формулу и обновляем состояние
+    const updatedShapes = [...newShapes, newLatexShape];
+    setShapes(updatedShapes);
+    saveToHistory(updatedShapes);
+
+    // Очищаем выделение
+    setOcrSelection(null);
+    setTool('select');
+    setShowOcrPreview(false);
+
+    // Отправляем на бэкенд и на платформу
+    sendCanvasDataToBackend(updatedShapes);
+  }, [ocrSelection, shapes, fontSize, strokeColor, saveToHistory, sendCanvasDataToBackend]);
+
+  const handleOcrPreviewEdit = useCallback(() => {
+    setIsOcrEditing(true);
+  }, []);
+
+  const handleOcrPreviewCancel = useCallback(() => {
+    setShowOcrPreview(false);
+    setOcrSelection(null);
+    setTool('select');
+  }, []);
+
+  const handleOcrFinishEdit = useCallback((editedLatex: string) => {
+    setOcrPreviewLatex(editedLatex);
+    setIsOcrEditing(false);
+  }, []);
 
   // Global mouse event handlers for panning
   useEffect(() => {
@@ -1487,6 +1517,22 @@ const DrawingApp: React.FC = () => {
           {renderLatexShapes()}
           {renderTextInput()}
           {renderTextToolbar()}
+          {showOcrPreview && (
+            <OCRPreview
+              latex={ocrPreviewLatex}
+              position={ocrSelection ? {
+                x: (ocrSelection.x + ocrSelection.width / 2) * scale - 150,
+                y: (ocrSelection.y + ocrSelection.height / 2) * scale - 100
+              } : { x: 100, y: 100 }}
+              fontSize={fontSize}
+              strokeColor={strokeColor}
+              onSave={handleOcrPreviewSave}
+              onEdit={handleOcrPreviewEdit}
+              onCancel={handleOcrPreviewCancel}
+              isEditing={isOcrEditing}
+              onFinishEdit={handleOcrFinishEdit}
+            />
+          )}
         </div>
         <Stage
           ref={stageRef}
