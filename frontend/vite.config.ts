@@ -4,11 +4,9 @@ import { resolve } from 'path';
 import dts from 'vite-plugin-dts';
 
 export default defineConfig(({ command, mode }) => {
-  // Явно определяем режим библиотеки по флагу
   const isLibMode = mode === 'lib' || command === 'build' && !process.env.IS_APP;
   
   if (isLibMode) {
-    // Режим библиотеки
     return {
       plugins: [
         react(),
@@ -56,13 +54,12 @@ export default defineConfig(({ command, mode }) => {
         outDir: 'dist',
         minify: false,
         emptyOutDir: true,
-        cssCodeSplit: false, // Критически важно для библиотек
+        cssCodeSplit: false,
         cssMinify: false
       }
     };
   }
 
-  // Режим разработки (локальный запуск) или сборка приложения
   return {
     plugins: [react()],
     optimizeDeps: {
