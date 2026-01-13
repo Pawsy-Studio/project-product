@@ -108,8 +108,8 @@ const LatexEditor: React.FC<LatexEditorProps> = ({
         className="latex-editor-toolbar-container"
         style={{
           position: 'absolute',
-          left: `${x}px`,
-          top: `${y - 120}px`,
+          left: `${x - 100}px`,
+          top: `${y - 150}px`,
           width: `${width + 200}px`,
           minHeight: '120px',
           zIndex: 1002,
