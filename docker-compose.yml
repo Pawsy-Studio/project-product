@@ -1,4 +1,3 @@
-#version: '3.8'
 
 services:
   postgres:
@@ -33,7 +32,6 @@ services:
       DJANGO_DEBUG: "true"
       DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1,backend,0.0.0.0"
       DJANGO_SETTINGS_MODULE: freedraw_widget_backend.settings
-      # OCR переменные
       TESSERACT_CMD: /usr/bin/tesseract
       TESSDATA_PREFIX: /usr/share/tesseract-ocr/5/tessdata
       OCR_SPACE_API_KEY: ${OCR_SPACE_API_KEY}

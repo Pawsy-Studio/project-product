@@ -1,7 +1,3 @@
-"""
-Views для обработки OCR запросов
-Использует параллельное распознавание OCR.space + Tesseract
-"""
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -14,21 +10,9 @@ from django.core.files.uploadedfile import InMemoryUploadedFile
 
 
 class LaTeXOCRView(APIView):
-    """
-    API endpoint для распознавания LaTeX формул
-    Параллельное распознавание: OCR.space + Tesseract
-    """
     parser_classes = (MultiPartParser, FormParser, JSONParser)
 
     def post(self, request, *args, **kwargs):
-        """
-        Принимает изображение и возвращает распознанную LaTeX формулу
-
-        Parameters:
-        - image: файл изображения (multipart/form-data)
-        - image_data: base64 изображение (JSON)
-        - language: язык распознавания (по умолчанию 'eng')
-        """
         try:
             ocr_service = get_parallel_ocr_service()
         except ValueError as e:
@@ -41,11 +25,9 @@ class LaTeXOCRView(APIView):
 
         language = request.data.get('language', 'eng')
 
-        # Обработка файла
         if 'image' in request.FILES:
             image_file = request.FILES['image']
 
-            # Проверка размера
             max_size = getattr(settings, 'MAX_UPLOAD_SIZE', 10 * 1024 * 1024)
             if image_file.size > max_size:
                 return Response({
@@ -55,7 +37,6 @@ class LaTeXOCRView(APIView):
                     'confidence': 0.0
                 }, status=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE)
 
-            # Проверка типа
             allowed = getattr(settings, 'ALLOWED_IMAGE_TYPES',
                             ['image/png', 'image/jpeg', 'image/jpg'])
             if image_file.content_type not in allowed:
@@ -66,7 +47,6 @@ class LaTeXOCRView(APIView):
                     'confidence': 0.0
                 }, status=status.HTTP_400_BAD_REQUEST)
 
-            # Параллельное распознавание
             result = ocr_service.process_image_file(image_file, language)
 
             if result['success']:
@@ -87,7 +67,6 @@ class LaTeXOCRView(APIView):
                     'confidence': 0.0
                 }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-        # Обработка base64
         elif 'image_data' in request.data:
             try:
                 image_data = request.data['image_data']
@@ -142,11 +121,9 @@ class LaTeXOCRView(APIView):
 
 
 class LaTeXValidateView(APIView):
-    """API endpoint для валидации LaTeX формул"""
     parser_classes = (JSONParser,)
 
     def post(self, request, *args, **kwargs):
-        """Валидирует LaTeX формулу"""
         import re
 
         latex = request.data.get('latex', '')
@@ -160,17 +137,14 @@ class LaTeXValidateView(APIView):
         errors = []
         warnings = []
 
-        # Проверка скобок
         pairs = [('{', '}'), ('(', ')'), ('[', ']')]
         for o, c in pairs:
             if latex.count(o) != latex.count(c):
                 errors.append(f'Unbalanced: {o}{c}')
 
-        # Проверка команд
         if re.findall(r'\\(?![a-zA-Z@]|\s|$)', latex):
             warnings.append('Possibly incomplete commands')
 
-        # KaTeX совместимость
         unsupported = ['\\usepackage', '\\newcommand', '\\def']
         katex_ok = not any(u in latex for u in unsupported)
 
@@ -185,10 +159,7 @@ class LaTeXValidateView(APIView):
 
 
 class LaTeXExamplesView(APIView):
-    """API endpoint для примеров LaTeX формул"""
-
     def get(self, request, *args, **kwargs):
-        """Возвращает примеры формул"""
         examples = [
             {
                 'name': 'Quadratic Equation',
@@ -240,10 +211,7 @@ class LaTeXExamplesView(APIView):
 
 
 class OCRHealthCheckView(APIView):
-    """API endpoint для проверки OCR сервисов"""
-
     def get(self, request, *args, **kwargs):
-        """Проверка доступности сервисов"""
         try:
             ocr = get_parallel_ocr_service()
             status_info = ocr.get_status()

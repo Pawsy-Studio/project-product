@@ -105,7 +105,6 @@ const LatexEditor: React.FC<LatexEditorProps> = ({
 
   return (
     <>
-      {/* Тулубар с превью и символами */}
       <div 
         className="latex-editor-toolbar-container"
         style={{
@@ -211,7 +210,6 @@ const LatexEditor: React.FC<LatexEditorProps> = ({
         </div>
       </div>
 
-      {/* Отдельный контейнер для textarea (поле ввода формулы) */}
       <div
         className="latex-editor-container"
         style={{

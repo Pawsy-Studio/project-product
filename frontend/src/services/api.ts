@@ -1,7 +1,4 @@
-// API service for sending canvas commands to backend
-// Added for backend data sending logic
-
-const API_BASE_URL = 'http://localhost:8000'; // Adjust to your backend URL
+const API_BASE_URL = 'http://localhost:8000';
 
 export interface ApiResponse {
   success: boolean;
@@ -37,7 +34,6 @@ export const sendCanvasCommand = async (
   }
 };
 
-// OCR функция для отправки изображения
 export const sendOcrImage = async (imageData: string): Promise<ApiResponse> => {
   try {
     const url = `${API_BASE_URL}/api/ocr/latex/`;
@@ -62,7 +58,6 @@ export const sendOcrImage = async (imageData: string): Promise<ApiResponse> => {
   }
 };
 
-// Specific functions for each action
 export const clearCanvas = async (boardId: string): Promise<ApiResponse> => {
   return sendCanvasCommand(boardId, 'clear');
 };
@@ -75,7 +70,6 @@ export const updateCanvasData = async (boardId: string, data: { shapes: any[], c
   return sendCanvasCommand(boardId, 'update', data);
 };
 
-// Legacy function for backward compatibility
 export const updateShapes = async (boardId: string, shapes: any[]): Promise<ApiResponse> => {
   return updateCanvasData(boardId, { shapes });
 };

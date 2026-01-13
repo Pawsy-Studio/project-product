@@ -1,7 +1,6 @@
 from django.db import models
 
 class CanvasData(models.Model):
-    """Модель для хранения данных холста"""
     board_id = models.CharField(
         max_length=255,
         verbose_name='ID доски',

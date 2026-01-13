@@ -3,7 +3,6 @@
   import { getInfo } from './services/widgetBridge';
   import DrawingApp from './App.tsx';
 
-  // 👇 Делаем доступным из консоли и iframe
   (window as any).getInfo = getInfo;
 
 

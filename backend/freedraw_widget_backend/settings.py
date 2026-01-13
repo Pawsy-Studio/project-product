@@ -87,7 +87,7 @@ REST_FRAMEWORK = {
     'DEFAULT_PARSER_CLASSES': [
         'rest_framework.parsers.JSONParser',
         'rest_framework.parsers.FormParser',
-        'rest_framework.parsers.MultiPartParser',  # Для загрузки изображений
+        'rest_framework.parsers.MultiPartParser',
     ],
 }
 
@@ -97,7 +97,7 @@ SPECTACULAR_SETTINGS = {
     'DESCRIPTION': 'API for collaborative drawing widget with LaTeX OCR',
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
-    'COMPONENT_SPLIT_REQUEST': True,  # Для правильного отображения multipart/form-data
+    'COMPONENT_SPLIT_REQUEST': True,
 }
 
 
@@ -113,9 +113,8 @@ import os
 
 import os
 from pathlib import Path
-import dj_database_url  # Добавьте этот импорт
+import dj_database_url 
 
-# Удалите старый DATABASES и добавьте:
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
@@ -135,15 +134,12 @@ CORS_ALLOWED_ORIGINS = [
     "ws://127.0.0.1:5173",
 ]
 
-# OCR настройки
 OCR_SPACE_API_KEY = os.environ.get('OCR_SPACE_API_KEY', '')
 
-# Tesseract настройки
 TESSERACT_CMD = os.environ.get('TESSERACT_CMD', '/usr/bin/tesseract')
 TESSDATA_PREFIX = os.environ.get('TESSDATA_PREFIX', '/usr/share/tesseract-ocr/4.00/tessdata')
 
-# Настройки загрузки изображений
-MAX_UPLOAD_SIZE = 10 * 1024 * 1024  # 10MB
+MAX_UPLOAD_SIZE = 10 * 1024 * 1024
 ALLOWED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/bmp', 'image/webp']
 
 

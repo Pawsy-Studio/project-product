@@ -1,4 +1,3 @@
-# freedraw_widget_backend/consumers.py
 import json
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
@@ -10,8 +9,7 @@ class CanvasConsumer(AsyncWebsocketConsumer):
         self.room_group_name = f'canvas_{self.board_id}'
         
         print(f"WebSocket connecting to room: {self.room_group_name}")
-        
-        # Присоединяемся к группе
+
         await self.channel_layer.group_add(
             self.room_group_name,
             self.channel_name
@@ -19,11 +17,9 @@ class CanvasConsumer(AsyncWebsocketConsumer):
         
         await self.accept()
         print(f"WebSocket connected for board: {self.board_id}")
-        
-        # Добавляем пользователя в активные
+
         await self.add_active_user()
-        
-        # Отправляем текущее состояние холста
+
         canvas_data = await self.get_canvas_data()
         await self.send(text_data=json.dumps({
             'type': 'init',
@@ -32,11 +28,9 @@ class CanvasConsumer(AsyncWebsocketConsumer):
     
     async def disconnect(self, close_code):
         print(f"WebSocket disconnected for board: {self.board_id}, code: {close_code}")
-        
-        # Удаляем пользователя из активных
+
         await self.remove_active_user()
-        
-        # Покидаем группу
+
         await self.channel_layer.group_discard(
             self.room_group_name,
             self.channel_name
@@ -49,14 +43,12 @@ class CanvasConsumer(AsyncWebsocketConsumer):
             message_type = data.get('type')
             
             if message_type == 'update':
-                # Сохраняем изменения в базе
                 update_data = data.get('data', {})
                 shapes = update_data.get('shapes', [])
                 config = update_data.get('config', {})
                 history = update_data.get('history', [])
                 await self.update_canvas_data(shapes, config, history)
-                
-                # Рассылаем всем участникам группы
+
                 await self.channel_layer.group_send(
                     self.room_group_name,
                     {
@@ -102,10 +94,7 @@ class CanvasConsumer(AsyncWebsocketConsumer):
             print(f"Error processing WebSocket message: {e}")
     
     async def canvas_message(self, event):
-        """Получение сообщения от группы"""
         message = event['message']
-        
-        # Не отправляем сообщение обратно отправителю
         if message.get('userId') != self.scope.get('user_id', 'unknown'):
             await self.send(text_data=json.dumps(message))
     
@@ -119,7 +108,6 @@ class CanvasConsumer(AsyncWebsocketConsumer):
                 'history': canvas.history[-10:] if canvas.history else []
             }
         except CanvasData.DoesNotExist:
-            # Создаем новый холст если не существует
             canvas = CanvasData.objects.create(
                 board_id=self.board_id,
                 elements=[],
@@ -149,7 +137,6 @@ class CanvasConsumer(AsyncWebsocketConsumer):
             canvas.canvas_config = config
         if history is not None:
             canvas.history = history
-            # Сохраняем в историю если не передана
             if not history:
                 canvas.history.append({'action': 'update', 'shapes': shapes[:10]})
                 if len(canvas.history) > 50:
@@ -167,7 +154,6 @@ class CanvasConsumer(AsyncWebsocketConsumer):
                 'active_users': []
             }
         )
-        # Сохраняем в историю перед очисткой
         if canvas.elements:
             canvas.history.append({'action': 'clear', 'previous_elements': canvas.elements})
         canvas.elements = []

@@ -138,7 +138,7 @@ const TextToolbar: React.FC<TextToolbarProps> = ({
               className={`drawing-tool-btn tool-icon tool-text-format drawing-tool-btn-small ${showTextFormatDropdown ? 'drawing-tool-btn-primary' : 'drawing-tool-btn-outline-secondary'} ${showTextFormatDropdown ? 'active' : ''}`}
               onClick={(e) => {
                 e.stopPropagation();
-                setShowTextAlignDropdown(false); // Close align dropdown when opening format dropdown
+                setShowTextAlignDropdown(false);
                 setShowTextFormatDropdown(!showTextFormatDropdown);
               }}
               title="Формат текста"
@@ -203,7 +203,7 @@ const TextToolbar: React.FC<TextToolbarProps> = ({
               className={`drawing-tool-btn tool-icon tool-text-align drawing-tool-btn-small ${showTextAlignDropdown ? 'drawing-tool-btn-primary' : 'drawing-tool-btn-outline-secondary'} ${showTextAlignDropdown ? 'active' : ''}`}
               onClick={(e) => {
                 e.stopPropagation();
-                setShowTextFormatDropdown(false); // Close format dropdown when opening align dropdown
+                setShowTextFormatDropdown(false);
                 setShowTextAlignDropdown(!showTextAlignDropdown);
               }}
               title="Выравнивание текста"

@@ -11,8 +11,6 @@ export const useHistory = (initialShapes: Shape[], onShapesChange?: (shapes: Sha
     setHistory(newHistory);
     setHistoryIndex(newHistory.length - 1);
 
-    // Send shapes to backend
-    // Added for backend data sending logic
     if (onShapesChange) {
       onShapesChange(newShapes);
     }

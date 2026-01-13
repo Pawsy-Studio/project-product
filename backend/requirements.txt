@@ -10,7 +10,6 @@ Pillow==10.3.0
 requests==2.31.0
 coverage==7.4.0
 
-# Для Tesseract OCR
 pytesseract==0.3.10
 opencv-python-headless==4.10.0.84
 numpy==1.26.4

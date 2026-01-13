@@ -1,9 +1,6 @@
 FROM python:3.11-slim
 
 WORKDIR /app
-
-# Установка Tesseract и системных зависимостей
-# Заменили libgl1-mesa-glx на libgl1 для Debian Trixie
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     gcc \
@@ -23,14 +20,11 @@ RUN apt-get update && \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Копируем requirements
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Копируем код
 COPY . .
 
-# Создаем папки
 RUN mkdir -p staticfiles && chmod 755 staticfiles
 RUN mkdir -p freedraw_widget_backend/migrations && \
     touch freedraw_widget_backend/migrations/__init__.py

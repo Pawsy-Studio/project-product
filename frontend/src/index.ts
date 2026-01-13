@@ -1,4 +1,3 @@
-// Экспортируем компоненты, которые хотим сделать публичными
-export { default as DrawingApp } from './App';
+import './App.css';
+export { default as DrawingApp } from './App.tsx';
 export { getInfo } from './services/widgetBridge';
-// Добавьте другие экспорты по необходимости

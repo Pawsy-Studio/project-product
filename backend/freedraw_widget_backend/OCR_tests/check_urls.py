@@ -1,6 +1,3 @@
-"""
-Скрипт для проверки доступности OCR endpoints
-"""
 from django.test import Client
 
 

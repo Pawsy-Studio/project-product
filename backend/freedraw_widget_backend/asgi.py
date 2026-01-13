@@ -1,4 +1,3 @@
-# freedraw_widget_backend/asgi.py
 import os
 import django
 from django.core.asgi import get_asgi_application

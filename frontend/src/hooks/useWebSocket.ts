@@ -25,8 +25,7 @@ export const useWebSocket = (
   const onCanvasUpdateRef = useRef(onCanvasUpdate);
   const reconnectTimerRef = useRef<number | null>(null);
   const reconnectAttempts = useRef(0);
-  
-  // ⬇️ Используем useRef для стабильных значений
+
   const boardIdRef = useRef(boardId);
   const userIdRef = useRef(userId);
 
@@ -35,7 +34,6 @@ export const useWebSocket = (
 
   const [isConnected, setIsConnected] = useState(false);
 
-  // Обновляем refs при изменении пропсов
   useEffect(() => {
     boardIdRef.current = boardId;
   }, [boardId]);
@@ -44,19 +42,16 @@ export const useWebSocket = (
     userIdRef.current = userId;
   }, [userId]);
 
-  // Всегда актуальный callback
   useEffect(() => {
     onCanvasUpdateRef.current = onCanvasUpdate;
   }, [onCanvasUpdate]);
 
-  // ⬇️ connect больше не зависит от изменяющихся пропсов
   const connect = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       console.log('[WS] Already connected, skipping');
       return;
     }
 
-    // Закрываем существующее соединение
     if (wsRef.current) {
       wsRef.current.close();
       wsRef.current = null;
@@ -72,8 +67,7 @@ export const useWebSocket = (
       console.log('[WS] Connected to board:', boardIdRef.current);
       setIsConnected(true);
       reconnectAttempts.current = 0;
-      
-      // Запрашиваем начальное состояние
+
       ws.send(JSON.stringify({
         type: 'init',
         userId: userIdRef.current
@@ -122,7 +116,6 @@ export const useWebSocket = (
       setIsConnected(false);
       wsRef.current = null;
 
-      // Не переподключаемся при нормальном закрытии
       if (event.code === 1000) return;
 
       if (reconnectAttempts.current < MAX_RECONNECT_ATTEMPTS) {
@@ -136,16 +129,14 @@ export const useWebSocket = (
         console.error('[WS] Max reconnection attempts reached');
       }
     };
-  }, []); // ⬅️ Пустой массив зависимостей - функция создается один раз
+  }, []); 
 
   const disconnect = useCallback(() => {
-    // Очищаем таймер переподключения
     if (reconnectTimerRef.current) {
       clearTimeout(reconnectTimerRef.current);
       reconnectTimerRef.current = null;
     }
 
-    // Закрываем соединение с кодом 1000 (нормальное закрытие)
     if (wsRef.current) {
       wsRef.current.close(1000, 'Client disconnect');
       wsRef.current = null;
@@ -181,7 +172,6 @@ export const useWebSocket = (
     sendMessage({ type: 'undo' });
   }, [sendMessage]);
 
-  // ⬇️ Ключевое исправление - эффект зависит только от boardId
   useEffect(() => {
     console.log('[WS] Setting up connection for board:', boardId);
     connect();
@@ -190,9 +180,8 @@ export const useWebSocket = (
       console.log('[WS] Cleaning up connection for board:', boardId);
       disconnect();
     };
-  }, [boardId]); // ⬅️ Только boardId вызывает переподключение
+  }, [boardId]);
 
-  // Мемоизируем возвращаемый объект, чтобы не вызывать перерендеры
   return useMemo(() => ({
     sendShapesUpdate,
     sendClear,

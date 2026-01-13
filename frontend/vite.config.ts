@@ -1,45 +1,38 @@
-import { defineConfig, type UserConfig } from 'vite';
+import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { resolve } from 'path';
-import { existsSync } from 'fs';
 import dts from 'vite-plugin-dts';
 
-// Определяем режим работы
-const isAppMode = existsSync(resolve(__dirname, 'index.html'));
-
-// Базовые настройки, общие для всех режимов
-const baseConfig: UserConfig = {
-  plugins: [
-    react(),
-    // Добавляем генерацию типов только в режиме библиотеки
-    ...(isAppMode ? [] : [
-      dts({
-        insertTypesEntry: true,
-        outDir: 'dist',
-        exclude: ['**/*.test.ts', '**/*.spec.ts']
-      })
-    ])
-  ],
-  optimizeDeps: {
-    include: ['void-elements']
-  },
-  resolve: {
-    alias: {
-      '@': resolve(__dirname, 'src')
-    }
-  }
-};
-
-export default defineConfig(({ command}) => {
-  if (command === 'build' && !isAppMode) {
-    // Режим сборки библиотеки
+export default defineConfig(({ command, mode }) => {
+  // Явно определяем режим библиотеки по флагу
+  const isLibMode = mode === 'lib' || command === 'build' && !process.env.IS_APP;
+  
+  if (isLibMode) {
+    // Режим библиотеки
     return {
-      ...baseConfig,
+      plugins: [
+        react(),
+        dts({
+          insertTypesEntry: true,
+          outDir: 'dist',
+          include: ['src'],
+          exclude: ['**/*.test.ts', '**/*.spec.ts']
+        })
+      ],
+      optimizeDeps: {
+        include: ['void-elements']
+      },
+      resolve: {
+        alias: {
+          '@': resolve(__dirname, 'src')
+        }
+      },
       build: {
         lib: {
           entry: resolve(__dirname, 'src/index.ts'),
-          formats: ['es'],
-          fileName: 'index'
+          name: 'drawboard-microservice',
+          fileName: (format) => `index.${format === 'es' ? 'mjs' : 'js'}`,
+          formats: ['es', 'cjs']
         },
         rollupOptions: {
           external: ['react', 'react-dom', 'react/jsx-runtime'],
@@ -49,36 +42,46 @@ export default defineConfig(({ command}) => {
               'react-dom': 'ReactDOM',
               'react/jsx-runtime': 'jsxRuntime'
             },
-            // Сохраняем структуру директорий
-            preserveModules: false
+            exports: 'named',
+            interop: 'auto',
+            assetFileNames: (assetInfo) => {
+              if (assetInfo.name?.endsWith('.css')) {
+                return 'style.css';
+              }
+              return assetInfo.name || 'assets/[name]-[hash][extname]';
+            }
           }
         },
         sourcemap: true,
         outDir: 'dist',
-        // Минимизируем, но оставляем читаемым
-        minify: 'esbuild',
-        // Собираем CSS внутрь JS
-        cssCodeSplit: false
+        minify: false,
+        emptyOutDir: true,
+        cssCodeSplit: false, // Критически важно для библиотек
+        cssMinify: false
       }
     };
   }
 
-  // Режим приложения (разработка или сборка)
+  // Режим разработки (локальный запуск) или сборка приложения
   return {
-    ...baseConfig,
+    plugins: [react()],
+    optimizeDeps: {
+      include: ['void-elements']
+    },
+    resolve: {
+      alias: {
+        '@': resolve(__dirname, 'src')
+      }
+    },
     build: {
       outDir: 'dist-app',
-      sourcemap: true,
       rollupOptions: {
-        input: isAppMode ? resolve(__dirname, 'index.html') : undefined,
+        input: resolve(__dirname, 'index.html')
       }
     },
     server: {
       port: 5173,
       open: true
-    },
-    preview: {
-      port: 3001
     }
   };
 });

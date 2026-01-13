@@ -1,4 +1,3 @@
-// widgetBridge.ts
 export interface WidgetInitPayload {
   widgetId: number;
   userId: number;
@@ -27,7 +26,6 @@ export const getInfo = (payload: WidgetInitPayload) => {
 
   console.log('[Widget] Initialized with:', payload);
 
-  // Уведомляем всех подписчиков
   onInitializedCallbacks.forEach(callback => callback(payload));
 
   return {
@@ -46,16 +44,13 @@ export const getWidgetContext = () => {
   return widgetContext;
 };
 
-// Подписка на инициализацию виджета
 export const onWidgetInitialized = (callback: (payload: WidgetInitPayload) => void) => {
   onInitializedCallbacks.push(callback);
-  
-  // Если виджет уже инициализирован, вызываем callback сразу
+
   if (widgetContext) {
     callback(widgetContext);
   }
-  
-  // Функция для отписки
+
   return () => {
     const index = onInitializedCallbacks.indexOf(callback);
     if (index > -1) {
@@ -64,7 +59,6 @@ export const onWidgetInitialized = (callback: (payload: WidgetInitPayload) => vo
   };
 };
 
-// Получение только boardId (для обратной совместимости)
 export const getBoardId = (): string => {
   if (!widgetContext) {
     throw new Error('Widget not initialized');

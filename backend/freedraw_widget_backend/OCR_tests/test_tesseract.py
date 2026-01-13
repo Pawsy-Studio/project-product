@@ -1,6 +1,3 @@
-"""
-Тесты для Tesseract OCR сервиса
-"""
 from io import BytesIO
 from unittest.mock import patch, Mock
 from PIL import Image, ImageDraw
@@ -12,12 +9,7 @@ from ..ocr_service import LaTeXOCRService
 
 
 class TesseractOCRTests(TestCase):
-    """
-    Тесты для Tesseract OCR
-    """
-
     def setUp(self):
-        """Настройка перед каждым тестом"""
         try:
             self.service = LaTeXOCRService()
             self.tesseract_available = True
@@ -25,7 +17,6 @@ class TesseractOCRTests(TestCase):
             self.tesseract_available = False
 
     def test_service_initialization(self):
-        """Тест инициализации Tesseract сервиса"""
         if not self.tesseract_available:
             self.skipTest("Tesseract not available")
 
@@ -34,7 +25,6 @@ class TesseractOCRTests(TestCase):
     @patch('pytesseract.image_to_string')
     @patch('pytesseract.image_to_data')
     def test_process_image_success(self, mock_image_to_data, mock_image_to_string):
-        """Тест успешной обработки изображения"""
         if not self.tesseract_available:
             self.skipTest("Tesseract not available")
 
@@ -51,20 +41,15 @@ class TesseractOCRTests(TestCase):
         self.assertGreater(result['confidence'], 0)
 
     def test_preprocess_image(self):
-        """Тест предобработки изображения"""
         if not self.tesseract_available:
             self.skipTest("Tesseract not available")
 
         import numpy as np
-
-        # Создаем тестовое изображение
         img = Image.new('RGB', (100, 100), color='white')
         img_array = np.array(img)
 
-        # Обрабатываем
         processed = self.service.preprocess_image(img_array)
 
-        # Проверяем что изображение обработано
         self.assertIsInstance(processed, np.ndarray)
 
     def _create_test_image(self, text="x + 2"):

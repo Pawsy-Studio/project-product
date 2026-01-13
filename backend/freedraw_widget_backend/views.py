@@ -8,14 +8,12 @@ from .models import CanvasData
 from .serializer import CanvasDataSerializer, CanvasUpdateSerializer
 
 class CanvasDataViewSet(viewsets.ModelViewSet):
-    """ViewSet для работы с данными канваса"""
     queryset = CanvasData.objects.all()
     serializer_class = CanvasDataSerializer
     permission_classes = [AllowAny]
     lookup_field = 'board_id'
     
     def get_object(self):
-        """Получение или создание объекта по board_id"""
         board_id = self.kwargs.get('board_id')
         if not board_id:
             board_id = 'default-board'
@@ -33,7 +31,6 @@ class CanvasDataViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['post'], url_path='update')
     def update_shapes(self, request, board_id=None):
-        """Обновление shapes (для REST API)"""
         canvas = self.get_object()
         serializer = CanvasUpdateSerializer(data=request.data)
         
@@ -42,12 +39,11 @@ class CanvasDataViewSet(viewsets.ModelViewSet):
             
             with transaction.atomic():
                 canvas.elements = shapes
-                # Сохраняем в историю
                 if 'history' not in canvas.canvas_config:
                     canvas.canvas_config['history'] = []
                 canvas.canvas_config['history'].append({
                     'action': 'update',
-                    'shapes': shapes[:50],  # Сохраняем последние 50 состояний
+                    'shapes': shapes[:50],
                     'timestamp': str(self.get_object().updated_at)
                 })
                 canvas.save()
@@ -66,11 +62,9 @@ class CanvasDataViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['post'])
     def clear(self, request, board_id=None):
-        """Очистка канваса"""
         canvas = self.get_object()
         
         with transaction.atomic():
-            # Сохраняем текущее состояние в историю перед очисткой
             if canvas.elements:
                 canvas.history.append({
                     'action': 'clear',
@@ -88,7 +82,6 @@ class CanvasDataViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['post'])
     def undo(self, request, board_id=None):
-        """Отмена последнего действия"""
         canvas = self.get_object()
         
         with transaction.atomic():
@@ -106,7 +99,6 @@ class CanvasDataViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['get'])
     def active_users(self, request, board_id=None):
-        """Получение активных пользователей"""
         canvas = self.get_object()
         return Response({
             'success': True,
@@ -114,7 +106,6 @@ class CanvasDataViewSet(viewsets.ModelViewSet):
         })
     
     def create(self, request, *args, **kwargs):
-        """Создание нового холста"""
         board_id = request.data.get('board_id', 'default-board')
         
         if CanvasData.objects.filter(board_id=board_id).exists():
@@ -133,16 +124,13 @@ class CanvasDataViewSet(viewsets.ModelViewSet):
             'data': serializer.data
         }, status=status.HTTP_201_CREATED)
 
-# Дополнительный View для работы с фронтендом
 from rest_framework.views import APIView
 from rest_framework.response import Response
 
 class CanvasCommandView(APIView):
-    """View для обработки команд от фронтенда"""
     permission_classes = [AllowAny]
     
     def post(self, request, board_id, action):
-        """Обработка команд: clear, undo, update"""
         try:
             canvas, created = CanvasData.objects.get_or_create(
                 board_id=board_id,
