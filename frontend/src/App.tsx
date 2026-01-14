@@ -67,25 +67,25 @@ const DrawingAppContent: React.FC = () => {
   useEffect(() => {
     let timeoutId: NodeJS.Timeout;
     
-    const initWithFallback = () => {
-      const devPayload: WidgetInitPayload = {
-        widgetId: -1,
-        userId: 0,
-        role: 'user',
-        config: {},
-        board: {
-          id: 0,
-          name: 'Offline Board',
-          parentId: 0
-        }
-      };
+    // const initWithFallback = () => {
+    //   const devPayload: WidgetInitPayload = {
+    //     widgetId: -1,
+    //     userId: 0,
+    //     role: 'user',
+    //     config: {},
+    //     board: {
+    //       id: 0,
+    //       name: 'Offline Board',
+    //       parentId: 0
+    //     }
+    //   };
       
-      console.log('Initializing in offline mode');
-      setWidget(devPayload);
-      setBoardId('offline-' + Date.now());
-      setWidgetId(-1);
-      setIsInitialized(true);
-    };
+    //   console.log('Initializing in offline mode');
+    //   setWidget(devPayload);
+    //   setBoardId('offline-' + Date.now());
+    //   setWidgetId(-1);
+    //   setIsInitialized(true);
+    // };
 
     const unsubscribe = onWidgetInitialized((payload: WidgetInitPayload) => {
       console.log('Widget initialized via getInfo:', payload);
@@ -105,11 +105,11 @@ const DrawingAppContent: React.FC = () => {
       }
     });
 
-    timeoutId = setTimeout(() => {
-      if (!isInitialized) {
-        initWithFallback();
-      }
-    }, 1000);
+    // timeoutId = setTimeout(() => {
+    //   if (!isInitialized) {
+    //      initWithFallback();
+    //   }
+    // }, 1000);
 
     if (process.env.NODE_ENV === 'development') {
       const devPayload: WidgetInitPayload = {
