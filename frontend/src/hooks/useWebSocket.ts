@@ -52,10 +52,10 @@ export const useWebSocket = (
       return;
     }
 
-    if (wsRef.current) {
-      wsRef.current.close();
-      wsRef.current = null;
-    }
+    // if (wsRef.current) {
+    //   wsRef.current.close();
+    //   wsRef.current = null;
+    // }
 
     const ws = new WebSocket(
       `${WS_BASE_URL}/ws/canvas/${boardIdRef.current}/`

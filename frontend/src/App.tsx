@@ -65,6 +65,28 @@ const DrawingAppContent: React.FC = () => {
   const [scrollPosition, setScrollPosition] = useState({ left: 0, top: 0 });
 
   useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+    
+    const initWithFallback = () => {
+      const devPayload: WidgetInitPayload = {
+        widgetId: -1,
+        userId: 0,
+        role: 'user',
+        config: {},
+        board: {
+          id: 0,
+          name: 'Offline Board',
+          parentId: 0
+        }
+      };
+      
+      console.log('Initializing in offline mode');
+      setWidget(devPayload);
+      setBoardId('offline-' + Date.now());
+      setWidgetId(-1);
+      setIsInitialized(true);
+    };
+
     const unsubscribe = onWidgetInitialized((payload: WidgetInitPayload) => {
       console.log('Widget initialized via getInfo:', payload);
       
@@ -82,6 +104,12 @@ const DrawingAppContent: React.FC = () => {
         initializeStatsModule(payload);
       }
     });
+
+    timeoutId = setTimeout(() => {
+      if (!isInitialized) {
+        initWithFallback();
+      }
+    }, 1000);
 
     if (process.env.NODE_ENV === 'development') {
       const devPayload: WidgetInitPayload = {
@@ -105,6 +133,7 @@ const DrawingAppContent: React.FC = () => {
 
     return () => {
       unsubscribe();
+      clearTimeout(timeoutId);
     };
   }, []);
 
@@ -218,7 +247,6 @@ const DrawingAppContent: React.FC = () => {
 
   const sendWidgetConfigImmediately = useCallback(async () => {
     if (!widget || !widget.widgetId || widget.widgetId <= 0) {
-      console.log('Standalone mode, skipping widget config update');
       return;
     }
 
@@ -235,10 +263,10 @@ const DrawingAppContent: React.FC = () => {
       });
 
       if (!response.ok) {
-        console.warn('Failed to update widget config:', response.statusText);
+        // Silently fail
       }
     } catch (error) {
-      console.error('Error updating widget config:', error);
+      // Silently fail
     }
   }, [widget, createWidgetConfig]);
 
@@ -254,7 +282,7 @@ const DrawingAppContent: React.FC = () => {
         const metrics = collectMetrics();
         await statsService.sendMetrics(metrics);
       } catch (error) {
-        console.error('Failed to send metrics:', error);
+        // Silently fail
       }
     }, 30000);
 
@@ -269,11 +297,14 @@ const DrawingAppContent: React.FC = () => {
           config: canvasConfig,
           history: canvasHistory
         });
-        sendShapesUpdate(shapesToSend);
+        
+        if (sendShapesUpdate) {
+          sendShapesUpdate(shapesToSend);
+        }
 
         sendWidgetConfigImmediately();
       } catch (error) {
-        console.error('Failed to send canvas data to backend:', error);
+        // Silently fail
       }
     }
   }, [boardId, canvasConfig, canvasHistory, sendShapesUpdate, widget, sendWidgetConfigImmediately]);
@@ -313,10 +344,15 @@ const DrawingAppContent: React.FC = () => {
     if (newShapes) {
       setShapes(newShapes);
       if (widget && widget.widgetId > 0) {
-        await undoAction(boardId);
-        sendUndo();
-
-        sendWidgetConfigImmediately();
+        try {
+          await undoAction(boardId);
+          if (sendUndo) {
+            sendUndo();
+          }
+          sendWidgetConfigImmediately();
+        } catch (error) {
+          // Silently fail
+        }
       }
     }
   };
@@ -391,7 +427,6 @@ const DrawingAppContent: React.FC = () => {
 
   const handleOcrRecognize = useCallback(async () => {
     if (!ocrSelection || !stageRef.current) {
-      console.error('No OCR selection or stage reference');
       return;
     }
 
@@ -410,7 +445,6 @@ const DrawingAppContent: React.FC = () => {
       const tempCtx = tempCanvas.getContext('2d');
 
       if (!tempCtx) {
-        console.error('Failed to get canvas context');
         if (hadOcrBorder) {
           setShapes(shapes);
         }
@@ -465,22 +499,16 @@ const DrawingAppContent: React.FC = () => {
         setOcrPreviewLatex(latexFormula);
         setShowOcrPreview(true);
         setIsOcrEditing(false);
-
-        console.log('OCR успешно распознано:', result);
       } else {
         if (hadOcrBorder) {
           setShapes(shapes);
         }
-        console.error('OCR распознавание не удалось:', result.error);
-        alert('Не удалось распознать формулу. Попробуйте снова.');
       }
     } catch (error) {
       const shapesWithOcrBorder = shapes.filter(shape => shape.id.startsWith('ocr_border_'));
       if (shapesWithOcrBorder.length > 0) {
         setShapes(shapes);
       }
-      console.error('Ошибка при OCR распознавании:', error);
-      alert('Ошибка при отправке изображения на сервер.');
     }
   }, [ocrSelection, shapes, scale]);
 
@@ -662,10 +690,15 @@ const DrawingAppContent: React.FC = () => {
     saveToHistory([]);
     
     if (widget && widget.widgetId > 0) {
-      await clearCanvas(boardId);
-      sendClear();
-
-      sendWidgetConfigImmediately();
+      try {
+        await clearCanvas(boardId);
+        if (sendClear) {
+          sendClear();
+        }
+        sendWidgetConfigImmediately();
+      } catch (error) {
+        // Silently fail
+      }
     }
   };
 
